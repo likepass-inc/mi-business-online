@@ -62,7 +62,7 @@ export default function Home() {
           <KpiCards dateRange={dateRange} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-8">
           <div>
             <h2 className="text-2xl font-bold mb-4">トラフィック推移</h2>
             <TrafficChart dateRange={dateRange} />
