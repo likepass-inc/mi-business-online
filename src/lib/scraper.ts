@@ -127,7 +127,7 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
     h2,
     h3,
     images: images.slice(0, 20), // 最初の20件のみ
-    internalLinks: [...new Set(internalLinks)].slice(0, 50), // 重複除去して最初の50件
+    internalLinks: Array.from(new Set(internalLinks)).slice(0, 50), // 重複除去して最初の50件
     structuredData,
     hasCanonical: !!canonicalUrl,
     canonicalUrl,
