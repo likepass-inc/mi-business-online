@@ -11,7 +11,7 @@ interface TrafficChartProps {
 interface ChartData {
   date: string
   sessions: number
-  conversions: number
+  transactions: number
 }
 
 export default function TrafficChart({ dateRange }: TrafficChartProps) {
@@ -30,7 +30,7 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             dateRange,
-            metrics: ['sessions', 'conversions'],
+            metrics: ['sessions', 'transactions'],
             dimensions: ['date'],
           }),
         })
@@ -43,7 +43,7 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
         const formatted = data.rows.map((row: any) => ({
           date: row.date || '',
           sessions: row.sessions || 0,
-          conversions: row.conversions || 0,
+          transactions: row.transactions || 0,
         }))
 
         setChartData(formatted.sort((a: ChartData, b: ChartData) => a.date.localeCompare(b.date)))
@@ -101,10 +101,10 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
           />
           <Line
             type="monotone"
-            dataKey="conversions"
+            dataKey="transactions"
             stroke="#82ca9d"
             strokeWidth={2}
-            name="コンバージョン"
+            name="トランザクション"
           />
         </LineChart>
       </ResponsiveContainer>

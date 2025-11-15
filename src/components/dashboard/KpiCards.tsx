@@ -9,7 +9,7 @@ interface KpiCardsProps {
 
 interface KpiData {
   sessions: number
-  conversions: number
+  transactions: number
   cvr: number
   organicSessions: number
 }
@@ -25,13 +25,13 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         setLoading(true)
         setError(null)
 
-        // 全体のセッションとコンバージョン
+        // 全体のセッションとトランザクション
         const allResponse = await fetch('/api/ga4', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             dateRange,
-            metrics: ['sessions', 'conversions'],
+            metrics: ['sessions', 'transactions'],
           }),
         })
 
@@ -41,7 +41,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
 
         const allData = await allResponse.json()
         const totalSessions = allData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
-        const totalConversions = allData.rows.reduce((sum: number, row: any) => sum + (row.conversions || 0), 0)
+        const totalTransactions = allData.rows.reduce((sum: number, row: any) => sum + (row.transactions || 0), 0)
 
         // 自然検索のセッション
         const organicResponse = await fetch('/api/ga4', {
@@ -69,8 +69,8 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
 
         setKpiData({
           sessions: totalSessions,
-          conversions: totalConversions,
-          cvr: totalSessions > 0 ? (totalConversions / totalSessions) * 100 : 0,
+          transactions: totalTransactions,
+          cvr: totalSessions > 0 ? (totalTransactions / totalSessions) * 100 : 0,
           organicSessions,
         })
       } catch (err) {
@@ -117,9 +117,9 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         </p>
       </div>
       <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">コンバージョン</h3>
+        <h3 className="text-sm font-medium text-gray-500 mb-2">トランザクション</h3>
         <p className="text-3xl font-bold text-gray-900">
-          {kpiData.conversions.toLocaleString()}
+          {kpiData.transactions.toLocaleString()}
         </p>
       </div>
       <div className="bg-white p-6 rounded-lg shadow">
