@@ -5,6 +5,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import KpiCards from '@/components/dashboard/KpiCards'
 import TrafficChart from '@/components/dashboard/TrafficChart'
 import KeywordAnalysis from '@/components/dashboard/KeywordAnalysis'
+import ContentPopularityAnalysis from '@/components/dashboard/ContentPopularityAnalysis'
 import ChatWindow from '@/components/chat/ChatWindow'
 
 export default function Home() {
@@ -71,6 +72,10 @@ export default function Home() {
           <div>
             <h2 className="text-2xl font-bold mb-4">キーワード分析</h2>
             <KeywordAnalysis dateRange={dateRange} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-4">コンテンツ人気分析</h2>
+            <ContentPopularityAnalysis dateRange={dateRange} />
           </div>
           <div>
             <h2 className="text-2xl font-bold mb-4">AI アナリスト</h2>
