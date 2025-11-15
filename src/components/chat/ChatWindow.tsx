@@ -13,6 +13,8 @@ interface Message {
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [keyword, setKeyword] = useState('')
+  const [landingPage, setLandingPage] = useState('')
 
   const handleSend = async (message: string) => {
     // ユーザーメッセージを追加
@@ -24,7 +26,11 @@ export default function ChatWindow() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          keyword: keyword.trim() || undefined,
+          landingPage: landingPage.trim() || undefined,
+        }),
       })
 
       if (!response.ok) {
@@ -46,7 +52,35 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow flex flex-col" style={{ height: '500px' }}>
+    <div className="bg-white rounded-lg shadow flex flex-col" style={{ height: '600px' }}>
+      <div className="border-b p-4 space-y-2 bg-gray-50">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            分析対象キーワード（オプション）
+          </label>
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder="例: お中元 法人ギフト"
+            disabled={isLoading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            分析対象ランディングページ（オプション）
+          </label>
+          <input
+            type="text"
+            value={landingPage}
+            onChange={(e) => setLandingPage(e.target.value)}
+            placeholder="例: https://business.mistore.jp/gift/ochugen/"
+            disabled={isLoading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+          />
+        </div>
+      </div>
       <MessageList messages={messages} />
       {isLoading && (
         <div className="px-4 pb-2 text-sm text-gray-500">分析中...</div>

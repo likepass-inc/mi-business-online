@@ -20,7 +20,7 @@ const systemPrompt = `
 export async function POST(req: NextRequest) {
   try {
     const body: ChatRequest = await req.json()
-    const { message } = body
+    const { message, keyword, landingPage } = body
 
     if (!message) {
       return NextResponse.json({ error: 'message is required' }, { status: 400 })
@@ -29,11 +29,67 @@ export async function POST(req: NextRequest) {
     // クエリを解析
     const parsedQuery = parseQuery(message)
 
-    // データを取得
-    const data = await fetchAnalyticsData(parsedQuery)
+    // キーワードまたはランディングページに基づいてデータを取得
+    let data
+    let scrapedData = null
+
+    if (keyword) {
+      // キーワード指定時はGSCから該当キーワードのデータを取得
+      const gscData = await fetchAnalyticsData({
+        source: 'GSC',
+        dateRange: parsedQuery.dateRange,
+        metrics: ['clicks', 'impressions', 'ctr', 'position'],
+        dimensions: ['query', 'page'],
+      })
+      // キーワードでフィルタリング
+      data = {
+        rows: gscData.rows.filter((row: any) =>
+          row.query?.toLowerCase().includes(keyword.toLowerCase())
+        ),
+      }
+    } else if (landingPage) {
+      // ランディングページ指定時は該当ページのデータを取得
+      const gscData = await fetchAnalyticsData({
+        source: 'GSC',
+        dateRange: parsedQuery.dateRange,
+        metrics: ['clicks', 'impressions', 'ctr', 'position'],
+        dimensions: ['query', 'page'],
+      })
+      // ページでフィルタリング
+      data = {
+        rows: gscData.rows.filter((row: any) => row.page === landingPage),
+      }
+
+      // ランディングページのスクレイピングを実行
+      try {
+        const scrapeResponse = await fetch(`${req.nextUrl.origin}/api/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: landingPage, useJavaScript: true }),
+        })
+        if (scrapeResponse.ok) {
+          scrapedData = await scrapeResponse.json()
+        }
+      } catch (scrapeErr) {
+        console.error('Scraping error:', scrapeErr)
+        // スクレイピングエラーは無視して続行
+      }
+    } else {
+      // 通常のデータ取得
+      data = await fetchAnalyticsData(parsedQuery)
+    }
+
+    // システムプロンプトを拡張
+    let enhancedSystemPrompt = systemPrompt
+    if (keyword) {
+      enhancedSystemPrompt += `\n\n重要: ユーザーが指定したキーワード「${keyword}」に特に注力した分析を行ってください。`
+    }
+    if (landingPage) {
+      enhancedSystemPrompt += `\n\n重要: ユーザーが指定したランディングページ「${landingPage}」に特に注力した分析を行ってください。`
+    }
 
     // OpenAIに送信
-    const userPrompt = `
+    let userPrompt = `
 ユーザーの質問:
 ${message}
 
@@ -45,10 +101,24 @@ ${JSON.stringify(data, null, 2)}
 メトリクス: ${parsedQuery.metrics.join(', ')}
 `
 
+    if (scrapedData) {
+      userPrompt += `\n\nランディングページのスクレイピング結果:
+${JSON.stringify(scrapedData, null, 2)}
+
+このスクレイピング結果を基に、以下の観点でSEO分析を行ってください:
+- タイトルタグとメタディスクリプションの最適化（文字数、キーワード含有率、魅力度）
+- 見出し構造（H1-H3）の評価と改善提案
+- 画像のalt属性の最適化状況
+- 内部リンク構造の評価
+- 構造化データの有無と最適化提案
+- OGタグの設定状況
+`
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: enhancedSystemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,

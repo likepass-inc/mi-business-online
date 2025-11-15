@@ -42,6 +42,8 @@ export interface GSCResponse {
 
 export interface ChatRequest {
   message: string
+  keyword?: string
+  landingPage?: string
 }
 
 export interface ChatResponse {
