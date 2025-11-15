@@ -278,14 +278,15 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
   }
 
   // 前期間対比表示コンポーネント
-  const ComparisonDisplay = ({ current, previous }: { current: number; previous: number }) => {
+  const ComparisonDisplay = ({ current, previous, isLowerBetter = false }: { current: number; previous: number; isLowerBetter?: boolean }) => {
     const { diff, percent } = calculateComparison(current, previous)
     if (previous === 0) {
       return <p className="text-xs text-gray-500 mt-1">-</p>
     }
     
-    const isPositive = diff > 0
-    const isNegative = diff < 0
+    // 平均ポジションの場合は、数値が小さい方が良いので色分けを逆にする
+    const isPositive = isLowerBetter ? diff < 0 : diff > 0
+    const isNegative = isLowerBetter ? diff > 0 : diff < 0
     const colorClass = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-500'
     const sign = diff > 0 ? '+' : ''
     
@@ -352,7 +353,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         <p className="text-3xl font-bold text-gray-900">
           {kpiData.gscPosition.toFixed(1)}
         </p>
-        <ComparisonDisplay current={kpiData.gscPosition} previous={kpiData.prevGscPosition} />
+        <ComparisonDisplay current={kpiData.gscPosition} previous={kpiData.prevGscPosition} isLowerBetter={true} />
       </div>
     </div>
   )
