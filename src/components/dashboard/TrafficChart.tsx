@@ -89,10 +89,12 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
             textAnchor="end"
             height={80}
           />
-          <YAxis tick={{ fontSize: 12 }} />
+          <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
+          <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
           <Tooltip />
           <Legend />
           <Line
+            yAxisId="left"
             type="monotone"
             dataKey="sessions"
             stroke="#8884d8"
@@ -100,6 +102,7 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
             name="セッション"
           />
           <Line
+            yAxisId="right"
             type="monotone"
             dataKey="transactions"
             stroke="#82ca9d"
