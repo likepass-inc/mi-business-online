@@ -7,6 +7,14 @@ interface KeywordAnalysisProps {
   dateRange: DateRange
 }
 
+interface PageData {
+  page: string
+  clicks: number
+  impressions: number
+  ctr: number
+  position: number
+}
+
 interface KeywordData {
   query: string
   clicks: number
@@ -17,6 +25,7 @@ interface KeywordData {
   prevImpressions?: number
   prevCtr?: number
   prevPosition?: number
+  pages?: PageData[]
 }
 
 interface KeywordInsight {
@@ -226,11 +235,91 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           .sort((a, b) => b.impressions - a.impressions)
           .slice(0, 5)
 
-        setInsights([
-          { type: 'improvement', keywords: improvementKeywords },
-          { type: 'ctr', keywords: ctrKeywords },
-          { type: 'growth', keywords: growthKeywords },
-        ])
+        // キーワードとページの組み合わせデータを取得
+        const insightKeywords = [...improvementKeywords, ...ctrKeywords, ...growthKeywords]
+        const uniqueKeywords = Array.from(new Set(insightKeywords.map(k => k.query)))
+
+        try {
+          const pageResponse = await fetch('/api/gsc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              startDate: dateRange.startDate,
+              endDate: dateRange.endDate,
+              dimensions: ['query', 'page'],
+              rowLimit: 5000,
+            }),
+          })
+
+          if (pageResponse.ok) {
+            const pageData = await pageResponse.json()
+            const keywordPageMap = new Map<string, PageData[]>()
+
+            // キーワードごとにページデータをグループ化
+            pageData.rows?.forEach((row: any) => {
+              if (row.query && row.page && uniqueKeywords.includes(row.query)) {
+                if (!keywordPageMap.has(row.query)) {
+                  keywordPageMap.set(row.query, [])
+                }
+                keywordPageMap.get(row.query)?.push({
+                  page: row.page || '',
+                  clicks: row.clicks || 0,
+                  impressions: row.impressions || 0,
+                  ctr: row.ctr || 0,
+                  position: row.position || 0,
+                })
+              }
+            })
+
+            // 各キーワードのページをクリック数順にソート（上位3件まで）
+            keywordPageMap.forEach((pages, query) => {
+              pages.sort((a, b) => b.clicks - a.clicks)
+              keywordPageMap.set(query, pages.slice(0, 3))
+            })
+
+            // インサイトキーワードにページデータを追加
+            const keywordsWithPages = insightKeywords.map(k => ({
+              ...k,
+              pages: keywordPageMap.get(k.query) || [],
+            }))
+
+            const improvementWithPages = keywordsWithPages
+              .filter((k) => k.impressions > 100 && k.position > 10)
+              .sort((a, b) => b.impressions - a.impressions)
+              .slice(0, 5)
+
+            const ctrWithPages = keywordsWithPages
+              .filter((k) => k.ctr < avgCtr && k.impressions > 100)
+              .sort((a, b) => b.impressions - a.impressions)
+              .slice(0, 5)
+
+            const growthWithPages = keywordsWithPages
+              .filter((k) => k.impressions > 200 && k.clicks < 10)
+              .sort((a, b) => b.impressions - a.impressions)
+              .slice(0, 5)
+
+            setInsights([
+              { type: 'improvement', keywords: improvementWithPages },
+              { type: 'ctr', keywords: ctrWithPages },
+              { type: 'growth', keywords: growthWithPages },
+            ])
+          } else {
+            // ページデータ取得に失敗した場合は、ページなしで設定
+            setInsights([
+              { type: 'improvement', keywords: improvementKeywords },
+              { type: 'ctr', keywords: ctrKeywords },
+              { type: 'growth', keywords: growthKeywords },
+            ])
+          }
+        } catch (pageErr) {
+          console.error('Page data fetch error:', pageErr)
+          // エラー時もページなしで設定
+          setInsights([
+            { type: 'improvement', keywords: improvementKeywords },
+            { type: 'ctr', keywords: ctrKeywords },
+            { type: 'growth', keywords: growthKeywords },
+          ])
+        }
 
         // 推奨キーワード: 季節性 + パフォーマンス + 法人向けキーワード
         const currentMonth = new Date().getMonth() + 1
@@ -332,18 +421,48 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
               growth: 'インプレッションは多いがクリックが少ないキーワード',
             }
 
+            // URLを短縮表示する関数
+            const shortenUrl = (url: string) => {
+              try {
+                const urlObj = new URL(url)
+                return urlObj.pathname + urlObj.search
+              } catch {
+                return url
+              }
+            }
+
             return (
               <div key={index} className="bg-white p-6 rounded-lg shadow">
                 <h3 className="text-lg font-bold mb-2">{titles[insight.type]}</h3>
                 <p className="text-sm text-gray-600 mb-4">{descriptions[insight.type]}</p>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {insight.keywords.map((keyword, idx) => (
                     <div key={idx} className="border-l-4 border-blue-500 pl-3">
-                      <div className="font-semibold text-gray-900">{keyword.query}</div>
-                      <div className="text-xs text-gray-600 mt-1">
+                      <div className="font-semibold text-gray-900 mb-1">{keyword.query}</div>
+                      <div className="text-xs text-gray-600 mb-2">
                         クリック: {keyword.clicks} | インプレ: {keyword.impressions.toLocaleString()} | 
                         ポジション: {keyword.position.toFixed(1)} | CTR: {keyword.ctr.toFixed(2)}%
                       </div>
+                      {keyword.pages && keyword.pages.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <div className="text-xs font-medium text-gray-700">対象ページ:</div>
+                          {keyword.pages.map((page, pageIdx) => (
+                            <div key={pageIdx} className="text-xs ml-2">
+                              <a
+                                href={page.page}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {shortenUrl(page.page)}
+                              </a>
+                              <span className="text-gray-500 ml-2">
+                                (クリック: {page.clicks.toLocaleString()}, インプレ: {page.impressions.toLocaleString()})
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
