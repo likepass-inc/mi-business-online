@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import LogoutButton from './LogoutButton'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -11,8 +12,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
         {children}
       </main>
       <footer className="bg-white border-t border-gray-200 py-4 mt-auto">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-600">
-          Developed by LIKEPASS Inc.
+        <div className="container mx-auto px-4 flex justify-between items-center text-sm text-gray-600">
+          <div>Developed by LIKEPASS Inc.</div>
+          <LogoutButton />
         </div>
       </footer>
     </div>
