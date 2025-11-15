@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import { chromium } from 'playwright'
+import { chromium, Browser } from 'playwright'
 
 export interface ScrapedData {
   url: string
@@ -18,30 +18,102 @@ export interface ScrapedData {
   ogImage?: string
 }
 
+// ブラウザのシングルトンインスタンス
+let browserInstance: Browser | null = null
+let browserLaunchPromise: Promise<Browser> | null = null
+
+async function getBrowser(): Promise<Browser> {
+  if (browserInstance) {
+    return browserInstance
+  }
+
+  if (browserLaunchPromise) {
+    return browserLaunchPromise
+  }
+
+  browserLaunchPromise = chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  })
+
+  browserInstance = await browserLaunchPromise
+  return browserInstance
+}
+
+// スクレイピング結果のキャッシュ（メモリベース）
+const cache = new Map<string, { data: ScrapedData; timestamp: number }>()
+const CACHE_TTL = 60 * 60 * 1000 // 1時間
+
+function getCachedData(url: string): ScrapedData | null {
+  const cached = cache.get(url)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data
+  }
+  if (cached) {
+    cache.delete(url)
+  }
+  return null
+}
+
+function setCachedData(url: string, data: ScrapedData): void {
+  cache.set(url, { data, timestamp: Date.now() })
+  // キャッシュサイズを制限（最大100件）
+  if (cache.size > 100) {
+    const oldestKey = Array.from(cache.entries()).sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0]
+    cache.delete(oldestKey)
+  }
+}
+
 export async function scrapePage(url: string, useJavaScript = false): Promise<ScrapedData> {
+  // キャッシュをチェック
+  const cached = getCachedData(url)
+  if (cached) {
+    return cached
+  }
+
   let html: string
 
-  if (useJavaScript) {
-    // Playwrightを使用してJavaScript実行後のHTMLを取得
-    const browser = await chromium.launch()
-    const page = await browser.newPage()
-    try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-      html = await page.content()
-    } finally {
-      await browser.close()
-    }
-  } else {
-    // 静的HTMLのみ取得
+  // まず静的HTMLを試す（useJavaScript=falseの場合、またはフォールバックとして）
+  if (!useJavaScript) {
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
+      signal: AbortSignal.timeout(10000), // 10秒タイムアウト
     })
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
     }
     html = await response.text()
+  } else {
+    // useJavaScript=trueの場合は、まず静的HTMLを試し、失敗した場合のみJavaScript実行
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        signal: AbortSignal.timeout(5000), // 5秒タイムアウト（短めに設定）
+      })
+      if (response.ok) {
+        html = await response.text()
+      } else {
+        throw new Error(`Failed to fetch: ${response.status}`)
+      }
+    } catch (fetchError) {
+      // 静的HTML取得に失敗した場合、JavaScript実行を試みる
+      try {
+        const browser = await getBrowser()
+        const page = await browser.newPage()
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 })
+          html = await page.content()
+        } finally {
+          await page.close()
+        }
+      } catch (playwrightError) {
+        throw new Error(`Failed to scrape page: ${playwrightError instanceof Error ? playwrightError.message : 'Unknown error'}`)
+      }
+    }
   }
 
   const $ = cheerio.load(html)
@@ -119,7 +191,7 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
   const ogDescription = $('meta[property="og:description"]').attr('content')
   const ogImage = $('meta[property="og:image"]').attr('content')
 
-  return {
+  const result: ScrapedData = {
     url,
     title,
     metaDescription,
@@ -135,5 +207,10 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
     ogDescription,
     ogImage,
   }
+
+  // キャッシュに保存
+  setCachedData(url, result)
+
+  return result
 }
 

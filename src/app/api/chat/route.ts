@@ -60,19 +60,25 @@ export async function POST(req: NextRequest) {
         rows: gscData.rows.filter((row: any) => row.page === landingPage),
       }
 
-      // ランディングページのスクレイピングを実行
+      // ランディングページのスクレイピングを実行（タイムアウト付き）
       try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 20000) // 20秒タイムアウト
+
         const scrapeResponse = await fetch(`${req.nextUrl.origin}/api/scrape`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: landingPage, useJavaScript: true }),
+          signal: controller.signal,
         })
+        clearTimeout(timeoutId)
+
         if (scrapeResponse.ok) {
           scrapedData = await scrapeResponse.json()
         }
       } catch (scrapeErr) {
         console.error('Scraping error:', scrapeErr)
-        // スクレイピングエラーは無視して続行
+        // スクレイピングエラーは無視して続行（タイムアウト時も含む）
       }
     } else {
       // 通常のデータ取得
