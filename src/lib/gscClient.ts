@@ -59,14 +59,14 @@ export async function fetchGSCData(request: GSCRequest): Promise<GSCResponse> {
         position: Number(row.position || 0),
       }
 
-      if (row.keys && dimensions.includes('query')) {
+      if (row.keys && dimensions && dimensions.includes('query')) {
         const queryIndex = dimensions.indexOf('query')
         if (queryIndex >= 0 && row.keys[queryIndex]) {
           result.query = row.keys[queryIndex]
         }
       }
 
-      if (row.keys && dimensions.includes('page')) {
+      if (row.keys && dimensions && dimensions.includes('page')) {
         const pageIndex = dimensions.indexOf('page')
         if (pageIndex >= 0 && row.keys[pageIndex]) {
           result.page = row.keys[pageIndex]
