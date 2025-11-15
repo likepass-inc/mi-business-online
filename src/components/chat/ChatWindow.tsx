@@ -52,10 +52,10 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow flex flex-col" style={{ height: '600px' }}>
-      <div className="border-b p-4 space-y-2 bg-gray-50">
+    <div className="bg-white rounded-lg shadow flex flex-col" style={{ minHeight: '500px', maxHeight: '800px', height: '600px' }}>
+      <div className="border-b p-3 space-y-2 bg-gray-50 flex-shrink-0">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             分析対象キーワード（オプション）
           </label>
           <input
@@ -64,11 +64,11 @@ export default function ChatWindow() {
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="例: お中元 法人ギフト"
             disabled={isLoading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             分析対象ランディングページ（オプション）
           </label>
           <input
@@ -77,15 +77,19 @@ export default function ChatWindow() {
             onChange={(e) => setLandingPage(e.target.value)}
             placeholder="例: https://business.mistore.jp/gift/ochugen/"
             disabled={isLoading}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
           />
         </div>
       </div>
-      <MessageList messages={messages} />
+      <div className="flex-1 overflow-hidden">
+        <MessageList messages={messages} />
+      </div>
       {isLoading && (
-        <div className="px-4 pb-2 text-sm text-gray-500">分析中...</div>
+        <div className="px-4 py-2 text-sm text-gray-500 flex-shrink-0">分析中...</div>
       )}
-      <MessageInput onSend={handleSend} disabled={isLoading} />
+      <div className="flex-shrink-0">
+        <MessageInput onSend={handleSend} disabled={isLoading} />
+      </div>
     </div>
   )
 }
