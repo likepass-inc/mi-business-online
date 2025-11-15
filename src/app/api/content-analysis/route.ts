@@ -24,15 +24,25 @@ interface CategoryData {
   avgPosition: number
 }
 
-// URLパターンでカテゴリを判定
+// URLパターンでカテゴリを判定（フルURLと相対パスの両方に対応）
 function getCategoryFromUrl(url: string): 'articles' | 'products' | 'product-lists' | null {
-  if (url.startsWith('/magazine/article/')) {
+  // フルURLの場合はパス部分を抽出
+  let path = url
+  try {
+    const urlObj = new URL(url)
+    path = urlObj.pathname
+  } catch {
+    // URL解析に失敗した場合はそのまま使用（相対パスの可能性）
+    path = url
+  }
+  
+  if (path.includes('/magazine/article/')) {
     return 'articles'
   }
-  if (url.startsWith('/shop/g/')) {
+  if (path.includes('/shop/g/')) {
     return 'products'
   }
-  if (url.startsWith('/shop/c/')) {
+  if (path.includes('/shop/c/')) {
     return 'product-lists'
   }
   return null
@@ -76,6 +86,8 @@ export async function POST(req: NextRequest) {
       rowLimit: 10000,
     })
 
+    console.log(`Content analysis: Fetched ${currentData.rows.length} pages for current period`)
+
     // 前期間のデータを取得
     const prevDateRange = getPreviousDateRange(dateRange)
     const prevData = await fetchGSCData({
@@ -85,19 +97,27 @@ export async function POST(req: NextRequest) {
       rowLimit: 10000,
     })
 
+    console.log(`Content analysis: Fetched ${prevData.rows.length} pages for previous period`)
+
     // ページデータをカテゴリごとにグループ化
     const categoryMap = new Map<string, Map<string, PageData>>()
+    let matchedCount = 0
+    let unmatchedCount = 0
     
     // 現在期間のデータを処理
     currentData.rows.forEach((row) => {
       if (!row.page) return
       
       const pageCategory = getCategoryFromUrl(row.page)
-      if (!pageCategory) return
+      if (!pageCategory) {
+        unmatchedCount++
+        return
+      }
       
       // カテゴリでフィルタリング
       if (category !== 'all' && category !== pageCategory) return
       
+      matchedCount++
       if (!categoryMap.has(pageCategory)) {
         categoryMap.set(pageCategory, new Map())
       }
@@ -111,6 +131,8 @@ export async function POST(req: NextRequest) {
         position: row.position,
       })
     })
+
+    console.log(`Content analysis: Matched ${matchedCount} pages, unmatched ${unmatchedCount} pages`)
 
     // 前期間のデータをマージ
     const prevPageMap = new Map<string, PageData>()
