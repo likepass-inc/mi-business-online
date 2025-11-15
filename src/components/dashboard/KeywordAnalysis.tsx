@@ -13,11 +13,83 @@ interface KeywordData {
   impressions: number
   ctr: number
   position: number
+  prevClicks?: number
+  prevImpressions?: number
+  prevCtr?: number
+  prevPosition?: number
 }
 
 interface KeywordInsight {
   type: 'improvement' | 'ctr' | 'growth'
   keywords: KeywordData[]
+}
+
+// 前期間の日付範囲を計算
+function getPreviousDateRange(dateRange: DateRange): DateRange {
+  const startDate = new Date(dateRange.startDate)
+  const endDate = new Date(dateRange.endDate)
+  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  
+  const prevEndDate = new Date(startDate)
+  prevEndDate.setDate(prevEndDate.getDate() - 1)
+  
+  const prevStartDate = new Date(prevEndDate)
+  prevStartDate.setDate(prevStartDate.getDate() - daysDiff)
+  
+  return {
+    startDate: prevStartDate.toISOString().split('T')[0],
+    endDate: prevEndDate.toISOString().split('T')[0],
+  }
+}
+
+// 前期間対比を計算
+function calculateComparison(current: number, previous: number): { diff: number; percent: number | null } {
+  const diff = current - previous
+  const percent = previous !== 0 ? ((diff / previous) * 100) : null
+  return { diff, percent }
+}
+
+// 前期間対比表示コンポーネント
+function ComparisonCell({ current, previous, isLowerBetter = false, isPercentage = false, decimalPlaces = 0 }: { current: number; previous?: number; isLowerBetter?: boolean; isPercentage?: boolean; decimalPlaces?: number }) {
+  if (previous === undefined) {
+    const formatCurrent = () => {
+      if (isPercentage) return `${current.toFixed(2)}%`
+      if (decimalPlaces > 0) return current.toFixed(decimalPlaces)
+      return current.toLocaleString()
+    }
+    return (
+      <div className="text-xs">
+        <div className="text-gray-900">{formatCurrent()}</div>
+        <div className="text-gray-400">-</div>
+      </div>
+    )
+  }
+  
+  const { diff, percent } = calculateComparison(current, previous)
+  const isPositive = isLowerBetter ? diff < 0 : diff > 0
+  const isNegative = isLowerBetter ? diff > 0 : diff < 0
+  const colorClass = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-500'
+  const sign = diff > 0 ? '+' : ''
+  
+  const formatValue = (val: number) => {
+    if (isPercentage) return `${val.toFixed(2)}%`
+    if (decimalPlaces > 0) return val.toFixed(decimalPlaces)
+    return val.toLocaleString()
+  }
+  const formatDiff = (val: number) => {
+    if (isPercentage) return `${sign}${val.toFixed(2)}%`
+    if (decimalPlaces > 0) return `${sign}${val.toFixed(decimalPlaces)}`
+    return `${sign}${val.toLocaleString()}`
+  }
+  
+  return (
+    <div className="text-xs">
+      <div className="text-gray-900">{formatValue(current)}</div>
+      <div className={colorClass}>
+        {formatDiff(diff)} ({percent !== null ? `${sign}${percent.toFixed(1)}%` : '-'})
+      </div>
+    </div>
+  )
 }
 
 // 季節性キーワードの定義（月ベース）- 法人向けギフトサービス向け
@@ -52,6 +124,9 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         setLoading(true)
         setError(null)
 
+        const prevDateRange = getPreviousDateRange(dateRange)
+
+        // 現在期間のキーワードデータ取得
         const response = await fetch('/api/gsc', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -68,7 +143,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         }
 
         const data = await response.json()
-        const keywordData: KeywordData[] = (data.rows || [])
+        const currentKeywords: KeywordData[] = (data.rows || [])
           .filter((row: any) => row.query)
           .map((row: any) => ({
             query: row.query || '',
@@ -79,6 +154,53 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           }))
           .sort((a: KeywordData, b: KeywordData) => b.clicks - a.clicks)
           .slice(0, 30)
+
+        // 前期間のキーワードデータ取得
+        let prevKeywords: KeywordData[] = []
+        try {
+          const prevResponse = await fetch('/api/gsc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              startDate: prevDateRange.startDate,
+              endDate: prevDateRange.endDate,
+              dimensions: ['query'],
+              rowLimit: 1000,
+            }),
+          })
+
+          if (prevResponse.ok) {
+            const prevData = await prevResponse.json()
+            prevKeywords = (prevData.rows || [])
+              .filter((row: any) => row.query)
+              .map((row: any) => ({
+                query: row.query || '',
+                clicks: row.clicks || 0,
+                impressions: row.impressions || 0,
+                ctr: row.ctr || 0,
+                position: row.position || 0,
+              }))
+          }
+        } catch (prevErr) {
+          console.error('Previous period keyword data fetch error:', prevErr)
+        }
+
+        // キーワードをマッチングして前期間データを結合
+        const prevKeywordMap = new Map<string, KeywordData>()
+        prevKeywords.forEach((k) => {
+          prevKeywordMap.set(k.query, k)
+        })
+
+        const keywordData: KeywordData[] = currentKeywords.map((current) => {
+          const prev = prevKeywordMap.get(current.query)
+          return {
+            ...current,
+            prevClicks: prev?.clicks,
+            prevImpressions: prev?.impressions,
+            prevCtr: prev?.ctr,
+            prevPosition: prev?.position,
+          }
+        })
 
         setKeywords(keywordData)
 
@@ -267,17 +389,32 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {keyword.query}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                    {keyword.clicks.toLocaleString()}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    <ComparisonCell 
+                      current={keyword.clicks} 
+                      previous={keyword.prevClicks} 
+                    />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                    {keyword.impressions.toLocaleString()}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    <ComparisonCell 
+                      current={keyword.impressions} 
+                      previous={keyword.prevImpressions} 
+                    />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                    {keyword.ctr.toFixed(2)}%
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    <ComparisonCell 
+                      current={keyword.ctr} 
+                      previous={keyword.prevCtr}
+                      isPercentage={true}
+                    />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                    {keyword.position.toFixed(1)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                    <ComparisonCell 
+                      current={keyword.position} 
+                      previous={keyword.prevPosition} 
+                      isLowerBetter={true}
+                      decimalPlaces={1}
+                    />
                   </td>
                 </tr>
               ))}
