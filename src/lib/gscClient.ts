@@ -31,18 +31,23 @@ export async function fetchGSCData(request: GSCRequest): Promise<GSCResponse> {
 
   const searchconsole = google.searchconsole('v1')
 
-  const dimensions = request.dimensions || ['query', 'page']
+  const dimensions = request.dimensions && request.dimensions.length > 0 ? request.dimensions : undefined
   const rowLimit = request.rowLimit || 1000
+
+  const requestBody: any = {
+    startDate: request.startDate,
+    endDate: request.endDate,
+    rowLimit,
+  }
+
+  if (dimensions) {
+    requestBody.dimensions = dimensions
+  }
 
   const response = await searchconsole.searchanalytics.query({
     auth,
     siteUrl,
-    requestBody: {
-      startDate: request.startDate,
-      endDate: request.endDate,
-      dimensions,
-      rowLimit,
-    },
+    requestBody,
   })
 
   const rows: GSCRow[] =

@@ -12,6 +12,10 @@ interface KpiData {
   transactions: number
   cvr: number
   organicSessions: number
+  gscClicks: number
+  gscImpressions: number
+  gscCtr: number
+  gscPosition: number
 }
 
 export default function KpiCards({ dateRange }: KpiCardsProps) {
@@ -67,11 +71,54 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         const organicData = await organicResponse.json()
         const organicSessions = organicData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
 
+        // GSCデータの取得
+        let gscClicks = 0
+        let gscImpressions = 0
+        let gscCtr = 0
+        let gscPosition = 0
+
+        try {
+          const gscResponse = await fetch('/api/gsc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              startDate: dateRange.startDate,
+              endDate: dateRange.endDate,
+              rowLimit: 10000,
+            }),
+          })
+
+          if (gscResponse.ok) {
+            const gscData = await gscResponse.json()
+            if (gscData.rows && gscData.rows.length > 0) {
+              gscClicks = gscData.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
+              gscImpressions = gscData.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
+              
+              // CTRは加重平均を計算（合計clicks / 合計impressions * 100）
+              gscCtr = gscImpressions > 0 ? (gscClicks / gscImpressions) * 100 : 0
+              
+              // 平均ポジションは加重平均を計算
+              const positionSum = gscData.rows.reduce(
+                (sum: number, row: any) => sum + (row.position || 0) * (row.impressions || 0),
+                0
+              )
+              gscPosition = gscImpressions > 0 ? positionSum / gscImpressions : 0
+            }
+          }
+        } catch (gscErr) {
+          // GSCデータ取得エラーは無視（GA4データは表示する）
+          console.error('GSC data fetch error:', gscErr)
+        }
+
         setKpiData({
           sessions: totalSessions,
           transactions: totalTransactions,
           cvr: totalSessions > 0 ? (totalTransactions / totalSessions) * 100 : 0,
           organicSessions,
+          gscClicks,
+          gscImpressions,
+          gscCtr,
+          gscPosition,
         })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
@@ -85,8 +132,8 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <div key={i} className="bg-white p-6 rounded-lg shadow animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
             <div className="h-8 bg-gray-200 rounded w-3/4"></div>
@@ -109,7 +156,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="bg-white p-6 rounded-lg shadow">
         <h3 className="text-sm font-medium text-gray-500 mb-2">セッション</h3>
         <p className="text-3xl font-bold text-gray-900">
@@ -132,6 +179,30 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         <h3 className="text-sm font-medium text-gray-500 mb-2">自然検索セッション</h3>
         <p className="text-3xl font-bold text-gray-900">
           {kpiData.organicSessions.toLocaleString()}
+        </p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC クリック数</h3>
+        <p className="text-3xl font-bold text-gray-900">
+          {kpiData.gscClicks.toLocaleString()}
+        </p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC インプレッション数</h3>
+        <p className="text-3xl font-bold text-gray-900">
+          {kpiData.gscImpressions.toLocaleString()}
+        </p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC CTR</h3>
+        <p className="text-3xl font-bold text-gray-900">
+          {kpiData.gscCtr.toFixed(2)}%
+        </p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC 平均ポジション</h3>
+        <p className="text-3xl font-bold text-gray-900">
+          {kpiData.gscPosition.toFixed(1)}
         </p>
       </div>
     </div>
