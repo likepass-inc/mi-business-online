@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isAuthenticated, getSessionUserId } from '@/lib/auth'
 
+// 動的レンダリングを強制（cookiesを使用するため）
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     const authenticated = await isAuthenticated()
