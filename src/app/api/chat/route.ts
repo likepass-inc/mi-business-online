@@ -205,7 +205,7 @@ ${topPages.map((p: any, i: number) => `${i + 1}. ${p.page}
       const h2Count = scrapedData.h2?.length || 0
       const h3Count = scrapedData.h3?.length || 0
       const imageCount = scrapedData.images?.length || 0
-      const imagesWithAlt = scrapedData.images?.filter(img => img.alt && img.alt.trim()).length || 0
+      const imagesWithAlt = scrapedData.images?.filter((img: { src: string; alt: string }) => img.alt && img.alt.trim()).length || 0
       const internalLinksCount = scrapedData.internalLinks?.length || 0
       const structuredDataCount = scrapedData.structuredData?.length || 0
 
