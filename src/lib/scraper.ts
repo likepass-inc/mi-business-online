@@ -158,9 +158,37 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
         }
-        // response.text()を使用して自動的にエンコーディングを検出
-        html = await response.text()
-        console.log(`Successfully scraped ${url} with fetch (fallback, ${html.length} chars)`)
+        // エンコーディングを検出してデコード
+        const contentType = response.headers.get('content-type') || ''
+        let encoding = 'utf-8'
+        
+        // Content-Typeヘッダーからエンコーディングを取得
+        const charsetMatch = contentType.match(/charset=([^;]+)/i)
+        if (charsetMatch) {
+          encoding = charsetMatch[1].trim().toLowerCase()
+        }
+        
+        // HTMLのcharsetメタタグからもエンコーディングを取得
+        const buffer = await response.arrayBuffer()
+        const decoder = new TextDecoder(encoding as any)
+        let tempHtml = decoder.decode(buffer)
+        
+        // HTMLのcharsetメタタグを確認
+        const charsetMetaMatch = tempHtml.match(/<meta[^>]+charset\s*=\s*["']?([^"'\s>]+)/i)
+        if (charsetMetaMatch) {
+          const htmlCharset = charsetMetaMatch[1].toLowerCase()
+          if (htmlCharset !== encoding) {
+            // HTMLのcharsetが異なる場合は再デコード
+            const htmlDecoder = new TextDecoder(htmlCharset as any)
+            html = htmlDecoder.decode(buffer)
+          } else {
+            html = tempHtml
+          }
+        } else {
+          html = tempHtml
+        }
+        
+        console.log(`Successfully scraped ${url} with fetch (fallback, ${html.length} chars, encoding: ${encoding})`)
       } catch (fetchError) {
         // 両方失敗した場合はエラーをスロー
         const errorMessage = `Failed to scrape page: Playwright error: ${scrapeError?.message}, Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
@@ -181,8 +209,36 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
         }
-        // response.text()を使用して自動的にエンコーディングを検出
-        html = await response.text()
+        // エンコーディングを検出してデコード
+        const contentType = response.headers.get('content-type') || ''
+        let encoding = 'utf-8'
+        
+        // Content-Typeヘッダーからエンコーディングを取得
+        const charsetMatch = contentType.match(/charset=([^;]+)/i)
+        if (charsetMatch) {
+          encoding = charsetMatch[1].trim().toLowerCase()
+        }
+        
+        // HTMLのcharsetメタタグからもエンコーディングを取得
+        const buffer = await response.arrayBuffer()
+        const decoder = new TextDecoder(encoding as any)
+        let tempHtml = decoder.decode(buffer)
+        
+        // HTMLのcharsetメタタグを確認
+        const charsetMetaMatch = tempHtml.match(/<meta[^>]+charset\s*=\s*["']?([^"'\s>]+)/i)
+        if (charsetMetaMatch) {
+          const htmlCharset = charsetMetaMatch[1].toLowerCase()
+          if (htmlCharset !== encoding) {
+            // HTMLのcharsetが異なる場合は再デコード
+            const htmlDecoder = new TextDecoder(htmlCharset as any)
+            html = htmlDecoder.decode(buffer)
+          } else {
+            html = tempHtml
+          }
+        } else {
+          html = tempHtml
+        }
+        
         return html
       }, 3, 1000)
     } catch (fetchError) {
