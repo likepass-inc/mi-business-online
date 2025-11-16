@@ -6,6 +6,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { url, useJavaScript = false } = body
 
+    console.log(`Scrape API called: url=${url}, useJavaScript=${useJavaScript}`)
+
     if (!url) {
       return NextResponse.json({ error: 'url is required' }, { status: 400 })
     }
@@ -21,13 +23,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    console.log(`Starting scrape for ${url} with useJavaScript=${useJavaScript}`)
     const scrapedData = await scrapePage(url, useJavaScript)
+    console.log(`Scrape completed successfully for ${url}`)
 
     return NextResponse.json(scrapedData)
   } catch (e) {
     console.error('Scrape API error:', e)
+    const errorMessage = e instanceof Error ? e.message : 'Scrape request failed'
+    console.error('Scrape API error details:', {
+      message: errorMessage,
+      stack: e instanceof Error ? e.stack : undefined,
+    })
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Scrape request failed' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

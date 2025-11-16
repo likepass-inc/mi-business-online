@@ -33,11 +33,27 @@ async function getBrowser(): Promise<Browser> {
 
   browserLaunchPromise = chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--ignore-certificate-errors',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  }).catch((error) => {
+    console.error('Failed to launch browser:', error)
+    browserLaunchPromise = null
+    throw new Error(`Failed to launch Playwright browser: ${error instanceof Error ? error.message : String(error)}`)
   })
 
-  browserInstance = await browserLaunchPromise
-  return browserInstance
+  try {
+    browserInstance = await browserLaunchPromise
+    console.log('Playwright browser launched successfully')
+    return browserInstance
+  } catch (error) {
+    browserLaunchPromise = null
+    throw error
+  }
 }
 
 // スクレイピング結果のキャッシュ（メモリベース）
@@ -101,6 +117,7 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
   // useJavaScript=trueの場合は、Playwrightを優先的に使用（検証結果より）
   if (useJavaScript) {
     try {
+      console.log(`Attempting to scrape ${url} with Playwright`)
       html = await retryWithBackoff(async () => {
         const browser = await getBrowser()
         const context = await browser.newContext({
@@ -109,24 +126,29 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         const page = await context.newPage()
         
         try {
+          console.log(`Navigating to ${url} with Playwright`)
           await page.goto(url, {
             waitUntil: 'domcontentloaded',
             timeout: 20000,
           })
           const content = await page.content()
+          console.log(`Successfully scraped ${url} with Playwright (${content.length} chars)`)
           await page.close()
           await context.close()
           return content
         } catch (error) {
           await page.close().catch(() => {})
           await context.close().catch(() => {})
+          console.error(`Playwright navigation error for ${url}:`, error)
           throw error
         }
       }, 3, 1000)
     } catch (playwrightError) {
       scrapeError = playwrightError instanceof Error ? playwrightError : new Error(String(playwrightError))
+      console.error(`Playwright failed for ${url}, falling back to fetch:`, scrapeError.message)
       // Playwrightが失敗した場合、fetchを試行
       try {
+        console.log(`Attempting to scrape ${url} with fetch (fallback)`)
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -140,11 +162,12 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         const buffer = await response.arrayBuffer()
         const decoder = new TextDecoder('utf-8')
         html = decoder.decode(buffer)
+        console.log(`Successfully scraped ${url} with fetch (fallback, ${html.length} chars)`)
       } catch (fetchError) {
         // 両方失敗した場合はエラーをスロー
-        throw new Error(
-          `Failed to scrape page: Playwright error: ${scrapeError?.message}, Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
-        )
+        const errorMessage = `Failed to scrape page: Playwright error: ${scrapeError?.message}, Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+        console.error(`Both Playwright and fetch failed for ${url}:`, errorMessage)
+        throw new Error(errorMessage)
       }
     }
   } else {

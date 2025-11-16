@@ -3,6 +3,7 @@ import { openai } from '@/lib/openaiClient'
 import { parseQuery } from '@/lib/queryParser'
 import { fetchAnalyticsData } from '@/lib/analyticsService'
 import type { ChatRequest, ChatResponse } from '@/lib/types'
+import { scrapePage } from '@/lib/scraper'
 
 const systemPrompt = `
 あなたはWebマーケティングとSEOの専門アナリストです。ユーザーは「https://business.mistore.jp/」の担当者です。
@@ -115,29 +116,24 @@ export async function POST(req: NextRequest) {
         rows: gscData.rows.filter((row: any) => row.page === landingPage),
       }
 
-      // ランディングページのスクレイピングを実行（タイムアウト付き）
+      // ランディングページのスクレイピングを実行（直接呼び出し）
       scrapingError = null
       try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30秒タイムアウト（リトライを考慮して延長）
-
-        const scrapeResponse = await fetch(`${req.nextUrl.origin}/api/scrape`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: landingPage, useJavaScript: true }),
-          signal: controller.signal,
+        console.log(`Chat API: Attempting to scrape ${landingPage} directly`)
+        // タイムアウトを実装するため、Promise.raceを使用
+        const scrapePromise = scrapePage(landingPage, true)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000)
         })
-        clearTimeout(timeoutId)
-
-        if (scrapeResponse.ok) {
-          scrapedData = await scrapeResponse.json()
-        } else {
-          const errorData = await scrapeResponse.json().catch(() => ({}))
-          scrapingError = errorData.error || `HTTP ${scrapeResponse.status}`
-        }
+        
+        scrapedData = await Promise.race([scrapePromise, timeoutPromise])
+        console.log(`Chat API: Successfully scraped ${landingPage}`)
       } catch (scrapeErr) {
-        console.error('Scraping error:', scrapeErr)
+        console.error('Chat API: Scraping error:', scrapeErr)
         scrapingError = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr)
+        if (scrapeErr instanceof Error && scrapeErr.cause) {
+          console.error('Chat API: Scraping error cause:', scrapeErr.cause)
+        }
         // スクレイピングエラーは記録するが、GSCデータベースの分析は続行
       }
     } else {
