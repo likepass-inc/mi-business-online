@@ -158,10 +158,8 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
         }
-        // 文字エンコーディングを正しく処理
-        const buffer = await response.arrayBuffer()
-        const decoder = new TextDecoder('utf-8')
-        html = decoder.decode(buffer)
+        // response.text()を使用して自動的にエンコーディングを検出
+        html = await response.text()
         console.log(`Successfully scraped ${url} with fetch (fallback, ${html.length} chars)`)
       } catch (fetchError) {
         // 両方失敗した場合はエラーをスロー
@@ -183,10 +181,8 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
         }
-        // 文字エンコーディングを正しく処理
-        const buffer = await response.arrayBuffer()
-        const decoder = new TextDecoder('utf-8')
-        html = decoder.decode(buffer)
+        // response.text()を使用して自動的にエンコーディングを検出
+        html = await response.text()
         return html
       }, 3, 1000)
     } catch (fetchError) {
@@ -222,7 +218,11 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
     }
   }
 
-  const $ = cheerio.load(html)
+  // cheerioでHTMLをパースする際に、文字エンコーディングを明示的に指定
+  const $ = cheerio.load(html, {
+    decodeEntities: false,
+    normalizeWhitespace: false,
+  })
   const baseUrl = new URL(url)
 
   // タイトルとメタディスクリプション
