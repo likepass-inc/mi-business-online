@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     // キーワードまたはランディングページに基づいてデータを取得
     let data
     let scrapedData = null
+    let scrapingError: string | null = null
 
     if (keyword) {
       // キーワード指定時はGSCから該当キーワードのデータを取得
@@ -115,9 +116,10 @@ export async function POST(req: NextRequest) {
       }
 
       // ランディングページのスクレイピングを実行（タイムアウト付き）
+      scrapingError = null
       try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 20000) // 20秒タイムアウト
+        const timeoutId = setTimeout(() => controller.abort(), 30000) // 30秒タイムアウト（リトライを考慮して延長）
 
         const scrapeResponse = await fetch(`${req.nextUrl.origin}/api/scrape`, {
           method: 'POST',
@@ -129,10 +131,14 @@ export async function POST(req: NextRequest) {
 
         if (scrapeResponse.ok) {
           scrapedData = await scrapeResponse.json()
+        } else {
+          const errorData = await scrapeResponse.json().catch(() => ({}))
+          scrapingError = errorData.error || `HTTP ${scrapeResponse.status}`
         }
       } catch (scrapeErr) {
         console.error('Scraping error:', scrapeErr)
-        // スクレイピングエラーは無視して続行（タイムアウト時も含む）
+        scrapingError = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr)
+        // スクレイピングエラーは記録するが、GSCデータベースの分析は続行
       }
     } else {
       // 通常のデータ取得
@@ -207,6 +213,18 @@ ${topPages.map((p: any, i: number) => `${i + 1}. ${p.page}
 - 複数ページで同じキーワードを獲得している場合、カノニカルURLや内部リンク戦略の見直しが必要です
 `
       }
+    }
+
+    // スクレイピング失敗時のメッセージを追加
+    if (landingPage && !scrapedData && scrapingError) {
+      userPrompt += `\n\n【重要】スクレイピング失敗の通知:
+ランディングページ「${landingPage}」のスクレイピングに失敗しました。
+エラー: ${scrapingError}
+
+スクレイピングが失敗したため、実際のHTML（タイトル、メタディスクリプション、見出し構造など）を確認できませんでした。
+「現状の要約」セクションに「HTML分析（コンテンツSEO）」のサブセクションを追加しないでください。
+GSCデータのみに基づいた分析を行ってください。
+`
     }
 
     if (scrapedData) {

@@ -33,7 +33,7 @@ async function getBrowser(): Promise<Browser> {
 
   browserLaunchPromise = chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
   })
 
   browserInstance = await browserLaunchPromise
@@ -64,6 +64,30 @@ function setCachedData(url: string, data: ScrapedData): void {
   }
 }
 
+// リトライロジック（指数バックオフ）
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded')
+}
+
 export async function scrapePage(url: string, useJavaScript = false): Promise<ScrapedData> {
   // キャッシュをチェック
   const cached = getCachedData(url)
@@ -72,46 +96,105 @@ export async function scrapePage(url: string, useJavaScript = false): Promise<Sc
   }
 
   let html: string
+  let scrapeError: Error | null = null
 
-  // まず静的HTMLを試す（useJavaScript=falseの場合、またはフォールバックとして）
-  if (!useJavaScript) {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      signal: AbortSignal.timeout(10000), // 10秒タイムアウト
-    })
-    if (!response.ok) {
-      throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
-    }
-    html = await response.text()
-  } else {
-    // useJavaScript=trueの場合は、まず静的HTMLを試し、失敗した場合のみJavaScript実行
+  // useJavaScript=trueの場合は、Playwrightを優先的に使用（検証結果より）
+  if (useJavaScript) {
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-        signal: AbortSignal.timeout(5000), // 5秒タイムアウト（短めに設定）
-      })
-      if (response.ok) {
-        html = await response.text()
-      } else {
-        throw new Error(`Failed to fetch: ${response.status}`)
-      }
-    } catch (fetchError) {
-      // 静的HTML取得に失敗した場合、JavaScript実行を試みる
-      try {
+      html = await retryWithBackoff(async () => {
         const browser = await getBrowser()
-        const page = await browser.newPage()
+        const context = await browser.newContext({
+          ignoreHTTPSErrors: true,
+        })
+        const page = await context.newPage()
+        
         try {
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 })
-          html = await page.content()
-        } finally {
+          await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: 20000,
+          })
+          const content = await page.content()
           await page.close()
+          await context.close()
+          return content
+        } catch (error) {
+          await page.close().catch(() => {})
+          await context.close().catch(() => {})
+          throw error
         }
+      }, 3, 1000)
+    } catch (playwrightError) {
+      scrapeError = playwrightError instanceof Error ? playwrightError : new Error(String(playwrightError))
+      // Playwrightが失敗した場合、fetchを試行
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          signal: AbortSignal.timeout(10000),
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
+        }
+        // 文字エンコーディングを正しく処理
+        const buffer = await response.arrayBuffer()
+        const decoder = new TextDecoder('utf-8')
+        html = decoder.decode(buffer)
+      } catch (fetchError) {
+        // 両方失敗した場合はエラーをスロー
+        throw new Error(
+          `Failed to scrape page: Playwright error: ${scrapeError?.message}, Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`
+        )
+      }
+    }
+  } else {
+    // useJavaScript=falseの場合は、fetchを試行
+    try {
+      html = await retryWithBackoff(async () => {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          signal: AbortSignal.timeout(10000),
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
+        }
+        // 文字エンコーディングを正しく処理
+        const buffer = await response.arrayBuffer()
+        const decoder = new TextDecoder('utf-8')
+        html = decoder.decode(buffer)
+        return html
+      }, 3, 1000)
+    } catch (fetchError) {
+      // fetchが失敗した場合、Playwrightを試行
+      try {
+        html = await retryWithBackoff(async () => {
+          const browser = await getBrowser()
+          const context = await browser.newContext({
+            ignoreHTTPSErrors: true,
+          })
+          const page = await context.newPage()
+          
+          try {
+            await page.goto(url, {
+              waitUntil: 'domcontentloaded',
+              timeout: 20000,
+            })
+            const content = await page.content()
+            await page.close()
+            await context.close()
+            return content
+          } catch (error) {
+            await page.close().catch(() => {})
+            await context.close().catch(() => {})
+            throw error
+          }
+        }, 2, 1000)
       } catch (playwrightError) {
-        throw new Error(`Failed to scrape page: ${playwrightError instanceof Error ? playwrightError.message : 'Unknown error'}`)
+        throw new Error(
+          `Failed to scrape page: Fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}, Playwright error: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`
+        )
       }
     }
   }
