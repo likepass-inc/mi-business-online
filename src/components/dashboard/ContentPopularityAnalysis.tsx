@@ -95,7 +95,20 @@ function shortenUrl(url: string): string {
   if (url.startsWith('https://business.mistore.jp')) {
     return url.replace('https://business.mistore.jp', '')
   }
+  if (url.startsWith('http://business.mistore.jp')) {
+    return url.replace('http://business.mistore.jp', '')
+  }
   return url
+}
+
+// URLを正規化（フルURLか相対パスかを判定して適切なURLを返す）
+function normalizeUrl(url: string): string {
+  // 既にフルURLの場合はそのまま返す
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  // 相対パスの場合はドメインを追加
+  return `https://business.mistore.jp${url.startsWith('/') ? url : '/' + url}`
 }
 
 export default function ContentPopularityAnalysis({ dateRange }: ContentPopularityAnalysisProps) {
@@ -285,7 +298,7 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
                 </td>
                 <td className="px-4 py-3 text-sm">
                   <a
-                    href={`https://business.mistore.jp${page.page}`}
+                    href={normalizeUrl(page.page)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 hover:underline"
