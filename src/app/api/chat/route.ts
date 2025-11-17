@@ -35,6 +35,7 @@ const systemPrompt = `
 以下の3セクションで構成し、各セクションは具体的で実装可能な内容にしてください：
 
 1. 現状の要約（数値と傾向）
+   - 【重要】GSCデータがある場合、必ず最初に「GSCデータ分析」サブセクションを追加し、総クリック数、総インプレッション数、平均CTR、平均ポジションを明記してください
    - 主要指標の数値を正確に記載
    - 前期間との比較（増減率）
    - 業界平均や競合との比較（可能な場合）
@@ -190,7 +191,7 @@ ${JSON.stringify(data, null, 2)}
             position: row.position,
           }))
 
-        userPrompt += `\n\n【GSCデータ分析】
+        userPrompt += `\n\n【重要】GSCデータ分析（必ず「現状の要約」セクションに含めてください）:
 ${keyword ? `キーワード「${keyword}」` : `ランディングページ「${landingPage}」`}に関するデータサマリー:
 - 総クリック数: ${totalClicks.toLocaleString()}
 - 総インプレッション数: ${totalImpressions.toLocaleString()}
@@ -199,7 +200,7 @@ ${keyword ? `キーワード「${keyword}」` : `ランディングページ「$
 - データ件数: ${rows.length}件
 
 上位5ページのパフォーマンス:
-${topPages.map((p: any, i: number) => `${i + 1}. ${p.page}
+${topPages.map((p: any, i: number) => `${i + 1}. ${p.page || p.query || 'N/A'}
    - クリック: ${p.clicks}, インプレ: ${p.impressions.toLocaleString()}, CTR: ${(p.ctr * 100).toFixed(2)}%, ポジション: ${p.position.toFixed(2)}位`).join('\n')}
 
 【分析指示】
@@ -207,6 +208,15 @@ ${topPages.map((p: any, i: number) => `${i + 1}. ${p.page}
 - ポジションが10位以下の場合、コンテンツの質や内部リンクの強化が必要です
 - インプレッションが多いのにクリックが少ない場合、スニペット最適化が重要です
 - 複数ページで同じキーワードを獲得している場合、カノニカルURLや内部リンク戦略の見直しが必要です
+
+【重要】「現状の要約」セクションの最初に、上記のGSCデータサマリー（総クリック数、総インプレッション数、平均CTR、平均ポジション）を必ず含めてください。
+`
+      } else {
+        userPrompt += `\n\n【重要】GSCデータについて:
+${keyword ? `キーワード「${keyword}」` : `ランディングページ「${landingPage}」`}に関するGSCデータが取得できませんでした（データ件数: 0件）。
+期間: ${parsedQuery.dateRange.startDate} 〜 ${parsedQuery.dateRange.endDate}
+
+この場合でも、スクレイピング結果がある場合はHTML分析を行い、一般的なSEO改善提案を提示してください。
 `
       }
     }
