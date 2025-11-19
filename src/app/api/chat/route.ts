@@ -87,6 +87,14 @@ export async function POST(req: NextRequest) {
 
     // クエリを解析
     const parsedQuery = parseQuery(message)
+    console.log(`[Chat API] Parsed query:`, {
+      source: parsedQuery.source,
+      dateRange: parsedQuery.dateRange,
+      metrics: parsedQuery.metrics,
+      dimensions: parsedQuery.dimensions,
+      keyword,
+      landingPage,
+    })
 
     // キーワードまたはランディングページに基づいてデータを取得
     let data
@@ -160,14 +168,41 @@ export async function POST(req: NextRequest) {
           // スクレイピングエラーは記録するが、GSCデータベースの分析は続行
         }
       } else {
-        // 通常のデータ取得
-        console.log(`[Chat API] Fetching ${parsedQuery.source} data`)
+        // 通常のデータ取得（GA4またはGSC）
+        console.log(`[Chat API] Fetching ${parsedQuery.source} data with query:`, {
+          source: parsedQuery.source,
+          dateRange: parsedQuery.dateRange,
+          metrics: parsedQuery.metrics,
+          dimensions: parsedQuery.dimensions,
+          filters: parsedQuery.filters,
+        })
         data = await fetchAnalyticsData(parsedQuery)
-        console.log(`[Chat API] Fetched ${data.rows.length} rows from ${parsedQuery.source}`)
+        console.log(`[Chat API] Successfully fetched ${data.rows.length} rows from ${parsedQuery.source}`)
         
         if (data.rows.length === 0) {
           console.warn(`[Chat API] No data returned from ${parsedQuery.source}`)
-          analyticsError = `${parsedQuery.source}からデータが取得できませんでした。`
+          analyticsError = `${parsedQuery.source}からデータが取得できませんでした。期間: ${parsedQuery.dateRange.startDate} 〜 ${parsedQuery.dateRange.endDate}`
+        } else {
+          // データ取得成功時のサマリーをログに記録
+          if (parsedQuery.source === 'GSC') {
+            const totalClicks = data.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
+            const totalImpressions = data.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
+            const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
+            const avgPosition = data.rows.reduce((sum: number, row: any) => sum + (row.position || 0), 0) / data.rows.length
+            console.log(`[Chat API] GSC data summary:`, {
+              totalClicks,
+              totalImpressions,
+              avgCtr: avgCtr.toFixed(2) + '%',
+              avgPosition: avgPosition.toFixed(2),
+            })
+          } else if (parsedQuery.source === 'GA4') {
+            const metricsSummary: Record<string, number> = {}
+            parsedQuery.metrics.forEach(metric => {
+              const sum = data.rows.reduce((s: number, row: any) => s + (row[metric] || 0), 0)
+              metricsSummary[metric] = sum
+            })
+            console.log(`[Chat API] GA4 data summary:`, metricsSummary)
+          }
         }
       }
     } catch (error) {
