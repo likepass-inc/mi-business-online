@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     })
 
     // キーワードまたはランディングページに基づいてデータを取得
-    let data
+    let data: { rows: Record<string, string | number>[] } = { rows: [] }
     let scrapedData = null
     let scrapingError: string | null = null
     let analyticsError: string | null = null
