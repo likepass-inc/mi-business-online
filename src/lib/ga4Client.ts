@@ -70,7 +70,7 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
   const eventNameFilter = request.filters?.find((f) => f.field === 'eventName')
   const otherFilters = request.filters?.filter((f) => f.field !== 'eventName') || []
 
-  const [response] = await analyticsClient.runReport({
+  const response = await analyticsClient.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [
       {
