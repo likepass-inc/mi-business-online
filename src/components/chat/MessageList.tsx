@@ -130,7 +130,7 @@ export default function MessageList({ messages }: MessageListProps) {
                   </ReactMarkdown>
                 </div>
               ) : (
-                <div className="whitespace-pre-wrap">{message.content}</div>
+              <div className="whitespace-pre-wrap">{message.content}</div>
               )}
             </div>
           </div>

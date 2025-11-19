@@ -37,38 +37,38 @@ export async function fetchAnalyticsData(query: ParsedQuery): Promise<{ rows: Re
   try {
     let data: { rows: any[] }
     
-    if (query.source === 'GA4') {
+  if (query.source === 'GA4') {
       data = await retryWithBackoff(async () => {
         const result = await fetchGA4Data({
-          dateRange: query.dateRange,
-          metrics: query.metrics,
-          dimensions: query.dimensions,
-          filters: query.filters,
-        })
+      dateRange: query.dateRange,
+      metrics: query.metrics,
+      dimensions: query.dimensions,
+      filters: query.filters,
+    })
         console.log(`[AnalyticsService] GA4 data fetched: ${result.rows.length} rows`)
         return result
       })
-    } else {
+  } else {
       data = await retryWithBackoff(async () => {
         const result = await fetchGSCData({
-          startDate: query.dateRange.startDate,
-          endDate: query.dateRange.endDate,
-          dimensions: query.dimensions || ['query', 'page'],
-          rowLimit: 1000,
-        })
+      startDate: query.dateRange.startDate,
+      endDate: query.dateRange.endDate,
+      dimensions: query.dimensions || ['query', 'page'],
+      rowLimit: 1000,
+    })
         console.log(`[AnalyticsService] GSC data fetched: ${result.rows.length} rows`)
         return result
       })
       
-      // GSCRowをRecord型に変換
-      const rows = data.rows.map(row => ({
-        query: row.query || '',
-        page: row.page || '',
-        clicks: row.clicks,
-        impressions: row.impressions,
-        ctr: row.ctr,
-        position: row.position,
-      }))
+    // GSCRowをRecord型に変換
+    const rows = data.rows.map(row => ({
+      query: row.query || '',
+      page: row.page || '',
+      clicks: row.clicks,
+      impressions: row.impressions,
+      ctr: row.ctr,
+      position: row.position,
+    }))
       data = { rows }
     }
 

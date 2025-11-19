@@ -31,14 +31,14 @@ interface CategoryData {
 type CategoryType = 'articles' | 'products' | 'product-lists'
 type ComparisonMode = 'previous-period' | 'year-over-year'
 
-// 前期間対比を計算
+// 比較対比（前年同時期または前期間）を計算
 function calculateComparison(current: number, previous: number): { diff: number; percent: number | null } {
   const diff = current - previous
   const percent = previous !== 0 ? ((diff / previous) * 100) : null
   return { diff, percent }
 }
 
-// 前期間対比表示コンポーネント
+// 比較対比表示コンポーネント
 function ComparisonCell({ current, previous, isLowerBetter = false, isPercentage = false, decimalPlaces = 0 }: { current: number; previous?: number; isLowerBetter?: boolean; isPercentage?: boolean; decimalPlaces?: number }) {
   if (previous === undefined) {
     const formatCurrent = () => {

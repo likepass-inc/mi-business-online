@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`Content analysis: Matched ${matchedCount} pages, unmatched ${unmatchedCount} pages`)
 
-    // 前期間のデータをマージ
+    // 比較期間（前年同時期または前期間）のデータをマージ
     const prevPageMap = new Map<string, PageData>()
     prevData.rows.forEach((row) => {
       if (!row.page) return

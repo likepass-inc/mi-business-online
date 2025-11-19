@@ -170,7 +170,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           .sort((a: KeywordData, b: KeywordData) => b.clicks - a.clicks)
           .slice(0, 30)
 
-        // 前期間のキーワードデータ取得
+        // 比較期間（前年同時期または前期間）のキーワードデータ取得
         let prevKeywords: KeywordData[] = []
         try {
           const prevResponse = await fetch('/api/gsc', {
@@ -197,10 +197,10 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
               }))
           }
         } catch (prevErr) {
-          console.error('Previous period keyword data fetch error:', prevErr)
+          console.error('Comparison period keyword data fetch error:', prevErr)
         }
 
-        // キーワードをマッチングして前期間データを結合
+        // キーワードをマッチングして比較期間データを結合
         const prevKeywordMap = new Map<string, KeywordData>()
         prevKeywords.forEach((k) => {
           prevKeywordMap.set(k.query, k)

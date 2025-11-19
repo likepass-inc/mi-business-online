@@ -82,13 +82,13 @@ export default function ChatWindow() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto min-h-0">
-        <MessageList messages={messages} />
+      <MessageList messages={messages} />
       </div>
       {isLoading && (
         <div className="px-4 py-2 text-sm text-gray-500 flex-shrink-0">分析中...</div>
       )}
       <div className="flex-shrink-0">
-        <MessageInput onSend={handleSend} disabled={isLoading} />
+      <MessageInput onSend={handleSend} disabled={isLoading} />
       </div>
     </div>
   )
