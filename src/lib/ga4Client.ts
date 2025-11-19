@@ -75,7 +75,7 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
             filter: {
               fieldName: f.field,
               stringFilter: {
-                matchType: f.operator === 'EXACT' ? 'EXACT' : 'CONTAINS',
+                matchType: (f.operator === 'EXACT' ? 'EXACT' : 'CONTAINS') as 'EXACT' | 'CONTAINS',
                 value: f.value,
               },
             },
