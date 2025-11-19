@@ -67,10 +67,13 @@ const systemPrompt = `
    - 測定方法（改善後のKPI）を明記
 
 【重要】
+- 【必須】GSC/GA4データがある場合、必ず「現状の要約」セクションの最初に数値データ（クリック数、インプレッション数、CTR、ポジションなど）を含めてください
+- データが0件の場合でも、一般的なSEO改善提案を提示してください
 - スクレイピング結果がある場合、必ずそれを詳細に分析し、具体的な改善点を指摘してください
 - タイトルやメタディスクリプションの文字数を正確にカウントし、基準と比較してください
 - 見出し構造、画像alt属性、内部リンクなど、技術的なSEO要素を漏れなく評価してください
 - 提案は必ず実装可能なレベルまで具体化してください（「タイトルを改善する」ではなく「タイトルを『[キーワード]の選び方｜法人ギフト専門サイト』（32文字）に変更する」など）
+- データが取得できなかった場合でも、その旨を明記し、一般的なSEO改善提案を提示してください
 `
 
 export async function POST(req: NextRequest) {
@@ -89,57 +92,90 @@ export async function POST(req: NextRequest) {
     let data
     let scrapedData = null
     let scrapingError: string | null = null
+    let analyticsError: string | null = null
 
-    if (keyword) {
-      // キーワード指定時はGSCから該当キーワードのデータを取得
-      const gscData = await fetchAnalyticsData({
-        source: 'GSC',
-        dateRange: parsedQuery.dateRange,
-        metrics: ['clicks', 'impressions', 'ctr', 'position'],
-        dimensions: ['query', 'page'],
-      })
-      // キーワードでフィルタリング
-      data = {
-        rows: gscData.rows.filter((row: any) =>
-          row.query?.toLowerCase().includes(keyword.toLowerCase())
-        ),
-      }
-    } else if (landingPage) {
-      // ランディングページ指定時は該当ページのデータを取得
-      const gscData = await fetchAnalyticsData({
-        source: 'GSC',
-        dateRange: parsedQuery.dateRange,
-        metrics: ['clicks', 'impressions', 'ctr', 'position'],
-        dimensions: ['query', 'page'],
-      })
-      // ページでフィルタリング
-      data = {
-        rows: gscData.rows.filter((row: any) => row.page === landingPage),
-      }
-
-      // ランディングページのスクレイピングを実行（直接呼び出し）
-      scrapingError = null
-      try {
-        console.log(`Chat API: Attempting to scrape ${landingPage} directly`)
-        // タイムアウトを実装するため、Promise.raceを使用
-        const scrapePromise = scrapePage(landingPage, true)
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000)
+    try {
+      if (keyword) {
+        // キーワード指定時はGSCから該当キーワードのデータを取得
+        console.log(`[Chat API] Fetching GSC data for keyword: ${keyword}`)
+        const gscData = await fetchAnalyticsData({
+          source: 'GSC',
+          dateRange: parsedQuery.dateRange,
+          metrics: ['clicks', 'impressions', 'ctr', 'position'],
+          dimensions: ['query', 'page'],
         })
+        // キーワードでフィルタリング
+        const filteredRows = gscData.rows.filter((row: any) =>
+          row.query?.toLowerCase().includes(keyword.toLowerCase())
+        )
+        console.log(`[Chat API] Filtered ${filteredRows.length} rows for keyword "${keyword}" from ${gscData.rows.length} total rows`)
+        data = { rows: filteredRows }
         
-        scrapedData = await Promise.race([scrapePromise, timeoutPromise])
-        console.log(`Chat API: Successfully scraped ${landingPage}`)
-      } catch (scrapeErr) {
-        console.error('Chat API: Scraping error:', scrapeErr)
-        scrapingError = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr)
-        if (scrapeErr instanceof Error && scrapeErr.cause) {
-          console.error('Chat API: Scraping error cause:', scrapeErr.cause)
+        if (filteredRows.length === 0) {
+          console.warn(`[Chat API] No data found for keyword "${keyword}"`)
+          analyticsError = `キーワード「${keyword}」に関するGSCデータが見つかりませんでした。`
         }
-        // スクレイピングエラーは記録するが、GSCデータベースの分析は続行
+      } else if (landingPage) {
+        // ランディングページ指定時は該当ページのデータを取得
+        console.log(`[Chat API] Fetching GSC data for landing page: ${landingPage}`)
+        const gscData = await fetchAnalyticsData({
+          source: 'GSC',
+          dateRange: parsedQuery.dateRange,
+          metrics: ['clicks', 'impressions', 'ctr', 'position'],
+          dimensions: ['query', 'page'],
+        })
+        // ページでフィルタリング（URLの正規化を考慮）
+        const normalizedLandingPage = landingPage.replace(/^https?:\/\//, '').replace(/\/$/, '')
+        const filteredRows = gscData.rows.filter((row: any) => {
+          if (!row.page) return false
+          const normalizedRowPage = row.page.replace(/^https?:\/\//, '').replace(/\/$/, '')
+          return normalizedRowPage === normalizedLandingPage || row.page === landingPage
+        })
+        console.log(`[Chat API] Filtered ${filteredRows.length} rows for landing page "${landingPage}" from ${gscData.rows.length} total rows`)
+        data = { rows: filteredRows }
+        
+        if (filteredRows.length === 0) {
+          console.warn(`[Chat API] No data found for landing page "${landingPage}"`)
+          analyticsError = `ランディングページ「${landingPage}」に関するGSCデータが見つかりませんでした。`
+        }
+
+        // ランディングページのスクレイピングを実行（直接呼び出し）
+        scrapingError = null
+        try {
+          console.log(`[Chat API] Attempting to scrape ${landingPage} directly`)
+          // タイムアウトを実装するため、Promise.raceを使用
+          const scrapePromise = scrapePage(landingPage, true)
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Scraping timeout after 30 seconds')), 30000)
+          })
+          
+          scrapedData = await Promise.race([scrapePromise, timeoutPromise])
+          console.log(`[Chat API] Successfully scraped ${landingPage}`)
+        } catch (scrapeErr) {
+          console.error('[Chat API] Scraping error:', scrapeErr)
+          scrapingError = scrapeErr instanceof Error ? scrapeErr.message : String(scrapeErr)
+          if (scrapeErr instanceof Error && scrapeErr.cause) {
+            console.error('[Chat API] Scraping error cause:', scrapeErr.cause)
+          }
+          // スクレイピングエラーは記録するが、GSCデータベースの分析は続行
+        }
+      } else {
+        // 通常のデータ取得
+        console.log(`[Chat API] Fetching ${parsedQuery.source} data`)
+        data = await fetchAnalyticsData(parsedQuery)
+        console.log(`[Chat API] Fetched ${data.rows.length} rows from ${parsedQuery.source}`)
+        
+        if (data.rows.length === 0) {
+          console.warn(`[Chat API] No data returned from ${parsedQuery.source}`)
+          analyticsError = `${parsedQuery.source}からデータが取得できませんでした。`
+        }
       }
-    } else {
-      // 通常のデータ取得
-      data = await fetchAnalyticsData(parsedQuery)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error(`[Chat API] Analytics data fetch error:`, errorMessage)
+      analyticsError = `データ取得エラー: ${errorMessage}`
+      // エラーが発生した場合でも空のデータを設定（分析は続行）
+      data = { rows: [] }
     }
 
     // システムプロンプトを拡張
@@ -163,12 +199,15 @@ export async function POST(req: NextRequest) {
 ユーザーの質問:
 ${message}
 
-取得したデータ(JSON):
+${analyticsError ? `【重要】データ取得に関する注意:\n${analyticsError}\n\n` : ''}取得したデータ(JSON):
 ${JSON.stringify(data, null, 2)}
 
 データソース: ${parsedQuery.source}
 期間: ${parsedQuery.dateRange.startDate} 〜 ${parsedQuery.dateRange.endDate}
 メトリクス: ${parsedQuery.metrics.join(', ')}
+データ件数: ${data.rows.length}件
+
+${data.rows.length === 0 ? '【重要】データが0件の場合でも、一般的なSEO改善提案を提示してください。' : ''}
 `
 
     // キーワードまたはランディングページ指定時の追加分析指示
