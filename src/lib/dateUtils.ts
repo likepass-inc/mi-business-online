@@ -31,3 +31,24 @@ export function getPreviousPeriod(
   }
 }
 
+// 前年同時期の日付範囲を計算
+export function getYearOverYearPeriod(
+  startDate: string,
+  endDate: string
+): { startDate: string; endDate: string } {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  
+  // 1年前の同じ日付を計算
+  const yoyStart = new Date(start)
+  yoyStart.setFullYear(yoyStart.getFullYear() - 1)
+  
+  const yoyEnd = new Date(end)
+  yoyEnd.setFullYear(yoyEnd.getFullYear() - 1)
+  
+  return {
+    startDate: formatDate(yoyStart),
+    endDate: formatDate(yoyEnd),
+  }
+}
+

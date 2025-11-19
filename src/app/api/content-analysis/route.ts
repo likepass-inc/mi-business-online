@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchGSCData } from '@/lib/gscClient'
 import type { DateRange } from '@/lib/types'
+import { getYearOverYearPeriod } from '@/lib/dateUtils'
 
 interface ContentAnalysisRequest {
   dateRange: DateRange
   category?: 'articles' | 'products' | 'product-lists' | 'all'
+  comparisonMode?: 'previous-period' | 'year-over-year'
 }
 
 interface PageData {
@@ -69,11 +71,12 @@ function getPreviousDateRange(dateRange: DateRange): DateRange {
 export async function POST(req: NextRequest) {
   try {
     const body: ContentAnalysisRequest = await req.json()
-    const { dateRange, category = 'all' } = body
+    const { dateRange, category = 'all', comparisonMode = 'year-over-year' } = body
 
     console.log('[Content Analysis API] Request received:', {
       dateRange,
       category,
+      comparisonMode,
     })
 
     if (!dateRange.startDate || !dateRange.endDate) {
@@ -94,8 +97,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`Content analysis: Fetched ${currentData.rows.length} pages for current period`)
 
-    // 前期間のデータを取得
-    const prevDateRange = getPreviousDateRange(dateRange)
+    // 比較期間のデータを取得
+    const prevDateRange = comparisonMode === 'year-over-year'
+      ? getYearOverYearPeriod(dateRange.startDate, dateRange.endDate)
+      : getPreviousDateRange(dateRange)
     const prevData = await fetchGSCData({
       startDate: prevDateRange.startDate,
       endDate: prevDateRange.endDate,

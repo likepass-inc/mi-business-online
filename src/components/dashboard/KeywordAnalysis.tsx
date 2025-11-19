@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
+import { getYearOverYearPeriod } from '@/lib/dateUtils'
 
 interface KeywordAnalysisProps {
   dateRange: DateRange
@@ -50,6 +51,8 @@ function getPreviousDateRange(dateRange: DateRange): DateRange {
     endDate: prevEndDate.toISOString().split('T')[0],
   }
 }
+
+type ComparisonMode = 'previous-period' | 'year-over-year'
 
 // 前期間対比を計算
 function calculateComparison(current: number, previous: number): { diff: number; percent: number | null } {
@@ -126,6 +129,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
   const [recommendedKeywords, setRecommendedKeywords] = useState<KeywordData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('year-over-year')
 
   useEffect(() => {
     async function fetchKeywords() {
@@ -133,7 +137,9 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         setLoading(true)
         setError(null)
 
-        const prevDateRange = getPreviousDateRange(dateRange)
+        const prevDateRange = comparisonMode === 'year-over-year'
+          ? getYearOverYearPeriod(dateRange.startDate, dateRange.endDate)
+          : getPreviousDateRange(dateRange)
 
         // 現在期間のキーワードデータ取得
         const response = await fetch('/api/gsc', {
@@ -357,7 +363,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
     }
 
     fetchKeywords()
-  }, [dateRange])
+  }, [dateRange, comparisonMode])
 
   if (loading) {
     return (
@@ -381,6 +387,33 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
 
   return (
     <div className="space-y-6">
+      {/* 比較モード切り替えボタン */}
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-md shadow-sm" role="group">
+          <button
+            type="button"
+            onClick={() => setComparisonMode('year-over-year')}
+            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
+              comparisonMode === 'year-over-year'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前年同時期対比
+          </button>
+          <button
+            type="button"
+            onClick={() => setComparisonMode('previous-period')}
+            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+              comparisonMode === 'previous-period'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前期間対比
+          </button>
+        </div>
+      </div>
       {/* 推奨キーワード */}
       {recommendedKeywords.length > 0 && (
         <div className="bg-white p-6 rounded-lg shadow">

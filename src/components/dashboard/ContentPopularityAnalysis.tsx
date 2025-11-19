@@ -29,6 +29,7 @@ interface CategoryData {
 }
 
 type CategoryType = 'articles' | 'products' | 'product-lists'
+type ComparisonMode = 'previous-period' | 'year-over-year'
 
 // 前期間対比を計算
 function calculateComparison(current: number, previous: number): { diff: number; percent: number | null } {
@@ -118,6 +119,7 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
   const [error, setError] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'clicks' | 'impressions' | 'ctr' | 'position'>('clicks')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('year-over-year')
 
   useEffect(() => {
     async function fetchContentData() {
@@ -131,6 +133,7 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
           body: JSON.stringify({
             dateRange,
             category: 'all',
+            comparisonMode,
           }),
         })
 
@@ -148,7 +151,7 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
     }
 
     fetchContentData()
-  }, [dateRange])
+  }, [dateRange, comparisonMode])
 
   // アクティブなカテゴリのデータを取得
   const activeCategoryData = activeCategory === 'all' 
@@ -220,6 +223,33 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
 
   return (
     <div className="bg-white rounded-lg shadow">
+      {/* 比較モード切り替えボタン */}
+      <div className="px-4 pt-4 pb-2 flex justify-end">
+        <div className="inline-flex rounded-md shadow-sm" role="group">
+          <button
+            type="button"
+            onClick={() => setComparisonMode('year-over-year')}
+            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
+              comparisonMode === 'year-over-year'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前年同時期対比
+          </button>
+          <button
+            type="button"
+            onClick={() => setComparisonMode('previous-period')}
+            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+              comparisonMode === 'previous-period'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前期間対比
+          </button>
+        </div>
+      </div>
       {/* タブ */}
       <div className="border-b border-gray-200">
         <nav className="flex -mb-px">

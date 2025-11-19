@@ -1,12 +1,48 @@
 import { google } from 'googleapis'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import type { GSCRequest, GSCResponse, GSCRow } from './types'
 
 let authClient: any = null
 
+function loadCredentials() {
+  // 環境変数から読み込みを試みる
+  let clientEmail = process.env.GOOGLE_CLIENT_EMAIL
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  
+  // 環境変数が設定されていない場合、JSONファイルから読み込む
+  if (!clientEmail || !privateKey) {
+    try {
+      const jsonPath = join(process.cwd(), 'credentials', 'service-account.json')
+      const jsonContent = readFileSync(jsonPath, 'utf-8').trim()
+      
+      if (!jsonContent) {
+        throw new Error('credentials/service-account.json is empty. Please add your service account JSON key.')
+      }
+      
+      const serviceAccount = JSON.parse(jsonContent)
+      
+      if (!serviceAccount.client_email || !serviceAccount.private_key) {
+        throw new Error('credentials/service-account.json is missing client_email or private_key')
+      }
+      
+      clientEmail = serviceAccount.client_email
+      privateKey = serviceAccount.private_key
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('is empty')) {
+        throw error
+      }
+      // JSONファイルの読み込みに失敗した場合はエラーをスロー
+      throw new Error('GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY must be set, or credentials/service-account.json must contain valid service account credentials')
+    }
+  }
+  
+  return { clientEmail, privateKey }
+}
+
 function getAuthClient() {
   if (!authClient) {
-    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    const { clientEmail, privateKey } = loadCredentials()
 
     if (!clientEmail || !privateKey) {
       throw new Error('GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY must be set')
@@ -23,7 +59,8 @@ function getAuthClient() {
 
 export async function fetchGSCData(request: GSCRequest): Promise<GSCResponse> {
   const auth = getAuthClient()
-  const siteUrl = process.env.GSC_SITE_URL
+  // デフォルトで business.mistore.jp を使用
+  const siteUrl = process.env.GSC_SITE_URL || 'https://business.mistore.jp/'
 
   if (!siteUrl) {
     throw new Error('GSC_SITE_URL must be set')

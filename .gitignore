@@ -33,6 +33,10 @@ yarn-error.log*
 !package.json
 !package-lock.json
 !tsconfig.json
+!next-env.d.ts
+
+# Credentials directory
+/credentials/
 
 # vercel
 .vercel

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
+import { getYearOverYearPeriod } from '@/lib/dateUtils'
 
 interface KpiCardsProps {
   dateRange: DateRange
@@ -44,6 +45,8 @@ function getPreviousDateRange(dateRange: DateRange): DateRange {
   }
 }
 
+type ComparisonMode = 'previous-period' | 'year-over-year'
+
 // 前期間対比を計算
 function calculateComparison(current: number, previous: number): { diff: number; percent: number | null } {
   const diff = current - previous
@@ -55,6 +58,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
   const [kpiData, setKpiData] = useState<KpiData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [comparisonMode, setComparisonMode] = useState<ComparisonMode>('year-over-year')
 
   useEffect(() => {
     async function fetchKpis() {
@@ -62,7 +66,9 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         setLoading(true)
         setError(null)
 
-        const prevDateRange = getPreviousDateRange(dateRange)
+        const prevDateRange = comparisonMode === 'year-over-year'
+          ? getYearOverYearPeriod(dateRange.startDate, dateRange.endDate)
+          : getPreviousDateRange(dateRange)
 
         // 全体のセッションとトランザクション
         const allResponse = await fetch('/api/ga4', {
@@ -250,7 +256,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
     }
 
     fetchKpis()
-  }, [dateRange])
+  }, [dateRange, comparisonMode])
 
   if (loading) {
     return (
@@ -298,7 +304,35 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div>
+      {/* 比較モード切り替えボタン */}
+      <div className="mb-4 flex justify-end">
+        <div className="inline-flex rounded-md shadow-sm" role="group">
+          <button
+            type="button"
+            onClick={() => setComparisonMode('year-over-year')}
+            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
+              comparisonMode === 'year-over-year'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前年同時期対比
+          </button>
+          <button
+            type="button"
+            onClick={() => setComparisonMode('previous-period')}
+            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
+              comparisonMode === 'previous-period'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            前期間対比
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="bg-white p-6 rounded-lg shadow">
         <h3 className="text-sm font-medium text-gray-500 mb-2">セッション</h3>
         <p className="text-3xl font-bold text-gray-900">

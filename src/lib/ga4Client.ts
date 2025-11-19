@@ -1,12 +1,48 @@
 import { BetaAnalyticsDataClient } from '@google-analytics/data'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import type { GA4Request, GA4Response } from './types'
 
 let client: BetaAnalyticsDataClient | null = null
 
+function loadCredentials() {
+  // 環境変数から読み込みを試みる
+  let clientEmail = process.env.GOOGLE_CLIENT_EMAIL
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  
+  // 環境変数が設定されていない場合、JSONファイルから読み込む
+  if (!clientEmail || !privateKey) {
+    try {
+      const jsonPath = join(process.cwd(), 'credentials', 'service-account.json')
+      const jsonContent = readFileSync(jsonPath, 'utf-8').trim()
+      
+      if (!jsonContent) {
+        throw new Error('credentials/service-account.json is empty. Please add your service account JSON key.')
+      }
+      
+      const serviceAccount = JSON.parse(jsonContent)
+      
+      if (!serviceAccount.client_email || !serviceAccount.private_key) {
+        throw new Error('credentials/service-account.json is missing client_email or private_key')
+      }
+      
+      clientEmail = serviceAccount.client_email
+      privateKey = serviceAccount.private_key
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('is empty')) {
+        throw error
+      }
+      // JSONファイルの読み込みに失敗した場合はエラーをスロー
+      throw new Error('GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY must be set, or credentials/service-account.json must contain valid service account credentials')
+    }
+  }
+  
+  return { clientEmail, privateKey }
+}
+
 function getClient(): BetaAnalyticsDataClient {
   if (!client) {
-    const clientEmail = process.env.GOOGLE_CLIENT_EMAIL
-    const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    const { clientEmail, privateKey } = loadCredentials()
     
     if (!clientEmail || !privateKey) {
       throw new Error('GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY must be set')
@@ -30,6 +66,10 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
     throw new Error('GA4_PROPERTY_ID must be set')
   }
 
+  // eventNameフィルタがある場合はeventFilterを使用
+  const eventNameFilter = request.filters?.find((f) => f.field === 'eventName')
+  const otherFilters = request.filters?.filter((f) => f.field !== 'eventName') || []
+
   const [response] = await analyticsClient.runReport({
     property: `properties/${propertyId}`,
     dateRanges: [
@@ -40,10 +80,21 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
     ],
     metrics: request.metrics.map((m) => ({ name: m })),
     dimensions: request.dimensions?.map((d) => ({ name: d })) || [],
-    dimensionFilter: request.filters && request.filters.length > 0
+    eventFilter: eventNameFilter
+      ? {
+          filter: {
+            fieldName: 'eventName',
+            stringFilter: {
+              matchType: eventNameFilter.operator === 'EXACT' ? 'EXACT' : 'CONTAINS',
+              value: eventNameFilter.value,
+            },
+          },
+        }
+      : undefined,
+    dimensionFilter: otherFilters.length > 0
       ? {
           andGroup: {
-            expressions: request.filters.map((f) => ({
+            expressions: otherFilters.map((f) => ({
               filter: {
                 fieldName: f.field,
                 stringFilter: {
