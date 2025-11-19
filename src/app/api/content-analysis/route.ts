@@ -71,7 +71,13 @@ export async function POST(req: NextRequest) {
     const body: ContentAnalysisRequest = await req.json()
     const { dateRange, category = 'all' } = body
 
+    console.log('[Content Analysis API] Request received:', {
+      dateRange,
+      category,
+    })
+
     if (!dateRange.startDate || !dateRange.endDate) {
+      console.error('[Content Analysis API] Validation error: startDate and endDate are required')
       return NextResponse.json(
         { error: 'startDate and endDate are required' },
         { status: 400 }
@@ -189,11 +195,17 @@ export async function POST(req: NextRequest) {
       })
     })
 
+    console.log(`[Content Analysis API] Successfully processed ${result.length} categories`)
     return NextResponse.json({ categories: result })
   } catch (e) {
-    console.error('Content analysis API error:', e)
+    const errorMessage = e instanceof Error ? e.message : 'Content analysis request failed'
+    const errorStack = e instanceof Error ? e.stack : undefined
+    console.error('[Content Analysis API] Error:', errorMessage)
+    if (errorStack) {
+      console.error('[Content Analysis API] Error stack:', errorStack)
+    }
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Content analysis request failed' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

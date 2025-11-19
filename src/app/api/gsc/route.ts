@@ -7,7 +7,15 @@ export async function POST(req: NextRequest) {
     const body: GSCRequest = await req.json()
     const { startDate, endDate, dimensions, rowLimit } = body
 
+    console.log('[GSC API] Request received:', {
+      startDate,
+      endDate,
+      dimensions,
+      rowLimit,
+    })
+
     if (!startDate || !endDate) {
+      console.error('[GSC API] Validation error: startDate and endDate are required')
       return NextResponse.json(
         { error: 'startDate and endDate are required' },
         { status: 400 }
@@ -21,11 +29,17 @@ export async function POST(req: NextRequest) {
       rowLimit,
     })
 
+    console.log(`[GSC API] Successfully fetched ${result.rows.length} rows`)
     return NextResponse.json(result)
   } catch (e) {
-    console.error('GSC API error:', e)
+    const errorMessage = e instanceof Error ? e.message : 'GSC request failed'
+    const errorStack = e instanceof Error ? e.stack : undefined
+    console.error('[GSC API] Error:', errorMessage)
+    if (errorStack) {
+      console.error('[GSC API] Error stack:', errorStack)
+    }
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'GSC request failed' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
