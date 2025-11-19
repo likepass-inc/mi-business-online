@@ -66,9 +66,23 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
     throw new Error('GA4_PROPERTY_ID must be set')
   }
 
-  // eventNameフィルタがある場合はeventFilterを使用
-  const eventNameFilter = request.filters?.find((f) => f.field === 'eventName')
-  const otherFilters = request.filters?.filter((f) => f.field !== 'eventName') || []
+  // すべてのフィルタをdimensionFilterに統合
+  const filters = request.filters || []
+  const dimensionFilter = filters.length > 0
+    ? {
+        andGroup: {
+          expressions: filters.map((f) => ({
+            filter: {
+              fieldName: f.field,
+              stringFilter: {
+                matchType: f.operator === 'EXACT' ? 'EXACT' : 'CONTAINS',
+                value: f.value,
+              },
+            },
+          })),
+        },
+      }
+    : undefined
 
   const response = await analyticsClient.runReport({
     property: `properties/${propertyId}`,
@@ -80,32 +94,7 @@ export async function fetchGA4Data(request: GA4Request): Promise<GA4Response> {
     ],
     metrics: request.metrics.map((m) => ({ name: m })),
     dimensions: request.dimensions?.map((d) => ({ name: d })) || [],
-    eventFilter: eventNameFilter
-      ? {
-          filter: {
-            fieldName: 'eventName',
-            stringFilter: {
-              matchType: eventNameFilter.operator === 'EXACT' ? 'EXACT' : 'CONTAINS',
-              value: eventNameFilter.value,
-            },
-          },
-        }
-      : undefined,
-    dimensionFilter: otherFilters.length > 0
-      ? {
-          andGroup: {
-            expressions: otherFilters.map((f) => ({
-              filter: {
-                fieldName: f.field,
-                stringFilter: {
-                  matchType: f.operator === 'EXACT' ? 'EXACT' : 'CONTAINS',
-                  value: f.value,
-                },
-              },
-            })),
-          },
-        }
-      : undefined,
+    dimensionFilter,
   })
 
   const rows =
