@@ -389,6 +389,7 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         </p>
         <ComparisonDisplay current={kpiData.gscPosition} previous={kpiData.prevGscPosition} isLowerBetter={true} />
       </div>
+      </div>
     </div>
   )
 }
