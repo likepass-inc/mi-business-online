@@ -40,7 +40,7 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
   const categoryInfo = extractProductCategory($, url)
 
   // 商品説明を抽出
-  const description = extractProductDescription($)
+  let description = extractProductDescription($)
 
   // 構造化データから情報を取得（補完）
   const structuredData = extractStructuredData($)
