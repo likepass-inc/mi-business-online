@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio'
-import type { CheerioAPI } from 'cheerio'
 import type { ProductData } from './db/productRepository'
 
 export interface ParsedProductData extends ProductData {
@@ -19,7 +18,7 @@ export interface ParsedProductData extends ProductData {
  * 商品ページのHTMLから商品情報を抽出
  */
 export function parseProductPage(html: string, url: string): ParsedProductData | null {
-  const $: CheerioAPI = cheerio.load(html)
+  const $ = cheerio.load(html)
   const baseUrl = new URL(url)
 
   // 基本情報を抽出
@@ -78,7 +77,7 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
 /**
  * 基本情報（商品名、商品コード）を抽出
  */
-function extractProductBasicInfo($: CheerioAPI, url: string): {
+function extractProductBasicInfo($: ReturnType<typeof cheerio.load>, url: string): {
   product_code: string
   product_name: string
 } {
@@ -155,7 +154,7 @@ function extractProductBasicInfo($: CheerioAPI, url: string): {
 /**
  * 商品画像を抽出
  */
-function extractProductImages($: CheerioAPI, baseUrl: URL): string[] {
+function extractProductImages($: ReturnType<typeof cheerio.load>, baseUrl: URL): string[] {
   const imageUrls: string[] = []
 
   // メイン商品画像を探す（よくあるセレクタ）
@@ -229,7 +228,7 @@ function extractProductImages($: CheerioAPI, baseUrl: URL): string[] {
 /**
  * 価格情報を抽出
  */
-function extractProductPrice($: CheerioAPI): {
+function extractProductPrice($: ReturnType<typeof cheerio.load>): {
   price_incl_tax?: number
   price_excl_tax?: number
 } {
@@ -304,7 +303,7 @@ function extractProductPrice($: CheerioAPI): {
 /**
  * 在庫状況を抽出
  */
-function extractProductAvailability($: CheerioAPI): string | null {
+function extractProductAvailability($: ReturnType<typeof cheerio.load>): string | null {
   // 在庫状況のよくある表示パターン
   const availabilityPatterns = [
     /在庫あり/i,
@@ -352,7 +351,7 @@ function extractProductAvailability($: CheerioAPI): string | null {
 /**
  * カテゴリ情報を抽出
  */
-function extractProductCategory($: CheerioAPI, url: string): {
+function extractProductCategory($: ReturnType<typeof cheerio.load>, url: string): {
   category?: string
   sub_category?: string
 } {
@@ -401,7 +400,7 @@ function extractProductCategory($: CheerioAPI, url: string): {
 /**
  * 商品説明を抽出
  */
-function extractProductDescription($: CheerioAPI): string {
+function extractProductDescription($: ReturnType<typeof cheerio.load>): string {
   // メタディスクリプション
   const metaDesc = $('meta[name="description"]').attr('content')
   if (metaDesc) {
@@ -452,7 +451,7 @@ function extractProductDescription($: CheerioAPI): string {
 /**
  * 構造化データ（JSON-LD）から情報を抽出
  */
-function extractStructuredData($: CheerioAPI): {
+function extractStructuredData($: ReturnType<typeof cheerio.load>): {
   name?: string
   price?: number
   description?: string
