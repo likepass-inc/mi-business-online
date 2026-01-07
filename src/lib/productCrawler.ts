@@ -39,13 +39,14 @@ export async function collectProductUrls(): Promise<string[]> {
  */
 export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string[]> {
   const productUrls: string[] = []
+  const seenUrls = new Set<string>()
   
   try {
     const response = await fetch(sitemapUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(30000), // タイムアウトを30秒に延長
     })
     
     if (!response.ok) {
@@ -56,24 +57,52 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     const $ = cheerio.load(xml, { xmlMode: true })
     
     // sitemapindex の場合、各sitemapを再帰的に処理
+    const sitemapUrls: string[] = []
     $('sitemapindex > sitemap > loc').each((_, el) => {
       const loc = $(el).text().trim()
-      if (loc) {
-        // 再帰的に処理（ただし無限ループを防ぐため、sitemap.xmlのみ）
-        if (loc.includes('sitemap') && loc.endsWith('.xml')) {
-          // 非同期処理のため、ここでは収集のみ
-          // 実際の実装では、Promise.all で並列処理するか、順次処理する
-        }
+      if (loc && loc.includes('sitemap') && loc.endsWith('.xml')) {
+        sitemapUrls.push(loc)
       }
     })
+    
+    if (sitemapUrls.length > 0) {
+      console.log(`Found ${sitemapUrls.length} sitemap files, processing...`)
+      // 各sitemapを並列処理（最大10個まで）
+      const batchSize = 10
+      for (let i = 0; i < sitemapUrls.length; i += batchSize) {
+        const batch = sitemapUrls.slice(i, i + batchSize)
+        const results = await Promise.allSettled(
+          batch.map(url => extractUrlsFromSitemap(url))
+        )
+        
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            for (const url of result.value) {
+              if (!seenUrls.has(url)) {
+                seenUrls.add(url)
+                productUrls.push(url)
+              }
+            }
+          }
+        }
+        
+        // レート制限を考慮して少し待機
+        if (i + batchSize < sitemapUrls.length) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    }
     
     // urlset から直接URLを抽出
     $('urlset > url > loc').each((_, el) => {
       const url = $(el).text().trim()
-      if (url && isProductUrl(url)) {
+      if (url && isProductUrl(url) && !seenUrls.has(url)) {
+        seenUrls.add(url)
         productUrls.push(url)
       }
     })
+    
+    console.log(`Extracted ${productUrls.length} product URLs from sitemap`)
     
   } catch (error) {
     console.error('Error extracting URLs from sitemap:', error)
