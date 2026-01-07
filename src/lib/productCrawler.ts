@@ -246,7 +246,17 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
   // URLからクエリパラメータを除去して正規化
   const baseUrl = categoryUrl.split('?')[0]
   
-  while (hasMore && page <= 100) { // 最大100ページまで
+  // タイムアウトを設定（カテゴリごとに最大30秒）
+  const startTime = Date.now()
+  const maxDuration = 30000 // 30秒
+  
+  while (hasMore && page <= 50) { // 最大50ページまで（100から減らした）
+    // タイムアウトチェック
+    if (Date.now() - startTime > maxDuration) {
+      console.warn(`Timeout reached for ${baseUrl} after ${page} pages, collected ${allUrls.length} URLs`)
+      break
+    }
+    
     try {
       const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`
       const urls = await extractUrlsFromCategoryPage(pageUrl)
@@ -278,8 +288,8 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
       }
       
       page++
-      // レート制限を考慮（500ms待機）
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // レート制限を考慮（300ms待機、500msから短縮）
+      await new Promise(resolve => setTimeout(resolve, 300))
     } catch (error) {
       console.warn(`Failed to extract URLs from page ${page} of ${baseUrl}:`, error)
       consecutiveEmptyPages++
