@@ -2,7 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 // 認証が不要なパス
-const publicPaths = ['/login', '/api/auth/login', '/api/auth/logout', '/api/auth/session']
+const publicPaths = [
+  '/login',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/session',
+  // 商品API（WordPress/SWELLからアクセス）
+  '/api/products',
+  '/api/magazine',
+  '/api/crawl',
+  '/api/cron'
+]
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
