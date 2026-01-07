@@ -365,22 +365,42 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
   } else {
     // 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
     const batchSize = 3 // 並列数を減らして安定性を向上
+    console.log(`Processing ${categoryUrls.length} category pages in batches of ${batchSize}...`)
+    
     for (let i = 0; i < categoryUrls.length; i += batchSize) {
       const batch = categoryUrls.slice(i, i + batchSize)
+      const batchNumber = Math.floor(i / batchSize) + 1
+      const totalBatches = Math.ceil(categoryUrls.length / batchSize)
+      
+      console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} categories)...`)
+      
       const results = await Promise.allSettled(
-        batch.map(url => extractUrlsFromCategoryPageWithPagination(url))
+        batch.map(async (url, idx) => {
+          try {
+            const urls = await extractUrlsFromCategoryPageWithPagination(url)
+            console.log(`Category ${i + idx + 1}/${categoryUrls.length}: Found ${urls.length} products from ${url}`)
+            return urls
+          } catch (error) {
+            console.error(`Failed to extract URLs from category ${url}:`, error)
+            return []
+          }
+        })
       )
       
+      let batchTotalUrls = 0
       for (const result of results) {
         if (result.status === 'fulfilled') {
           for (const url of result.value) {
             if (!seenUrls.has(url)) {
               seenUrls.add(url)
               allUrls.push(url)
+              batchTotalUrls++
             }
           }
         }
       }
+      
+      console.log(`Batch ${batchNumber}/${totalBatches} completed: ${batchTotalUrls} new URLs found (total: ${allUrls.length})`)
       
       // レート制限を考慮して少し待機
       if (i + batchSize < categoryUrls.length) {
@@ -389,6 +409,7 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
     }
   }
   
+  console.log(`Total product URLs collected: ${allUrls.length}`)
   return allUrls
 }
 
