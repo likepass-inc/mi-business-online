@@ -105,13 +105,23 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     
     // urlset から直接URLを抽出
     let totalUrlsFound = 0
+    let businessMistoreUrls = 0
     const sampleUrls: string[] = []
+    const sampleBusinessUrls: string[] = []
     
     $('urlset > url > loc').each((_, el) => {
       const url = $(el).text().trim()
       totalUrlsFound++
       if (url) {
-        // サンプルURLを保存（最初の5件）
+        // business.mistore.jpのURLをカウント
+        if (url.includes('business.mistore.jp')) {
+          businessMistoreUrls++
+          // business.mistore.jpのサンプルURLを保存（最初の10件）
+          if (sampleBusinessUrls.length < 10) {
+            sampleBusinessUrls.push(url)
+          }
+        }
+        // 全URLのサンプルを保存（最初の5件）
         if (sampleUrls.length < 5) {
           sampleUrls.push(url)
         }
@@ -128,7 +138,15 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
         const url = $(el).text().trim()
         totalUrlsFound++
         if (url) {
-          // サンプルURLを保存（最初の5件）
+          // business.mistore.jpのURLをカウント
+          if (url.includes('business.mistore.jp')) {
+            businessMistoreUrls++
+            // business.mistore.jpのサンプルURLを保存（最初の10件）
+            if (sampleBusinessUrls.length < 10) {
+              sampleBusinessUrls.push(url)
+            }
+          }
+          // 全URLのサンプルを保存（最初の5件）
           if (sampleUrls.length < 5) {
             sampleUrls.push(url)
           }
@@ -141,11 +159,14 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     }
     
     // デバッグ用：サンプルURLを表示
-    if (sampleUrls.length > 0 && productUrls.length === 0) {
+    if (sampleBusinessUrls.length > 0) {
+      console.log(`Found ${businessMistoreUrls} business.mistore.jp URLs in sitemap`)
+      console.log(`Sample business.mistore.jp URLs (first 10):`, sampleBusinessUrls)
+    } else if (sampleUrls.length > 0) {
       console.log(`Sample URLs from sitemap (first 5):`, sampleUrls)
     }
     
-    console.log(`Extracted ${productUrls.length} product URLs from sitemap (total URLs found: ${totalUrlsFound})`)
+    console.log(`Extracted ${productUrls.length} product URLs from sitemap (total URLs found: ${totalUrlsFound}, business.mistore.jp URLs: ${businessMistoreUrls})`)
     
   } catch (error) {
     console.error('Error extracting URLs from sitemap:', error)
