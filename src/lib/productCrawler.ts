@@ -60,10 +60,20 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     const sitemapUrls: string[] = []
     $('sitemapindex > sitemap > loc').each((_, el) => {
       const loc = $(el).text().trim()
-      if (loc && loc.includes('sitemap') && loc.endsWith('.xml')) {
+      if (loc) {
         sitemapUrls.push(loc)
       }
     })
+    
+    // 別のパターンも試す
+    if (sitemapUrls.length === 0) {
+      $('sitemap > loc').each((_, el) => {
+        const loc = $(el).text().trim()
+        if (loc) {
+          sitemapUrls.push(loc)
+        }
+      })
+    }
     
     if (sitemapUrls.length > 0) {
       console.log(`Found ${sitemapUrls.length} sitemap files, processing...`)
@@ -94,15 +104,29 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     }
     
     // urlset から直接URLを抽出
+    let totalUrlsFound = 0
     $('urlset > url > loc').each((_, el) => {
       const url = $(el).text().trim()
+      totalUrlsFound++
       if (url && isProductUrl(url) && !seenUrls.has(url)) {
         seenUrls.add(url)
         productUrls.push(url)
       }
     })
     
-    console.log(`Extracted ${productUrls.length} product URLs from sitemap`)
+    // 別のパターンも試す
+    if (totalUrlsFound === 0) {
+      $('url > loc').each((_, el) => {
+        const url = $(el).text().trim()
+        totalUrlsFound++
+        if (url && isProductUrl(url) && !seenUrls.has(url)) {
+          seenUrls.add(url)
+          productUrls.push(url)
+        }
+      })
+    }
+    
+    console.log(`Extracted ${productUrls.length} product URLs from sitemap (total URLs found: ${totalUrlsFound})`)
     
   } catch (error) {
     console.error('Error extracting URLs from sitemap:', error)
@@ -113,29 +137,19 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
 }
 
 /**
- * カテゴリページから商品URLを抽出
+ * カテゴリページから商品URLを抽出（1ページ分）
  */
 export async function extractUrlsFromCategoryPage(categoryUrl: string): Promise<string[]> {
   const productUrls: string[] = []
+  const seenUrls = new Set<string>()
   
   try {
-    // 既存のスクレイピング機能を使用
-    const scrapedData = await scrapePage(categoryUrl, false)
-    
-    if (scrapedData.internalLinks) {
-      for (const link of scrapedData.internalLinks) {
-        if (isProductUrl(link)) {
-          productUrls.push(link)
-        }
-      }
-    }
-    
     // HTMLを直接パースして商品リンクを探す
     const response = await fetch(categoryUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(15000),
     })
     
     if (response.ok) {
@@ -148,8 +162,10 @@ export async function extractUrlsFromCategoryPage(categoryUrl: string): Promise<
         if (href) {
           try {
             const url = new URL(href, BASE_URL).href
-            if (isProductUrl(url) && !productUrls.includes(url)) {
-              productUrls.push(url)
+            const normalizedUrl = url.split('?')[0] // クエリパラメータを除去
+            if (isProductUrl(normalizedUrl) && !seenUrls.has(normalizedUrl)) {
+              seenUrls.add(normalizedUrl)
+              productUrls.push(normalizedUrl)
             }
           } catch {
             // URL解析エラーは無視
@@ -163,6 +179,67 @@ export async function extractUrlsFromCategoryPage(categoryUrl: string): Promise<
   }
   
   return productUrls
+}
+
+/**
+ * ページネーションを考慮してカテゴリページから商品URLを収集
+ */
+async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): Promise<string[]> {
+  const allUrls: string[] = []
+  const seenUrls = new Set<string>()
+  let page = 1
+  let hasMore = true
+  let consecutiveEmptyPages = 0
+  
+  // URLからクエリパラメータを除去して正規化
+  const baseUrl = categoryUrl.split('?')[0]
+  
+  while (hasMore && page <= 100) { // 最大100ページまで
+    try {
+      const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`
+      const urls = await extractUrlsFromCategoryPage(pageUrl)
+      
+      if (urls.length === 0) {
+        consecutiveEmptyPages++
+        // 連続して2ページ空なら終了
+        if (consecutiveEmptyPages >= 2) {
+          hasMore = false
+          break
+        }
+      } else {
+        consecutiveEmptyPages = 0
+      }
+      
+      let newUrlsCount = 0
+      for (const url of urls) {
+        if (!seenUrls.has(url)) {
+          seenUrls.add(url)
+          allUrls.push(url)
+          newUrlsCount++
+        }
+      }
+      
+      // 新しいURLがなければ終了
+      if (newUrlsCount === 0 && urls.length === 0) {
+        hasMore = false
+        break
+      }
+      
+      page++
+      // レート制限を考慮（500ms待機）
+      await new Promise(resolve => setTimeout(resolve, 500))
+    } catch (error) {
+      console.warn(`Failed to extract URLs from page ${page} of ${baseUrl}:`, error)
+      consecutiveEmptyPages++
+      if (consecutiveEmptyPages >= 2) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+  }
+  
+  return allUrls
 }
 
 /**
@@ -201,14 +278,18 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
         if (href) {
           try {
             const url = new URL(href, BASE_URL).href
-            if (!categoryUrls.includes(url)) {
-              categoryUrls.push(url)
+            // クエリパラメータを除去して正規化
+            const normalizedUrl = url.split('?')[0]
+            if (!categoryUrls.includes(normalizedUrl)) {
+              categoryUrls.push(normalizedUrl)
             }
           } catch {
             // URL解析エラーは無視
           }
         }
       })
+      
+      console.log(`Found ${categoryUrls.length} category pages`)
     }
   } catch (error) {
     console.warn('Failed to fetch category list, using fallback method:', error)
@@ -216,10 +297,10 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
   
   // カテゴリページが取得できない場合は、直接商品ページを探す
   if (categoryUrls.length === 0) {
-    // 商品一覧ページから直接商品URLを取得
+    // 商品一覧ページから直接商品URLを取得（ページネーション対応）
     try {
       const productListUrl = `${BASE_URL}/shop/`
-      const urls = await extractUrlsFromCategoryPage(productListUrl)
+      const urls = await extractUrlsFromCategoryPageWithPagination(productListUrl)
       for (const url of urls) {
         if (!seenUrls.has(url)) {
           seenUrls.add(url)
@@ -230,19 +311,21 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
       console.error('Failed to extract URLs from product list page:', error)
     }
   } else {
-    // 各カテゴリページから商品URLを取得（並列処理、最大5つまで）
-    const batchSize = 5
+    // 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
+    const batchSize = 3 // 並列数を減らして安定性を向上
     for (let i = 0; i < categoryUrls.length; i += batchSize) {
       const batch = categoryUrls.slice(i, i + batchSize)
-      const results = await Promise.all(
-        batch.map(url => extractUrlsFromCategoryPage(url))
+      const results = await Promise.allSettled(
+        batch.map(url => extractUrlsFromCategoryPageWithPagination(url))
       )
       
-      for (const urls of results) {
-        for (const url of urls) {
-          if (!seenUrls.has(url)) {
-            seenUrls.add(url)
-            allUrls.push(url)
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          for (const url of result.value) {
+            if (!seenUrls.has(url)) {
+              seenUrls.add(url)
+              allUrls.push(url)
+            }
           }
         }
       }
