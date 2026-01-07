@@ -18,15 +18,19 @@ export async function GET(req: NextRequest) {
     }
     
     // 最新のクロールログを取得
+    console.log('[Crawl API] Fetching latest crawl log...')
     const latestLog = getLatestCrawlLog()
     
     if (!latestLog) {
+      console.log('[Crawl API] No crawl logs found')
       return NextResponse.json({
         success: true,
         message: 'No crawl logs found',
         log: null
       })
     }
+    
+    console.log(`[Crawl API] Found crawl log: ID=${latestLog.id}, Status=${latestLog.status}, Total URLs=${latestLog.total_urls}, Success=${latestLog.success_count}, Errors=${latestLog.error_count}`)
     
     return NextResponse.json({
       success: true,
@@ -36,6 +40,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'Failed to get crawl status'
     console.error('[Crawl API] Error:', errorMessage)
+    console.error('[Crawl API] Error stack:', e instanceof Error ? e.stack : undefined)
     return NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 }
