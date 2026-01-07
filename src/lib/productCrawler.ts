@@ -9,16 +9,28 @@ const BASE_URL = 'https://business.mistore.jp'
 export async function collectProductUrls(): Promise<string[]> {
   const urls: string[] = []
   
+  // 複数のサイトマップURLを試す
+  const sitemapUrlsToTry = [
+    `${BASE_URL}/sitemap.xml`,
+    `${BASE_URL}/sitemap_index.xml`,
+    `${BASE_URL}/sitemaps/sitemap.xml`,
+  ]
+  
   // まずサイトマップから取得を試みる
-  try {
-    const sitemapUrls = await extractUrlsFromSitemap(`${BASE_URL}/sitemap.xml`)
-    if (sitemapUrls.length > 0) {
-      console.log(`Found ${sitemapUrls.length} product URLs from sitemap`)
-      return sitemapUrls
+  for (const sitemapUrl of sitemapUrlsToTry) {
+    try {
+      const sitemapUrls = await extractUrlsFromSitemap(sitemapUrl)
+      if (sitemapUrls.length > 0) {
+        console.log(`Found ${sitemapUrls.length} product URLs from sitemap: ${sitemapUrl}`)
+        return sitemapUrls
+      }
+    } catch (error) {
+      console.warn(`Failed to extract URLs from sitemap ${sitemapUrl}:`, error)
+      continue
     }
-  } catch (error) {
-    console.warn('Failed to extract URLs from sitemap, trying category pages:', error)
   }
+  
+  console.log('No product URLs found in sitemaps, using category pages')
   
   // サイトマップが取得できない場合はカテゴリページから取得
   try {
