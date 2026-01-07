@@ -21,13 +21,22 @@ export function getDatabase(): Database.Database {
     return dbInstance
   }
 
-  dbInstance = new Database(DB_PATH)
-  dbInstance.pragma('journal_mode = WAL')
-  
-  // テーブル作成
-  initializeSchema(dbInstance)
-  
-  return dbInstance
+  try {
+    console.log('[Database] Initializing database at:', DB_PATH)
+    console.log('[Database] DB_DIR:', DB_DIR)
+    
+    dbInstance = new Database(DB_PATH)
+    dbInstance.pragma('journal_mode = WAL')
+    
+    // テーブル作成
+    initializeSchema(dbInstance)
+    
+    console.log('[Database] Database initialized successfully')
+    return dbInstance
+  } catch (error) {
+    console.error('[Database] Failed to initialize database:', error)
+    throw error
+  }
 }
 
 function initializeSchema(db: Database.Database) {
