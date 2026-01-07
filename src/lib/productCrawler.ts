@@ -105,12 +105,20 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     
     // urlset から直接URLを抽出
     let totalUrlsFound = 0
+    const sampleUrls: string[] = []
+    
     $('urlset > url > loc').each((_, el) => {
       const url = $(el).text().trim()
       totalUrlsFound++
-      if (url && isProductUrl(url) && !seenUrls.has(url)) {
-        seenUrls.add(url)
-        productUrls.push(url)
+      if (url) {
+        // サンプルURLを保存（最初の5件）
+        if (sampleUrls.length < 5) {
+          sampleUrls.push(url)
+        }
+        if (isProductUrl(url) && !seenUrls.has(url)) {
+          seenUrls.add(url)
+          productUrls.push(url)
+        }
       }
     })
     
@@ -119,11 +127,22 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
       $('url > loc').each((_, el) => {
         const url = $(el).text().trim()
         totalUrlsFound++
-        if (url && isProductUrl(url) && !seenUrls.has(url)) {
-          seenUrls.add(url)
-          productUrls.push(url)
+        if (url) {
+          // サンプルURLを保存（最初の5件）
+          if (sampleUrls.length < 5) {
+            sampleUrls.push(url)
+          }
+          if (isProductUrl(url) && !seenUrls.has(url)) {
+            seenUrls.add(url)
+            productUrls.push(url)
+          }
         }
       })
+    }
+    
+    // デバッグ用：サンプルURLを表示
+    if (sampleUrls.length > 0 && productUrls.length === 0) {
+      console.log(`Sample URLs from sitemap (first 5):`, sampleUrls)
     }
     
     console.log(`Extracted ${productUrls.length} product URLs from sitemap (total URLs found: ${totalUrlsFound})`)
@@ -346,11 +365,21 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
 function isProductUrl(url: string): boolean {
   try {
     const urlObj = new URL(url)
+    const pathname = urlObj.pathname
+    
     // /shop/g/ で始まるパスが商品ページ
-    return urlObj.pathname.match(/^\/shop\/g\/[^\/]+/) !== null &&
-           urlObj.hostname.includes('business.mistore.jp')
+    // パターン1: /shop/g/商品コード
+    // パターン2: /shop/g/商品コード/...
+    const productPattern = /^\/shop\/g\/[^\/]+/
+    
+    // ホスト名のチェック（business.mistore.jp またはそのサブドメイン）
+    const isValidHost = urlObj.hostname.includes('business.mistore.jp') || 
+                        urlObj.hostname.includes('mistore.jp')
+    
+    return productPattern.test(pathname) && isValidHost
   } catch {
-    return false
+    // URL解析エラーの場合は、文字列として直接チェック
+    return /\/shop\/g\/[^\/]+/.test(url) && url.includes('mistore.jp')
   }
 }
 
