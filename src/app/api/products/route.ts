@@ -36,6 +36,10 @@ export async function GET(req: NextRequest) {
         offset,
         has_more: offset + limit < result.total
       }
+    }, {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8'
+      }
     })
     
   } catch (e) {
