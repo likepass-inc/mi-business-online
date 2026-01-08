@@ -9,11 +9,6 @@ import fs from 'fs'
 const DB_DIR = process.env.DB_DIR || path.join(process.cwd(), 'data')
 const DB_PATH = process.env.DB_PATH || path.join(DB_DIR, 'products.db')
 
-// データベースディレクトリが存在しない場合は作成
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true })
-}
-
 let dbInstance: Database.Database | null = null
 
 export function getDatabase(): Database.Database {
@@ -22,6 +17,18 @@ export function getDatabase(): Database.Database {
   }
 
   try {
+    // データベースディレクトリが存在しない場合は作成（実行時のみ）
+    if (!fs.existsSync(DB_DIR)) {
+      try {
+        fs.mkdirSync(DB_DIR, { recursive: true })
+      } catch (mkdirError: any) {
+        // ディレクトリ作成に失敗した場合でも、親ディレクトリが存在する可能性があるので続行
+        if (mkdirError.code !== 'EEXIST') {
+          console.warn('[Database] Failed to create directory, continuing anyway:', mkdirError.message)
+        }
+      }
+    }
+    
     console.log('[Database] Initializing database at:', DB_PATH)
     console.log('[Database] DB_DIR:', DB_DIR)
     
