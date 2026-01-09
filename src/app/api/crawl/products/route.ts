@@ -128,42 +128,50 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
             // スクレイピング
             const scrapedData = await scrapePage(url, false)
             
-            // HTMLを取得
-            // scrapePageは既にHTMLを取得しているが、パース用に再度取得する必要がある
-            // 将来的にはscrapePageから直接HTMLを返すように改善可能
+            // HTMLを取得（文字エンコーディングを正しく処理するため、Playwrightを優先使用）
             let html: string
             try {
-              const response = await fetch(url, {
-                headers: {
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                },
-                signal: AbortSignal.timeout(15000), // タイムアウトを15秒に延長
+              // Playwrightを使用してHTMLを取得（エンコーディングを自動処理）
+              const { chromium } = await import('playwright')
+              const browser = await chromium.launch({ 
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
               })
-              
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-              }
-              
-              html = await response.text()
-            } catch (fetchError) {
-              // fetchが失敗した場合、Playwrightを使用して再試行
-              console.warn(`[Crawl API] Fetch failed for ${url}, trying Playwright:`, fetchError)
+              const page = await browser.newPage()
               try {
-                const { chromium } = await import('playwright')
-                const browser = await chromium.launch({ 
-                  headless: true,
-                  args: ['--no-sandbox', '--disable-setuid-sandbox']
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
+                html = await page.content()
+              } finally {
+                await page.close().catch(() => {})
+                await browser.close().catch(() => {})
+              }
+            } catch (playwrightError) {
+              // Playwrightが失敗した場合、fetchを使用して再試行
+              console.warn(`[Crawl API] Playwright failed for ${url}, trying fetch:`, playwrightError)
+              try {
+                const response = await fetch(url, {
+                  headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept-Charset': 'UTF-8',
+                  },
+                  signal: AbortSignal.timeout(15000),
                 })
-                const page = await browser.newPage()
-                try {
-                  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
-                  html = await page.content()
-                } finally {
-                  await page.close().catch(() => {})
-                  await browser.close().catch(() => {})
+                
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`)
                 }
-              } catch (playwrightError) {
-                throw new Error(`Both fetch and Playwright failed: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`)
+                
+                // レスポンスのエンコーディングを確認
+                const contentType = response.headers.get('content-type') || ''
+                const charsetMatch = contentType.match(/charset=([^;]+)/i)
+                const charset = charsetMatch ? charsetMatch[1].trim() : 'utf-8'
+                
+                // ArrayBufferとして取得してから、適切なエンコーディングでデコード
+                const buffer = await response.arrayBuffer()
+                const decoder = new TextDecoder(charset.toLowerCase() === 'utf-8' ? 'utf-8' : 'utf-8')
+                html = decoder.decode(buffer)
+              } catch (fetchError) {
+                throw new Error(`Both Playwright and fetch failed: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`)
               }
             }
             
