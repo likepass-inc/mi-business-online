@@ -18,6 +18,13 @@ export interface ParsedProductData extends ProductData {
  * 商品ページのHTMLから商品情報を抽出
  */
 export function parseProductPage(html: string, url: string): ParsedProductData | null {
+  // HTMLのエンコーディングを確認
+  // meta charsetタグからエンコーディングを取得
+  const charsetMatch = html.match(/<meta[^>]*charset\s*=\s*["']?([^"'\s>]+)/i)
+  const charset = charsetMatch ? charsetMatch[1].toLowerCase() : 'utf-8'
+  
+  // cheerioでパース（UTF-8を想定）
+  // HTMLがUTF-8でない場合でも、Playwrightが既にUTF-8に変換しているはず
   const $ = cheerio.load(html)
   const baseUrl = new URL(url)
 

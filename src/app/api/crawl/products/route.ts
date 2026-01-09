@@ -139,8 +139,18 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
               })
               const page = await browser.newPage()
               try {
+                // ページのエンコーディングを明示的にUTF-8に設定
+                await page.setExtraHTTPHeaders({
+                  'Accept-Charset': 'UTF-8'
+                })
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
+                // ページのコンテンツをUTF-8として取得
                 html = await page.content()
+                
+                // デバッグ: 最初の500文字をログに出力（エンコーディング確認用）
+                if (i === 0) {
+                  console.log(`[Crawl API] Sample HTML (first 500 chars):`, html.substring(0, 500))
+                }
               } finally {
                 await page.close().catch(() => {})
                 await browser.close().catch(() => {})
