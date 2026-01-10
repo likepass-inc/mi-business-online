@@ -172,8 +172,8 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
                   await browser.close().catch(() => {})
                 }
               } catch (playwrightError) {
-              // Playwrightが失敗した場合、fetchを使用して再試行
-              console.warn(`[Crawl API] Playwright failed for ${url}, trying fetch:`, playwrightError)
+                // Playwrightが失敗した場合、fetchを使用して再試行
+                console.warn(`[Crawl API] Playwright failed for ${url}, trying fetch:`, playwrightError)
               try {
                 const response = await fetch(url, {
                   headers: {
