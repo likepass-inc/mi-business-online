@@ -141,36 +141,37 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
               // HTMLを取得（文字エンコーディングを正しく処理するため、Playwrightを優先使用）
               let html: string
               try {
-              // Playwrightを使用してHTMLを取得（エンコーディングを自動処理）
-              const { chromium } = await import('playwright')
-              const browser = await chromium.launch({ 
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-              })
-              const page = await browser.newPage()
-              try {
-                // ページのエンコーディングを明示的にUTF-8に設定
-                await page.setExtraHTTPHeaders({
-                  'Accept-Charset': 'UTF-8'
+                // Playwrightを使用してHTMLを取得（エンコーディングを自動処理）
+                const { chromium } = await import('playwright')
+                const browser = await chromium.launch({ 
+                  headless: true,
+                  args: ['--no-sandbox', '--disable-setuid-sandbox']
                 })
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
-                // ページのコンテンツをUTF-8として取得
-                html = await page.content()
-                
-                // デバッグ: 最初の商品ページのHTMLをログに出力（エンコーディング確認用）
-                if (i === 0 && batch[0] === url) {
-                  console.log(`[Crawl API] Sample HTML (first 1000 chars) from ${url}:`, html.substring(0, 1000))
-                  // タイトルタグの内容も確認
-                  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-                  if (titleMatch) {
-                    console.log(`[Crawl API] Title from HTML:`, titleMatch[1])
+                const page = await browser.newPage()
+                try {
+                  // ページのエンコーディングを明示的にUTF-8に設定
+                  await page.setExtraHTTPHeaders({
+                    'Accept-Charset': 'UTF-8'
+                  })
+                  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 })
+                  // ページのコンテンツをUTF-8として取得
+                  html = await page.content()
+                  
+                  // デバッグ: 最初の商品ページのHTMLをログに出力（エンコーディング確認用）
+                  const isFirstProduct = i === 0 && batch.indexOf(url) === 0
+                  if (isFirstProduct) {
+                    console.log(`[Crawl API] Sample HTML (first 1000 chars) from ${url}:`, html.substring(0, 1000))
+                    // タイトルタグの内容も確認
+                    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+                    if (titleMatch) {
+                      console.log(`[Crawl API] Title from HTML:`, titleMatch[1])
+                    }
                   }
+                } finally {
+                  await page.close().catch(() => {})
+                  await browser.close().catch(() => {})
                 }
-              } finally {
-                await page.close().catch(() => {})
-                await browser.close().catch(() => {})
-              }
-            } catch (playwrightError) {
+              } catch (playwrightError) {
               // Playwrightが失敗した場合、fetchを使用して再試行
               console.warn(`[Crawl API] Playwright failed for ${url}, trying fetch:`, playwrightError)
               try {
@@ -239,8 +240,7 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
               } catch (fetchError) {
                 throw new Error(`Both Playwright and fetch failed: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`)
               }
-            }
-            
+              
               // 商品情報をパース
               const productData = parseProductPage(html, url)
               
