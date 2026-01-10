@@ -9,38 +9,73 @@ const BASE_URL = 'https://business.mistore.jp'
 export async function collectProductUrls(): Promise<string[]> {
   const urls: string[] = []
   
-  // 複数のサイトマップURLを試す
+  // 複数のサイトマップURLを試す（より多くのパターンを追加）
   const sitemapUrlsToTry = [
     `${BASE_URL}/sitemap.xml`,
     `${BASE_URL}/sitemap_index.xml`,
     `${BASE_URL}/sitemaps/sitemap.xml`,
+    `${BASE_URL}/sitemap_index.xml.gz`,
+    `${BASE_URL}/sitemap.xml.gz`,
+    `${BASE_URL}/sitemaps/sitemap_index.xml`,
+    `${BASE_URL}/robots.txt`, // robots.txtからサイトマップの場所を取得
   ]
   
   // まずサイトマップから取得を試みる
+  let totalSitemapUrls = 0
   for (const sitemapUrl of sitemapUrlsToTry) {
     try {
+      console.log(`[Sitemap] Trying sitemap URL: ${sitemapUrl}`)
       const sitemapUrls = await extractUrlsFromSitemap(sitemapUrl)
       if (sitemapUrls.length > 0) {
-        console.log(`Found ${sitemapUrls.length} product URLs from sitemap: ${sitemapUrl}`)
-        return sitemapUrls
+        console.log(`[Sitemap] Found ${sitemapUrls.length} product URLs from sitemap: ${sitemapUrl}`)
+        totalSitemapUrls += sitemapUrls.length
+        // 重複を排除してマージ
+        for (const url of sitemapUrls) {
+          if (!urls.includes(url)) {
+            urls.push(url)
+          }
+        }
       }
     } catch (error) {
-      console.warn(`Failed to extract URLs from sitemap ${sitemapUrl}:`, error)
+      console.warn(`[Sitemap] Failed to extract URLs from sitemap ${sitemapUrl}:`, error instanceof Error ? error.message : String(error))
       continue
     }
   }
   
-  console.log('No product URLs found in sitemaps, using category pages')
+  if (urls.length > 0) {
+    console.log(`[Sitemap] Total ${urls.length} unique product URLs collected from sitemaps`)
+    return urls
+  }
+  
+  console.log('[Sitemap] No product URLs found in sitemaps, using category pages')
   
   // サイトマップが取得できない場合はカテゴリページから取得
-  try {
-    const categoryUrls = await extractUrlsFromCategoryPages()
-    if (categoryUrls.length > 0) {
-      console.log(`Found ${categoryUrls.length} product URLs from category pages`)
-      return categoryUrls
+  if (urls.length === 0) {
+    console.log('[Category] Falling back to category pages for URL collection')
+    try {
+      const categoryUrls = await extractUrlsFromCategoryPages()
+      if (categoryUrls.length > 0) {
+        console.log(`[Category] Found ${categoryUrls.length} product URLs from category pages`)
+        // サイトマップから収集したURLとマージ（重複排除）
+        for (const url of categoryUrls) {
+          if (!urls.includes(url)) {
+            urls.push(url)
+          }
+        }
+        console.log(`[Category] Total unique URLs after merging: ${urls.length}`)
+        return urls
+      } else {
+        console.warn('[Category] No product URLs found from category pages either')
+      }
+    } catch (error) {
+      console.error('[Category] Failed to extract URLs from category pages:', error instanceof Error ? error.message : String(error))
     }
-  } catch (error) {
-    console.error('Failed to extract URLs from category pages:', error)
+  }
+  
+  if (urls.length === 0) {
+    console.error('[Collection] WARNING: No product URLs collected from any source!')
+  } else {
+    console.log(`[Collection] SUCCESS: Collected ${urls.length} total unique product URLs`)
   }
   
   return urls
@@ -54,6 +89,53 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
   const seenUrls = new Set<string>()
   
   try {
+    // robots.txtの場合は、まずrobots.txtをパースしてサイトマップの場所を取得
+    if (sitemapUrl.endsWith('/robots.txt')) {
+      console.log(`[Sitemap] Fetching robots.txt to find sitemap locations`)
+      const response = await fetch(sitemapUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        signal: AbortSignal.timeout(10000),
+      })
+      
+      if (response.ok) {
+        const text = await response.text()
+        const sitemapLines = text.split('\n').filter(line => 
+          line.trim().toLowerCase().startsWith('sitemap:')
+        )
+        
+        if (sitemapLines.length > 0) {
+          console.log(`[Sitemap] Found ${sitemapLines.length} sitemap references in robots.txt`)
+          const sitemapUrlsFromRobots = sitemapLines.map(line => {
+            const url = line.split(':').slice(1).join(':').trim()
+            return url
+          }).filter(url => url.includes('business.mistore.jp') || url.includes('mistore.jp'))
+          
+          // robots.txtから見つかったサイトマップを再帰的に処理
+          for (const url of sitemapUrlsFromRobots) {
+            try {
+              const urls = await extractUrlsFromSitemap(url)
+              for (const productUrl of urls) {
+                if (!seenUrls.has(productUrl)) {
+                  seenUrls.add(productUrl)
+                  productUrls.push(productUrl)
+                }
+              }
+            } catch (error) {
+              console.warn(`[Sitemap] Failed to process sitemap from robots.txt: ${url}`, error instanceof Error ? error.message : String(error))
+            }
+          }
+          
+          if (productUrls.length > 0) {
+            console.log(`[Sitemap] Collected ${productUrls.length} product URLs from robots.txt sitemaps`)
+            return productUrls
+          }
+        }
+      }
+      return []
+    }
+    
     const response = await fetch(sitemapUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -67,6 +149,8 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     
     const xml = await response.text()
     const $ = cheerio.load(xml, { xmlMode: true })
+    
+    console.log(`[Sitemap] Processing sitemap: ${sitemapUrl} (${xml.length} chars)`)
     
     // sitemapindex の場合、各sitemapを再帰的に処理
     const sitemapUrls: string[] = []
@@ -88,39 +172,57 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     }
     
     if (sitemapUrls.length > 0) {
-      console.log(`Found ${sitemapUrls.length} sitemap files, processing...`)
+      console.log(`[Sitemap] Found ${sitemapUrls.length} sitemap files in index, processing recursively...`)
       // 各sitemapを並列処理（最大10個まで）
       const batchSize = 10
       for (let i = 0; i < sitemapUrls.length; i += batchSize) {
         const batch = sitemapUrls.slice(i, i + batchSize)
+        const batchNumber = Math.floor(i / batchSize) + 1
+        const totalBatches = Math.ceil(sitemapUrls.length / batchSize)
+        console.log(`[Sitemap] Processing sitemap batch ${batchNumber}/${totalBatches} (${batch.length} sitemaps)...`)
+        
         const results = await Promise.allSettled(
           batch.map(url => extractUrlsFromSitemap(url))
         )
         
+        let batchProductCount = 0
         for (const result of results) {
           if (result.status === 'fulfilled') {
             for (const url of result.value) {
               if (!seenUrls.has(url)) {
                 seenUrls.add(url)
                 productUrls.push(url)
+                batchProductCount++
               }
             }
+          } else {
+            console.warn(`[Sitemap] Failed to process sitemap in batch:`, result.reason)
           }
         }
+        
+        console.log(`[Sitemap] Batch ${batchNumber}/${totalBatches} completed: ${batchProductCount} new product URLs found (total: ${productUrls.length})`)
         
         // レート制限を考慮して少し待機
         if (i + batchSize < sitemapUrls.length) {
           await new Promise(resolve => setTimeout(resolve, 500))
         }
       }
+      
+      if (productUrls.length > 0) {
+        console.log(`[Sitemap] Total ${productUrls.length} product URLs collected from sitemap index`)
+        return productUrls
+      }
     }
     
     // urlset から直接URLを抽出
     let totalUrlsFound = 0
     let businessMistoreUrls = 0
+    let shopGUrls = 0
     const sampleUrls: string[] = []
     const sampleBusinessUrls: string[] = []
+    const sampleShopGUrls: string[] = []
     
+    // パターン1: urlset > url > loc
     $('urlset > url > loc').each((_, el) => {
       const url = $(el).text().trim()
       totalUrlsFound++
@@ -131,6 +233,13 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
           // business.mistore.jpのサンプルURLを保存（最初の10件）
           if (sampleBusinessUrls.length < 10) {
             sampleBusinessUrls.push(url)
+          }
+        }
+        // /shop/g/ パターンのURLを優先的に収集
+        if (url.includes('/shop/g/')) {
+          shopGUrls++
+          if (sampleShopGUrls.length < 10) {
+            sampleShopGUrls.push(url)
           }
         }
         // 全URLのサンプルを保存（最初の5件）
@@ -144,7 +253,7 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
       }
     })
     
-    // 別のパターンも試す
+    // パターン2: url > loc（urlsetがない場合）
     if (totalUrlsFound === 0) {
       $('url > loc').each((_, el) => {
         const url = $(el).text().trim()
@@ -156,6 +265,13 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
             // business.mistore.jpのサンプルURLを保存（最初の10件）
             if (sampleBusinessUrls.length < 10) {
               sampleBusinessUrls.push(url)
+            }
+          }
+          // /shop/g/ パターンのURLを優先的に収集
+          if (url.includes('/shop/g/')) {
+            shopGUrls++
+            if (sampleShopGUrls.length < 10) {
+              sampleShopGUrls.push(url)
             }
           }
           // 全URLのサンプルを保存（最初の5件）
@@ -171,17 +287,30 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     }
     
     // デバッグ用：サンプルURLを表示
-    if (sampleBusinessUrls.length > 0) {
-      console.log(`Found ${businessMistoreUrls} business.mistore.jp URLs in sitemap`)
-      console.log(`Sample business.mistore.jp URLs (first 10):`, sampleBusinessUrls)
+    console.log(`[Sitemap] Analysis for ${sitemapUrl}:`)
+    console.log(`[Sitemap]   - Total URLs found: ${totalUrlsFound}`)
+    console.log(`[Sitemap]   - business.mistore.jp URLs: ${businessMistoreUrls}`)
+    console.log(`[Sitemap]   - /shop/g/ URLs: ${shopGUrls}`)
+    console.log(`[Sitemap]   - Product URLs extracted: ${productUrls.length}`)
+    
+    if (sampleShopGUrls.length > 0) {
+      console.log(`[Sitemap] Sample /shop/g/ URLs (first 10):`, sampleShopGUrls)
+    } else if (sampleBusinessUrls.length > 0) {
+      console.log(`[Sitemap] Sample business.mistore.jp URLs (first 10):`, sampleBusinessUrls)
     } else if (sampleUrls.length > 0) {
-      console.log(`Sample URLs from sitemap (first 5):`, sampleUrls)
+      console.log(`[Sitemap] Sample URLs from sitemap (first 5):`, sampleUrls)
     }
     
-    console.log(`Extracted ${productUrls.length} product URLs from sitemap (total URLs found: ${totalUrlsFound}, business.mistore.jp URLs: ${businessMistoreUrls})`)
-    
   } catch (error) {
-    console.error('Error extracting URLs from sitemap:', error)
+    console.error(`[Sitemap] Error extracting URLs from sitemap ${sitemapUrl}:`, error instanceof Error ? error.message : String(error))
+    if (error instanceof Error && error.stack) {
+      console.error(`[Sitemap] Stack trace:`, error.stack)
+    }
+    // エラーが発生しても、これまでに収集したURLは返す
+    if (productUrls.length > 0) {
+      console.log(`[Sitemap] Returning ${productUrls.length} product URLs collected before error`)
+      return productUrls
+    }
     throw error
   }
   
@@ -209,9 +338,11 @@ export async function extractUrlsFromCategoryPage(categoryUrl: string): Promise<
       const $ = cheerio.load(html)
       
       // 商品リンクを探す（/shop/g/ で始まるリンク）
+      let linkCount = 0
       $('a[href*="/shop/g/"]').each((_, el) => {
         const href = $(el).attr('href')
         if (href) {
+          linkCount++
           try {
             const url = new URL(href, BASE_URL).href
             const normalizedUrl = url.split('?')[0] // クエリパラメータを除去
@@ -224,10 +355,16 @@ export async function extractUrlsFromCategoryPage(categoryUrl: string): Promise<
           }
         }
       })
+      
+      if (productUrls.length > 0) {
+        console.log(`[Category] Extracted ${productUrls.length} product URLs from ${categoryUrl} (found ${linkCount} /shop/g/ links)`)
+      }
+    } else {
+      console.warn(`[Category] Failed to fetch category page ${categoryUrl}: HTTP ${response.status}`)
     }
     
   } catch (error) {
-    console.error(`Error extracting URLs from category page ${categoryUrl}:`, error)
+    console.error(`[Category] Error extracting URLs from category page ${categoryUrl}:`, error instanceof Error ? error.message : String(error))
   }
   
   return productUrls
@@ -246,25 +383,32 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
   // URLからクエリパラメータを除去して正規化
   const baseUrl = categoryUrl.split('?')[0]
   
-  // タイムアウトを設定（カテゴリごとに最大60秒）
+  // タイムアウトを設定（カテゴリごとに最大120秒）
   const startTime = Date.now()
-  const maxDuration = 60000 // 60秒に延長
+  const maxDuration = 120000 // 120秒に延長
   
-  while (hasMore && page <= 100) { // 最大100ページまで
+  console.log(`[Category] Starting pagination crawl for ${baseUrl} (max ${maxDuration/1000}s, max 200 pages)`)
+  
+  while (hasMore && page <= 200) { // 最大200ページまで
     // タイムアウトチェック
-    if (Date.now() - startTime > maxDuration) {
-      console.warn(`Timeout reached for ${baseUrl} after ${page} pages, collected ${allUrls.length} URLs`)
+    const elapsed = Date.now() - startTime
+    if (elapsed > maxDuration) {
+      console.warn(`[Category] Timeout reached for ${baseUrl} after ${page} pages (${Math.round(elapsed/1000)}s), collected ${allUrls.length} URLs`)
       break
     }
     
     try {
       const pageUrl = page === 1 ? baseUrl : `${baseUrl}?page=${page}`
+      if (page % 10 === 0 || page === 1) {
+        console.log(`[Category] Processing page ${page} of ${baseUrl}... (${allUrls.length} URLs collected so far)`)
+      }
       const urls = await extractUrlsFromCategoryPage(pageUrl)
       
       if (urls.length === 0) {
         consecutiveEmptyPages++
-        // 連続して2ページ空なら終了
-        if (consecutiveEmptyPages >= 2) {
+        // 連続して3ページ空なら終了（2ページから3ページに変更）
+        if (consecutiveEmptyPages >= 3) {
+          console.log(`[Category] Stopping pagination for ${baseUrl}: ${consecutiveEmptyPages} consecutive empty pages`)
           hasMore = false
           break
         }
@@ -281,8 +425,13 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
         }
       }
       
+      if (newUrlsCount > 0) {
+        console.log(`[Category] Page ${page} of ${baseUrl}: Found ${newUrlsCount} new URLs (total: ${allUrls.length})`)
+      }
+      
       // 新しいURLがなければ終了
       if (newUrlsCount === 0 && urls.length === 0) {
+        console.log(`[Category] No new URLs found on page ${page} of ${baseUrl}, stopping pagination`)
         hasMore = false
         break
       }
@@ -291,9 +440,10 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
       // レート制限を考慮（200ms待機）
       await new Promise(resolve => setTimeout(resolve, 200))
     } catch (error) {
-      console.warn(`Failed to extract URLs from page ${page} of ${baseUrl}:`, error)
+      console.warn(`[Category] Failed to extract URLs from page ${page} of ${baseUrl}:`, error instanceof Error ? error.message : String(error))
       consecutiveEmptyPages++
-      if (consecutiveEmptyPages >= 2) {
+      if (consecutiveEmptyPages >= 3) {
+        console.log(`[Category] Stopping pagination due to errors: ${consecutiveEmptyPages} consecutive failures`)
         hasMore = false
       } else {
         page++
@@ -301,6 +451,7 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
     }
   }
   
+  console.log(`[Category] Completed pagination crawl for ${baseUrl}: ${allUrls.length} URLs collected from ${page} pages`)
   return allUrls
 }
 
@@ -321,41 +472,52 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
   const categoryUrls: string[] = []
   
   // まず、カテゴリ一覧ページからカテゴリURLを取得
-  try {
-    const categoryListUrl = `${BASE_URL}/shop/`
-    const response = await fetch(categoryListUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-      signal: AbortSignal.timeout(10000),
-    })
-    
-    if (response.ok) {
-      const html = await response.text()
-      const $ = cheerio.load(html)
-      
-      // カテゴリリンクを探す（/shop/c/ で始まるリンク）
-      $('a[href*="/shop/c/"]').each((_, el) => {
-        const href = $(el).attr('href')
-        if (href) {
-          try {
-            const url = new URL(href, BASE_URL).href
-            // クエリパラメータを除去して正規化
-            const normalizedUrl = url.split('?')[0]
-            if (!categoryUrls.includes(normalizedUrl)) {
-              categoryUrls.push(normalizedUrl)
-            }
-          } catch {
-            // URL解析エラーは無視
-          }
-        }
+  const categoryListUrls = [
+    `${BASE_URL}/shop/`,
+    `${BASE_URL}/shop/c/`,
+  ]
+  
+  for (const categoryListUrl of categoryListUrls) {
+    try {
+      console.log(`[Category] Fetching category list from ${categoryListUrl}`)
+      const response = await fetch(categoryListUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        signal: AbortSignal.timeout(15000),
       })
       
-      console.log(`Found ${categoryUrls.length} category pages`)
+      if (response.ok) {
+        const html = await response.text()
+        const $ = cheerio.load(html)
+        
+        // カテゴリリンクを探す（/shop/c/ で始まるリンク）
+        let foundInThisPage = 0
+        $('a[href*="/shop/c/"]').each((_, el) => {
+          const href = $(el).attr('href')
+          if (href) {
+            try {
+              const url = new URL(href, BASE_URL).href
+              // クエリパラメータを除去して正規化
+              const normalizedUrl = url.split('?')[0]
+              if (!categoryUrls.includes(normalizedUrl)) {
+                categoryUrls.push(normalizedUrl)
+                foundInThisPage++
+              }
+            } catch {
+              // URL解析エラーは無視
+            }
+          }
+        })
+        
+        console.log(`[Category] Found ${foundInThisPage} new category pages from ${categoryListUrl} (total: ${categoryUrls.length})`)
+      }
+    } catch (error) {
+      console.warn(`[Category] Failed to fetch category list from ${categoryListUrl}:`, error instanceof Error ? error.message : String(error))
     }
-  } catch (error) {
-    console.warn('Failed to fetch category list, using fallback method:', error)
   }
+  
+  console.log(`[Category] Total ${categoryUrls.length} category pages found`)
   
   // カテゴリページが取得できない場合は、直接商品ページを探す
   if (categoryUrls.length === 0) {
@@ -374,32 +536,35 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
     }
   } else {
     // 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
-    const batchSize = 5 // 並列数を増やしてパフォーマンス向上
-    console.log(`Processing ${categoryUrls.length} category pages in batches of ${batchSize}...`)
+    const batchSize = 3 // 並列数を3に減らしてタイムアウトを避ける（各カテゴリが120秒までかかる可能性があるため）
+    console.log(`[Category] Processing ${categoryUrls.length} category pages in batches of ${batchSize}...`)
     
     for (let i = 0; i < categoryUrls.length; i += batchSize) {
       const batch = categoryUrls.slice(i, i + batchSize)
       const batchNumber = Math.floor(i / batchSize) + 1
       const totalBatches = Math.ceil(categoryUrls.length / batchSize)
       
-      console.log(`Processing batch ${batchNumber}/${totalBatches} (${batch.length} categories)...`)
+      console.log(`[Category] Processing batch ${batchNumber}/${totalBatches} (${batch.length} categories)...`)
       
+      const batchStartTime = Date.now()
       const results = await Promise.allSettled(
         batch.map(async (url, idx) => {
           try {
             const urls = await extractUrlsFromCategoryPageWithPagination(url)
-            console.log(`Category ${i + idx + 1}/${categoryUrls.length}: Found ${urls.length} products from ${url}`)
+            console.log(`[Category] Category ${i + idx + 1}/${categoryUrls.length}: Found ${urls.length} products from ${url}`)
             return urls
           } catch (error) {
-            console.error(`Failed to extract URLs from category ${url}:`, error)
+            console.error(`[Category] Failed to extract URLs from category ${url}:`, error instanceof Error ? error.message : String(error))
             return []
           }
         })
       )
       
       let batchTotalUrls = 0
+      let batchSuccessCount = 0
       for (const result of results) {
         if (result.status === 'fulfilled') {
+          batchSuccessCount++
           for (const url of result.value) {
             if (!seenUrls.has(url)) {
               seenUrls.add(url)
@@ -407,10 +572,13 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
               batchTotalUrls++
             }
           }
+        } else {
+          console.warn(`[Category] Batch item failed:`, result.reason)
         }
       }
       
-      console.log(`Batch ${batchNumber}/${totalBatches} completed: ${batchTotalUrls} new URLs found (total: ${allUrls.length})`)
+      const batchDuration = Math.round((Date.now() - batchStartTime) / 1000)
+      console.log(`[Category] Batch ${batchNumber}/${totalBatches} completed: ${batchTotalUrls} new URLs found (${batchSuccessCount}/${batch.length} categories succeeded, ${batchDuration}s, total: ${allUrls.length})`)
       
       // レート制限を考慮して少し待機
       if (i + batchSize < categoryUrls.length) {
@@ -419,7 +587,7 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
     }
   }
   
-  console.log(`Total product URLs collected: ${allUrls.length}`)
+  console.log(`[Category] Total product URLs collected from category pages: ${allUrls.length}`)
   return allUrls
 }
 
