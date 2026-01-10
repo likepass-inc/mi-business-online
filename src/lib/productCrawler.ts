@@ -246,11 +246,11 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
   // URLからクエリパラメータを除去して正規化
   const baseUrl = categoryUrl.split('?')[0]
   
-  // タイムアウトを設定（カテゴリごとに最大30秒）
+  // タイムアウトを設定（カテゴリごとに最大60秒）
   const startTime = Date.now()
-  const maxDuration = 30000 // 30秒
+  const maxDuration = 60000 // 60秒に延長
   
-  while (hasMore && page <= 50) { // 最大50ページまで（100から減らした）
+  while (hasMore && page <= 100) { // 最大100ページまで
     // タイムアウトチェック
     if (Date.now() - startTime > maxDuration) {
       console.warn(`Timeout reached for ${baseUrl} after ${page} pages, collected ${allUrls.length} URLs`)
@@ -288,8 +288,8 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
       }
       
       page++
-      // レート制限を考慮（300ms待機、500msから短縮）
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // レート制限を考慮（200ms待機）
+      await new Promise(resolve => setTimeout(resolve, 200))
     } catch (error) {
       console.warn(`Failed to extract URLs from page ${page} of ${baseUrl}:`, error)
       consecutiveEmptyPages++
@@ -374,7 +374,7 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
     }
   } else {
     // 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
-    const batchSize = 3 // 並列数を減らして安定性を向上
+    const batchSize = 5 // 並列数を増やしてパフォーマンス向上
     console.log(`Processing ${categoryUrls.length} category pages in batches of ${batchSize}...`)
     
     for (let i = 0; i < categoryUrls.length; i += batchSize) {

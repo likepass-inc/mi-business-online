@@ -290,12 +290,37 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
 - `GET /api/cron/crawl-products`: 定期クロール実行
   - 認証: `Authorization: Bearer {CRON_SECRET}` ヘッダーが必要
   - 外部cronサービス（cron-job.org等）から呼び出し可能
+  - 差分クロールを実行（更新が必要な商品のみ）
 
-**cron-job.org設定例**:
-- URL: `https://your-domain.com/api/cron/crawl-products`
-- Method: GET
-- Headers: `Authorization: Bearer your-secret-token`
-- Schedule: 毎日 午前2時（推奨）
+**環境変数の設定**:
+```env
+CRON_SECRET=your-secret-token-here
+```
+
+**cron-job.org設定手順**:
+1. [cron-job.org](https://cron-job.org/) にアカウントを作成
+2. 「Create cronjob」をクリック
+3. 以下の設定を入力:
+   - **Title**: `商品クロール定期実行`
+   - **URL**: `https://mi-business-online.onrender.com/api/cron/crawl-products`
+   - **Schedule**: `Daily` → `02:00` (毎日午前2時)
+   - **Request Method**: `GET`
+   - **Request Headers**: 
+     ```
+     Authorization: Bearer your-secret-token-here
+     ```
+4. 「Create cronjob」をクリック
+
+**推奨スケジュール**:
+- **差分クロール**: 毎日 午前2時（デフォルト）
+- **フルクロール**: 週1回（日曜日 午前3時など）
+
+**手動でフルクロールを実行する場合**:
+```bash
+curl -X POST https://mi-business-online.onrender.com/api/crawl/products \
+  -H "Content-Type: application/json" \
+  -d '{"type": "full"}'
+```
 
 ### 使用方法
 

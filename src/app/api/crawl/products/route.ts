@@ -10,8 +10,8 @@ import {
 } from '@/lib/db/productRepository'
 import type { ProductData } from '@/lib/db/productRepository'
 
-const MAX_CONCURRENT_REQUESTS = 3 // 並列リクエスト数の制限
-const REQUEST_DELAY_MS = 500 // リクエスト間の待機時間（ミリ秒）
+const MAX_CONCURRENT_REQUESTS = 5 // 並列リクエスト数の制限（3から5に増加）
+const REQUEST_DELAY_MS = 300 // リクエスト間の待機時間（ミリ秒、500から300に短縮）
 
 /**
  * 全商品のクロールを実行
