@@ -135,9 +135,6 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
                 await new Promise(resolve => setTimeout(resolve, delay))
               }
               
-              // スクレイピング
-              const scrapedData = await scrapePage(url, false)
-              
               // HTMLを取得（文字エンコーディングを正しく処理するため、Playwrightを優先使用）
               let html: string
               try {
@@ -174,71 +171,72 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
               } catch (playwrightError) {
                 // Playwrightが失敗した場合、fetchを使用して再試行
                 console.warn(`[Crawl API] Playwright failed for ${url}, trying fetch:`, playwrightError)
-              try {
-                const response = await fetch(url, {
-                  headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept-Charset': 'UTF-8',
-                  },
-                  signal: AbortSignal.timeout(15000),
-                })
-                
-                if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-                }
-                
-                // ArrayBufferとして取得
-                const buffer = await response.arrayBuffer()
-                
-                // HTMLの最初の部分を読み取ってエンコーディングを確認
-                const htmlStart = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, 1024))
-                
-                // HTMLのmetaタグからcharsetを取得
-                const metaCharsetMatch = htmlStart.match(/<meta[^>]*charset\s*=\s*["']?([^"'\s>]+)/i)
-                const htmlCharset = metaCharsetMatch ? metaCharsetMatch[1].toLowerCase() : null
-                
-                // Content-Typeヘッダーからcharsetを取得
-                const contentType = response.headers.get('content-type') || ''
-                const headerCharsetMatch = contentType.match(/charset=([^;]+)/i)
-                const headerCharset = headerCharsetMatch ? headerCharsetMatch[1].trim().toLowerCase() : null
-                
-                // エンコーディングを決定（HTMLのmetaタグ > Content-Typeヘッダー > デフォルトUTF-8）
-                let charset = htmlCharset || headerCharset || 'utf-8'
-                
-                // エンコーディングの正規化
-                if (charset === 'shift_jis' || charset === 'shift-jis' || charset === 'sjis') {
-                  charset = 'shift-jis'
-                } else if (charset === 'euc-jp' || charset === 'eucjp') {
-                  charset = 'euc-jp'
-                } else {
-                  charset = 'utf-8'
-                }
-                
-                // 適切なエンコーディングでデコード
-                let decoder: TextDecoder
                 try {
-                  decoder = new TextDecoder(charset as any, { fatal: false })
-                } catch {
-                  // サポートされていないエンコーディングの場合はUTF-8を使用
-                  decoder = new TextDecoder('utf-8', { fatal: false })
-                }
-                
-                html = decoder.decode(buffer)
-                
-                // デバッグ: 最初の商品ページのエンコーディング情報をログに出力
-                const isFirstProduct = i === 0 && batch.indexOf(url) === 0
-                if (isFirstProduct) {
-                  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-                  console.log(`[Crawl API] Encoding info for ${url}:`, {
-                    htmlCharset,
-                    headerCharset,
-                    detectedCharset: charset,
-                    titleFromHTML: titleMatch ? titleMatch[1].substring(0, 100) : 'not found',
-                    htmlStart: html.substring(0, 200)
+                  const response = await fetch(url, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                      'Accept-Charset': 'UTF-8',
+                    },
+                    signal: AbortSignal.timeout(15000),
                   })
+                  
+                  if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+                  }
+                  
+                  // ArrayBufferとして取得
+                  const buffer = await response.arrayBuffer()
+                  
+                  // HTMLの最初の部分を読み取ってエンコーディングを確認
+                  const htmlStart = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, 1024))
+                  
+                  // HTMLのmetaタグからcharsetを取得
+                  const metaCharsetMatch = htmlStart.match(/<meta[^>]*charset\s*=\s*["']?([^"'\s>]+)/i)
+                  const htmlCharset = metaCharsetMatch ? metaCharsetMatch[1].toLowerCase() : null
+                  
+                  // Content-Typeヘッダーからcharsetを取得
+                  const contentType = response.headers.get('content-type') || ''
+                  const headerCharsetMatch = contentType.match(/charset=([^;]+)/i)
+                  const headerCharset = headerCharsetMatch ? headerCharsetMatch[1].trim().toLowerCase() : null
+                  
+                  // エンコーディングを決定（HTMLのmetaタグ > Content-Typeヘッダー > デフォルトUTF-8）
+                  let charset = htmlCharset || headerCharset || 'utf-8'
+                  
+                  // エンコーディングの正規化
+                  if (charset === 'shift_jis' || charset === 'shift-jis' || charset === 'sjis') {
+                    charset = 'shift-jis'
+                  } else if (charset === 'euc-jp' || charset === 'eucjp') {
+                    charset = 'euc-jp'
+                  } else {
+                    charset = 'utf-8'
+                  }
+                  
+                  // 適切なエンコーディングでデコード
+                  let decoder: TextDecoder
+                  try {
+                    decoder = new TextDecoder(charset as any, { fatal: false })
+                  } catch {
+                    // サポートされていないエンコーディングの場合はUTF-8を使用
+                    decoder = new TextDecoder('utf-8', { fatal: false })
+                  }
+                  
+                  html = decoder.decode(buffer)
+                  
+                  // デバッグ: 最初の商品ページのエンコーディング情報をログに出力
+                  const isFirstProduct = i === 0 && batch.indexOf(url) === 0
+                  if (isFirstProduct) {
+                    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+                    console.log(`[Crawl API] Encoding info for ${url}:`, {
+                      htmlCharset,
+                      headerCharset,
+                      detectedCharset: charset,
+                      titleFromHTML: titleMatch ? titleMatch[1].substring(0, 100) : 'not found',
+                      htmlStart: html.substring(0, 200)
+                    })
+                  }
+                } catch (fetchError) {
+                  throw new Error(`Both Playwright and fetch failed: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`)
                 }
-              } catch (fetchError) {
-                throw new Error(`Both Playwright and fetch failed: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`)
               }
               
               // 商品情報をパース
