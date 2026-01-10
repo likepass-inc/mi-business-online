@@ -147,9 +147,14 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
                 // ページのコンテンツをUTF-8として取得
                 html = await page.content()
                 
-                // デバッグ: 最初の500文字をログに出力（エンコーディング確認用）
-                if (i === 0) {
-                  console.log(`[Crawl API] Sample HTML (first 500 chars):`, html.substring(0, 500))
+                // デバッグ: 最初の商品ページのHTMLをログに出力（エンコーディング確認用）
+                if (i === 0 && batch[0] === url) {
+                  console.log(`[Crawl API] Sample HTML (first 1000 chars) from ${url}:`, html.substring(0, 1000))
+                  // タイトルタグの内容も確認
+                  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
+                  if (titleMatch) {
+                    console.log(`[Crawl API] Title from HTML:`, titleMatch[1])
+                  }
                 }
               } finally {
                 await page.close().catch(() => {})
@@ -171,15 +176,53 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
                   throw new Error(`HTTP ${response.status}: ${response.statusText}`)
                 }
                 
-                // レスポンスのエンコーディングを確認
-                const contentType = response.headers.get('content-type') || ''
-                const charsetMatch = contentType.match(/charset=([^;]+)/i)
-                const charset = charsetMatch ? charsetMatch[1].trim() : 'utf-8'
-                
-                // ArrayBufferとして取得してから、適切なエンコーディングでデコード
+                // ArrayBufferとして取得
                 const buffer = await response.arrayBuffer()
-                const decoder = new TextDecoder(charset.toLowerCase() === 'utf-8' ? 'utf-8' : 'utf-8')
+                
+                // HTMLの最初の部分を読み取ってエンコーディングを確認
+                const htmlStart = new TextDecoder('utf-8', { fatal: false }).decode(buffer.slice(0, 1024))
+                
+                // HTMLのmetaタグからcharsetを取得
+                const metaCharsetMatch = htmlStart.match(/<meta[^>]*charset\s*=\s*["']?([^"'\s>]+)/i)
+                const htmlCharset = metaCharsetMatch ? metaCharsetMatch[1].toLowerCase() : null
+                
+                // Content-Typeヘッダーからcharsetを取得
+                const contentType = response.headers.get('content-type') || ''
+                const headerCharsetMatch = contentType.match(/charset=([^;]+)/i)
+                const headerCharset = headerCharsetMatch ? headerCharsetMatch[1].trim().toLowerCase() : null
+                
+                // エンコーディングを決定（HTMLのmetaタグ > Content-Typeヘッダー > デフォルトUTF-8）
+                let charset = htmlCharset || headerCharset || 'utf-8'
+                
+                // エンコーディングの正規化
+                if (charset === 'shift_jis' || charset === 'shift-jis' || charset === 'sjis') {
+                  charset = 'shift-jis'
+                } else if (charset === 'euc-jp' || charset === 'eucjp') {
+                  charset = 'euc-jp'
+                } else {
+                  charset = 'utf-8'
+                }
+                
+                // 適切なエンコーディングでデコード
+                let decoder: TextDecoder
+                try {
+                  decoder = new TextDecoder(charset as any, { fatal: false })
+                } catch {
+                  // サポートされていないエンコーディングの場合はUTF-8を使用
+                  decoder = new TextDecoder('utf-8', { fatal: false })
+                }
+                
                 html = decoder.decode(buffer)
+                
+                // デバッグ: 最初の商品ページのエンコーディング情報をログに出力
+                if (i === 0 && batch[0] === url) {
+                  console.log(`[Crawl API] Encoding info for ${url}:`, {
+                    htmlCharset,
+                    headerCharset,
+                    detectedCharset: charset,
+                    titleMatch: html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.substring(0, 50)
+                  })
+                }
               } catch (fetchError) {
                 throw new Error(`Both Playwright and fetch failed: ${playwrightError instanceof Error ? playwrightError.message : String(playwrightError)}`)
               }
