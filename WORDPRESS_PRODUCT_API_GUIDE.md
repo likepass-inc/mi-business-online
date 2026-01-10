@@ -4,7 +4,7 @@
 
 このガイドでは、WordPress/SWELLテーマで商品データを取得・表示する方法を説明します。
 
-商品データは `https://your-domain.com/api/products` から取得できます。このAPIは、[business.mistore.jp](https://business.mistore.jp/)の商品情報を自動的に収集・更新しているため、常に最新の商品データを取得できます。
+商品データは `https://mi-business-online.onrender.com/api/products` から取得できます。このAPIは、[business.mistore.jp](https://business.mistore.jp/)の商品情報を自動的に収集・更新しているため、常に最新の商品データを取得できます。
 
 ### マガジンサイトについて
 
@@ -19,7 +19,7 @@
 商品データを取得するAPIのURLは以下の通りです：
 
 ```
-https://your-domain.com/api/products
+https://mi-business-online.onrender.com/api/products
 ```
 
 ### 2. 取得できる情報
@@ -50,7 +50,7 @@ WordPressのテンプレートファイルやfunctions.phpに以下のコード�
 <?php
 // 商品データを取得する関数
 function get_products_from_api($limit = 10, $category = '', $search = '') {
-    $api_url = 'https://your-domain.com/api/products';
+    $api_url = 'https://mi-business-online.onrender.com/api/products';
     $params = array(
         'limit' => $limit,
         'offset' => 0
@@ -239,7 +239,7 @@ function render_product_block($attributes) {
 $article_id = get_the_ID();
 
 // 関連商品APIを呼び出し
-$api_base_url = 'https://your-domain.com/api/magazine/related-products';
+$api_base_url = 'https://mi-business-online.onrender.com/api/magazine/related-products';
 $related_api_url = $api_base_url . '?article_id=' . $article_id . '&limit=6';
 $response = wp_remote_get($related_api_url, array(
     'timeout' => 10,
@@ -304,7 +304,7 @@ if (empty($article_id)) {
 
 if (!empty($article_id)) {
     // 関連商品APIを呼び出し
-    $api_base_url = 'https://your-domain.com/api/magazine/related-products';
+    $api_base_url = 'https://mi-business-online.onrender.com/api/magazine/related-products';
     $related_api_url = $api_base_url . '?article_id=' . $article_id . '&limit=6';
     
     // ...（上記のコードと同じ）
@@ -341,7 +341,7 @@ if (!empty($categories)) {
 
 if (!empty($category_name)) {
     // カテゴリに基づいて関連商品を取得
-    $api_base_url = 'https://your-domain.com/api/magazine/related-products';
+    $api_base_url = 'https://mi-business-online.onrender.com/api/magazine/related-products';
     $related_api_url = $api_base_url . '?category=' . urlencode($category_name) . '&limit=6';
     
     $response = wp_remote_get($related_api_url, array(
@@ -372,7 +372,7 @@ function display_related_products_shortcode($atts) {
         return '<p>article_id または category を指定してください。</p>';
     }
     
-    $api_base_url = 'https://your-domain.com/api/magazine/related-products';
+    $api_base_url = 'https://mi-business-online.onrender.com/api/magazine/related-products';
     $params = array('limit' => intval($atts['limit']));
     
     if (!empty($atts['article_id'])) {
@@ -652,7 +652,7 @@ define('WP_DEBUG_LOG', true);
 
 ```php
 $product_code = 'ABC123';
-$api_url = 'https://your-domain.com/api/products/' . $product_code;
+$api_url = 'https://mi-business-online.onrender.com/api/products/' . $product_code;
 $response = wp_remote_get($api_url);
 
 if (!is_wp_error($response)) {
