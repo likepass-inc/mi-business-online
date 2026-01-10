@@ -215,12 +215,15 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
                 html = decoder.decode(buffer)
                 
                 // デバッグ: 最初の商品ページのエンコーディング情報をログに出力
-                if (i === 0 && batch[0] === url) {
+                const isFirstProduct = i === 0 && batch.indexOf(url) === 0
+                if (isFirstProduct) {
+                  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
                   console.log(`[Crawl API] Encoding info for ${url}:`, {
                     htmlCharset,
                     headerCharset,
                     detectedCharset: charset,
-                    titleMatch: html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.substring(0, 50)
+                    titleFromHTML: titleMatch ? titleMatch[1].substring(0, 100) : 'not found',
+                    htmlStart: html.substring(0, 200)
                   })
                 }
               } catch (fetchError) {
