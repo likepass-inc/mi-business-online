@@ -124,13 +124,23 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
       
       const batchResults = await Promise.allSettled(
         batch.map(async (url) => {
-          try {
-            // スクレイピング
-            const scrapedData = await scrapePage(url, false)
-            
-            // HTMLを取得（文字エンコーディングを正しく処理するため、Playwrightを優先使用）
-            let html: string
+          // リトライロジック（最大3回まで）
+          let lastError: Error | null = null
+          for (let attempt = 0; attempt < 3; attempt++) {
             try {
+              if (attempt > 0) {
+                // リトライ時は待機時間を増やす（指数バックオフ）
+                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+                console.log(`[Crawl API] Retrying ${url} (attempt ${attempt + 1}/3) after ${delay}ms`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+              }
+              
+              // スクレイピング
+              const scrapedData = await scrapePage(url, false)
+              
+              // HTMLを取得（文字エンコーディングを正しく処理するため、Playwrightを優先使用）
+              let html: string
+              try {
               // Playwrightを使用してHTMLを取得（エンコーディングを自動処理）
               const { chromium } = await import('playwright')
               const browser = await chromium.launch({ 
@@ -231,18 +241,30 @@ async function executeCrawl(logId: number, crawlType: 'full' | 'incremental') {
               }
             }
             
-            // 商品情報をパース
-            const productData = parseProductPage(html, url)
-            
-            if (productData) {
-              return productData
-            } else {
-              throw new Error('Failed to parse product data')
+              // 商品情報をパース
+              const productData = parseProductPage(html, url)
+              
+              if (productData) {
+                return productData
+              } else {
+                throw new Error('Failed to parse product data')
+              }
+            } catch (error) {
+              lastError = error instanceof Error ? error : new Error(String(error))
+              
+              // 最後の試行でない場合はリトライ
+              if (attempt < 2) {
+                continue
+              }
+              
+              // 最後の試行でも失敗した場合はエラーをスロー
+              console.error(`[Crawl API] Error crawling ${url} after ${attempt + 1} attempts:`, lastError)
+              throw lastError
             }
-          } catch (error) {
-            console.error(`[Crawl API] Error crawling ${url}:`, error)
-            throw error
           }
+          
+          // ここには到達しないはずだが、念のため
+          throw lastError || new Error('Failed to crawl product')
         })
       )
       
