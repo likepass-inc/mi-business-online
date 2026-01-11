@@ -246,9 +246,13 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
         if (sampleUrls.length < 5) {
           sampleUrls.push(url)
         }
-        if (isProductUrl(url) && !seenUrls.has(url)) {
-          seenUrls.add(url)
-          productUrls.push(url)
+        if (isProductUrl(url)) {
+          // kinogift.jpのURLをbusiness.mistore.jpに正規化
+          const normalizedUrl = normalizeProductUrl(url)
+          if (!seenUrls.has(normalizedUrl)) {
+            seenUrls.add(normalizedUrl)
+            productUrls.push(normalizedUrl)
+          }
         }
       }
     })
@@ -287,13 +291,31 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
     }
     
     // デバッグ用：サンプルURLを表示
+    let kinogiftUrls = 0
+    const sampleKinogiftUrls: string[] = []
+    
+    // kinogift.jpのURLもカウント
+    $('urlset > url > loc, url > loc').each((_, el) => {
+      const url = $(el).text().trim()
+      if (url && url.includes('kinogift.jp') && url.includes('/shop/g/')) {
+        kinogiftUrls++
+        if (sampleKinogiftUrls.length < 10) {
+          sampleKinogiftUrls.push(url)
+        }
+      }
+    })
+    
     console.log(`[Sitemap] Analysis for ${sitemapUrl}:`)
     console.log(`[Sitemap]   - Total URLs found: ${totalUrlsFound}`)
     console.log(`[Sitemap]   - business.mistore.jp URLs: ${businessMistoreUrls}`)
-    console.log(`[Sitemap]   - /shop/g/ URLs: ${shopGUrls}`)
+    console.log(`[Sitemap]   - kinogift.jp /shop/g/ URLs: ${kinogiftUrls}`)
+    console.log(`[Sitemap]   - /shop/g/ URLs (total): ${shopGUrls}`)
     console.log(`[Sitemap]   - Product URLs extracted: ${productUrls.length}`)
     
-    if (sampleShopGUrls.length > 0) {
+    if (sampleKinogiftUrls.length > 0) {
+      console.log(`[Sitemap] Sample kinogift.jp /shop/g/ URLs (first 10):`, sampleKinogiftUrls)
+      console.log(`[Sitemap] These will be normalized to business.mistore.jp`)
+    } else if (sampleShopGUrls.length > 0) {
       console.log(`[Sitemap] Sample /shop/g/ URLs (first 10):`, sampleShopGUrls)
     } else if (sampleBusinessUrls.length > 0) {
       console.log(`[Sitemap] Sample business.mistore.jp URLs (first 10):`, sampleBusinessUrls)
@@ -592,6 +614,28 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
 }
 
 /**
+ * URLをbusiness.mistore.jpに正規化（kinogift.jpのURLを変換）
+ */
+function normalizeProductUrl(url: string): string {
+  try {
+    const urlObj = new URL(url)
+    // kinogift.jpのURLをbusiness.mistore.jpに変換
+    if (urlObj.hostname.includes('kinogift.jp')) {
+      urlObj.hostname = 'business.mistore.jp'
+      // httpをhttpsに変換
+      if (urlObj.protocol === 'http:') {
+        urlObj.protocol = 'https:'
+      }
+      return urlObj.href
+    }
+    return url
+  } catch {
+    // URL解析エラーの場合は、文字列として直接変換
+    return url.replace(/https?:\/\/kinogift\.jp/, 'https://business.mistore.jp')
+  }
+}
+
+/**
  * URLが商品ページかどうかを判定
  */
 function isProductUrl(url: string): boolean {
@@ -604,14 +648,15 @@ function isProductUrl(url: string): boolean {
     // パターン2: /shop/g/商品コード/...
     const productPattern = /^\/shop\/g\/[^\/]+/
     
-    // ホスト名のチェック（business.mistore.jp またはそのサブドメイン）
+    // ホスト名のチェック（business.mistore.jp、kinogift.jp、またはそのサブドメイン）
     const isValidHost = urlObj.hostname.includes('business.mistore.jp') || 
+                        urlObj.hostname.includes('kinogift.jp') ||
                         urlObj.hostname.includes('mistore.jp')
     
     return productPattern.test(pathname) && isValidHost
   } catch {
     // URL解析エラーの場合は、文字列として直接チェック
-    return /\/shop\/g\/[^\/]+/.test(url) && url.includes('mistore.jp')
+    return /\/shop\/g\/[^\/]+/.test(url) && (url.includes('mistore.jp') || url.includes('kinogift.jp'))
   }
 }
 
