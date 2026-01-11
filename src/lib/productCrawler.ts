@@ -4,37 +4,63 @@ import { scrapePage } from './scraper'
 const BASE_URL = 'https://business.mistore.jp'
 
 /**
- * 商品URLを収集（サイトマップまたはカテゴリページから）
+ * 商品URLを収集（カテゴリページを優先、サイトマップは補助的に使用）
+ * 
+ * 注意: サイトマップが古いドメイン（kinogift.jp）を含んでいるため、
+ * カテゴリページからの収集を優先し、サイトマップは補助的な手段として使用します。
  */
 export async function collectProductUrls(): Promise<string[]> {
   const urls: string[] = []
+  const seenUrls = new Set<string>()
   
-  // 複数のサイトマップURLを試す（より多くのパターンを追加）
+  console.log('[Collection] Starting product URL collection (category pages prioritized)')
+  
+  // 1. カテゴリページから商品URLを収集（優先）
+  console.log('[Collection] Step 1: Collecting from category pages...')
+  try {
+    const categoryUrls = await extractUrlsFromCategoryPages()
+    if (categoryUrls.length > 0) {
+      console.log(`[Collection] Found ${categoryUrls.length} product URLs from category pages`)
+      for (const url of categoryUrls) {
+        if (!seenUrls.has(url)) {
+          seenUrls.add(url)
+          urls.push(url)
+        }
+      }
+      console.log(`[Collection] Total unique URLs after category collection: ${urls.length}`)
+    } else {
+      console.warn('[Collection] No product URLs found from category pages')
+    }
+  } catch (error) {
+    console.error('[Collection] Failed to extract URLs from category pages:', error instanceof Error ? error.message : String(error))
+  }
+  
+  // 2. サイトマップからも収集を試みる（補助的、正規化済み）
+  // 注意: サイトマップは古いドメインを含む可能性があるため、正規化が必要
+  console.log('[Collection] Step 2: Collecting from sitemaps (supplementary)...')
   const sitemapUrlsToTry = [
     `${BASE_URL}/sitemap.xml`,
     `${BASE_URL}/sitemap_index.xml`,
     `${BASE_URL}/sitemaps/sitemap.xml`,
-    `${BASE_URL}/sitemap_index.xml.gz`,
-    `${BASE_URL}/sitemap.xml.gz`,
-    `${BASE_URL}/sitemaps/sitemap_index.xml`,
     `${BASE_URL}/robots.txt`, // robots.txtからサイトマップの場所を取得
   ]
   
-  // まずサイトマップから取得を試みる
-  let totalSitemapUrls = 0
+  let sitemapUrlsFound = 0
   for (const sitemapUrl of sitemapUrlsToTry) {
     try {
       console.log(`[Sitemap] Trying sitemap URL: ${sitemapUrl}`)
       const sitemapUrls = await extractUrlsFromSitemap(sitemapUrl)
       if (sitemapUrls.length > 0) {
         console.log(`[Sitemap] Found ${sitemapUrls.length} product URLs from sitemap: ${sitemapUrl}`)
-        totalSitemapUrls += sitemapUrls.length
-        // 重複を排除してマージ
+        sitemapUrlsFound += sitemapUrls.length
+        // 重複を排除してマージ（正規化済みのURLが含まれる）
         for (const url of sitemapUrls) {
-          if (!urls.includes(url)) {
+          if (!seenUrls.has(url)) {
+            seenUrls.add(url)
             urls.push(url)
           }
         }
+        console.log(`[Sitemap] Merged ${sitemapUrls.length} URLs from sitemap (total: ${urls.length})`)
       }
     } catch (error) {
       console.warn(`[Sitemap] Failed to extract URLs from sitemap ${sitemapUrl}:`, error instanceof Error ? error.message : String(error))
@@ -42,40 +68,18 @@ export async function collectProductUrls(): Promise<string[]> {
     }
   }
   
-  if (urls.length > 0) {
-    console.log(`[Sitemap] Total ${urls.length} unique product URLs collected from sitemaps`)
-    return urls
-  }
-  
-  console.log('[Sitemap] No product URLs found in sitemaps, using category pages')
-  
-  // サイトマップが取得できない場合はカテゴリページから取得
-  if (urls.length === 0) {
-    console.log('[Category] Falling back to category pages for URL collection')
-    try {
-      const categoryUrls = await extractUrlsFromCategoryPages()
-      if (categoryUrls.length > 0) {
-        console.log(`[Category] Found ${categoryUrls.length} product URLs from category pages`)
-        // サイトマップから収集したURLとマージ（重複排除）
-        for (const url of categoryUrls) {
-          if (!urls.includes(url)) {
-            urls.push(url)
-          }
-        }
-        console.log(`[Category] Total unique URLs after merging: ${urls.length}`)
-        return urls
-      } else {
-        console.warn('[Category] No product URLs found from category pages either')
-      }
-    } catch (error) {
-      console.error('[Category] Failed to extract URLs from category pages:', error instanceof Error ? error.message : String(error))
-    }
+  if (sitemapUrlsFound > 0) {
+    console.log(`[Sitemap] Total ${sitemapUrlsFound} product URLs found in sitemaps (${urls.length - (urls.length - sitemapUrlsFound)} new URLs added)`)
+  } else {
+    console.log('[Sitemap] No product URLs found in sitemaps (this is expected if sitemap is outdated)')
   }
   
   if (urls.length === 0) {
     console.error('[Collection] WARNING: No product URLs collected from any source!')
   } else {
     console.log(`[Collection] SUCCESS: Collected ${urls.length} total unique product URLs`)
+    console.log(`[Collection]   - From category pages: ${urls.length - sitemapUrlsFound}`)
+    console.log(`[Collection]   - From sitemaps: ${sitemapUrlsFound}`)
   }
   
   return urls
@@ -282,9 +286,13 @@ export async function extractUrlsFromSitemap(sitemapUrl: string): Promise<string
           if (sampleUrls.length < 5) {
             sampleUrls.push(url)
           }
-          if (isProductUrl(url) && !seenUrls.has(url)) {
-            seenUrls.add(url)
-            productUrls.push(url)
+          if (isProductUrl(url)) {
+            // kinogift.jpのURLをbusiness.mistore.jpに正規化
+            const normalizedUrl = normalizeProductUrl(url)
+            if (!seenUrls.has(normalizedUrl)) {
+              seenUrls.add(normalizedUrl)
+              productUrls.push(normalizedUrl)
+            }
           }
         }
       })
@@ -479,21 +487,20 @@ async function extractUrlsFromCategoryPageWithPagination(categoryUrl: string): P
 
 /**
  * 複数のカテゴリページから商品URLを収集
+ * 
+ * サイトマップが古いため、実際のサイト構造から商品URLを収集します。
+ * 1. カテゴリ一覧ページからカテゴリURLを発見
+ * 2. 各カテゴリページから商品URLを収集（ページネーション対応）
+ * 3. メインの /shop/ ページからも直接商品を収集（補完的）
  */
 export async function extractUrlsFromCategoryPages(): Promise<string[]> {
   const allUrls: string[] = []
   const seenUrls = new Set<string>()
   
-  // 主要なカテゴリページのURLパターン
-  const categoryBaseUrls = [
-    `${BASE_URL}/shop/c/`,
-    `${BASE_URL}/shop/`,
-  ]
-  
-  // カテゴリページのリストを取得（サイトマップまたは固定リスト）
+  // カテゴリページのリストを取得
   const categoryUrls: string[] = []
   
-  // まず、カテゴリ一覧ページからカテゴリURLを取得
+  // 1. カテゴリ一覧ページからカテゴリURLを取得
   const categoryListUrls = [
     `${BASE_URL}/shop/`,
     `${BASE_URL}/shop/c/`,
@@ -541,23 +548,22 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
   
   console.log(`[Category] Total ${categoryUrls.length} category pages found`)
   
-  // カテゴリページが取得できない場合は、直接商品ページを探す
-  if (categoryUrls.length === 0) {
-    // 商品一覧ページから直接商品URLを取得（ページネーション対応）
+  // 2. メインの /shop/ ページからも直接商品を収集（並行して実行）
+  console.log(`[Category] Also collecting products from main /shop/ page...`)
+  const mainShopPagePromise = (async () => {
     try {
       const productListUrl = `${BASE_URL}/shop/`
       const urls = await extractUrlsFromCategoryPageWithPagination(productListUrl)
-      for (const url of urls) {
-        if (!seenUrls.has(url)) {
-          seenUrls.add(url)
-          allUrls.push(url)
-        }
-      }
+      console.log(`[Category] Found ${urls.length} products from main /shop/ page`)
+      return urls
     } catch (error) {
-      console.error('Failed to extract URLs from product list page:', error)
+      console.warn(`[Category] Failed to extract URLs from main /shop/ page:`, error instanceof Error ? error.message : String(error))
+      return []
     }
-  } else {
-    // 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
+  })()
+  
+  // 3. 各カテゴリページから商品URLを取得（ページネーション対応、並列処理）
+  if (categoryUrls.length > 0) {
     const batchSize = 3 // 並列数を3に減らしてタイムアウトを避ける（各カテゴリが120秒までかかる可能性があるため）
     console.log(`[Category] Processing ${categoryUrls.length} category pages in batches of ${batchSize}...`)
     
@@ -607,6 +613,24 @@ export async function extractUrlsFromCategoryPages(): Promise<string[]> {
         await new Promise(resolve => setTimeout(resolve, 1000))
       }
     }
+  }
+  
+  // 4. メインの /shop/ ページから収集したURLをマージ
+  try {
+    const mainShopUrls = await mainShopPagePromise
+    let mainShopNewUrls = 0
+    for (const url of mainShopUrls) {
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url)
+        allUrls.push(url)
+        mainShopNewUrls++
+      }
+    }
+    if (mainShopNewUrls > 0) {
+      console.log(`[Category] Merged ${mainShopNewUrls} new URLs from main /shop/ page (total: ${allUrls.length})`)
+    }
+  } catch (error) {
+    console.warn(`[Category] Failed to merge URLs from main /shop/ page:`, error instanceof Error ? error.message : String(error))
   }
   
   console.log(`[Category] Total product URLs collected from category pages: ${allUrls.length}`)
