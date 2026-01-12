@@ -292,12 +292,20 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
   - 外部cronサービス（cron-job.org等）から呼び出し可能
   - 差分クロールを実行（更新が必要な商品のみ）
 
+**詳細な設定手順**: [CRON_SETUP_GUIDE.md](./CRON_SETUP_GUIDE.md) を参照してください。
+
+**クイックスタート**:
+1. CRON_SECRETを生成: `./scripts/generate-cron-secret.sh`
+2. Render.comで環境変数 `CRON_SECRET` を設定
+3. cron-job.orgでCron Jobを作成
+4. 動作確認: `./scripts/test-cron.sh {CRON_SECRET}`
+
 **環境変数の設定**:
 ```env
 CRON_SECRET=your-secret-token-here
 ```
 
-**cron-job.org設定手順**:
+**cron-job.org設定手順**（簡易版）:
 1. [cron-job.org](https://cron-job.org/) にアカウントを作成
 2. 「Create cronjob」をクリック
 3. 以下の設定を入力:
