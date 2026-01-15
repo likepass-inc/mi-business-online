@@ -102,6 +102,64 @@ foreach ($products as $product) {
 ?>
 ```
 
+**複数商品IDを一度に取得する場合**:
+
+```php
+<?php
+// 複数の商品コードを一度に取得する関数
+function get_products_by_codes($product_codes = array()) {
+    if (empty($product_codes)) {
+        return array();
+    }
+    
+    $api_url = 'https://mi-business-online.onrender.com/api/products';
+    
+    // product_code[] パラメータを構築
+    $params = array();
+    foreach ($product_codes as $code) {
+        $params['product_code[]'] = $code;
+    }
+    
+    $api_url .= '?' . http_build_query($params);
+    
+    $response = wp_remote_get($api_url, array(
+        'timeout' => 10,
+        'headers' => array(
+            'Accept' => 'application/json'
+        )
+    ));
+    
+    if (is_wp_error($response)) {
+        return array();
+    }
+    
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    
+    if (isset($data['success']) && $data['success'] && isset($data['data'])) {
+        return $data['data'];
+    }
+    
+    return array();
+}
+
+// 使用例：記事ページ内の複数商品を一度に取得
+$product_codes = array('ABC123', 'DEF456', 'GHI789');
+$products = get_products_by_codes($product_codes);
+
+foreach ($products as $product) {
+    echo '<div class="product-item">';
+    echo '<h3>' . esc_html($product['product_name']) . '</h3>';
+    if (!empty($product['image_url'])) {
+        echo '<img src="' . esc_url($product['image_url']) . '" alt="' . esc_attr($product['product_name']) . '">';
+    }
+    echo '<p class="price">¥' . number_format($product['price_incl_tax']) . '（税込）</p>';
+    echo '<a href="' . esc_url($product['product_url']) . '" target="_blank">商品を見る</a>';
+    echo '</div>';
+}
+?>
+```
+
 ### 方法2: ショートコードを作成
 
 functions.phpに以下のコードを追加すると、記事内で `[products limit="10"]` のように簡単に商品を表示できます：
@@ -227,7 +285,54 @@ function render_product_block($attributes) {
 [products limit="5" search="お菓子"]
 ```
 
-### 例4: マガジン記事に関連する商品を表示
+### 例4: 複数の商品コードを一度に取得
+
+記事ページ内に複数の商品コードがある場合、一度のAPIリクエストで取得できます：
+
+```php
+<?php
+// 記事内の商品コードを配列で定義（カスタムフィールドやショートコードから取得）
+$product_codes = array('ABC123', 'DEF456', 'GHI789');
+
+// 複数商品を一度に取得
+$products = get_products_by_codes($product_codes);
+
+// 商品を表示
+if (!empty($products)) {
+    echo '<div class="products-grid">';
+    foreach ($products as $product) {
+        ?>
+        <div class="product-card">
+            <?php if (!empty($product['image_url'])): ?>
+                <div class="product-image">
+                    <img src="<?php echo esc_url($product['image_url']); ?>" 
+                         alt="<?php echo esc_attr($product['product_name']); ?>">
+                </div>
+            <?php endif; ?>
+            <div class="product-info">
+                <h3 class="product-name"><?php echo esc_html($product['product_name']); ?></h3>
+                <p class="product-price">¥<?php echo number_format($product['price_incl_tax']); ?>（税込）</p>
+                <a href="<?php echo esc_url($product['product_url']); ?>" 
+                   class="product-link" 
+                   target="_blank" 
+                   rel="noopener">商品を見る</a>
+            </div>
+        </div>
+        <?php
+    }
+    echo '</div>';
+} else {
+    echo '<p>商品が見つかりませんでした。</p>';
+}
+?>
+```
+
+**URL例**:
+```
+GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI789
+```
+
+### 例5: マガジン記事に関連する商品を表示
 
 マガジン記事（`https://business.mistore.jp/magazine/`）のテンプレートで、記事IDに基づいて関連商品を取得します。
 
@@ -566,10 +671,57 @@ add_shortcode('related-products', 'display_related_products_shortcode');
 | `category` | string | いいえ | カテゴリでフィルタ | `お詫び・謝罪` |
 | `sort` | string | いいえ | ソート順<br>`name`: 名前順<br>`price_asc`: 価格の安い順<br>`price_desc`: 価格の高い順<br>`updated_desc`: 更新日順（デフォルト） | `price_asc` |
 | `q` | string | いいえ | 検索キーワード | `お菓子` |
+| `product_code[]` | string[] | いいえ | 複数の商品コードを指定（配列形式）<br>**注意**: このパラメータが指定された場合、他のパラメータ（`category`, `q`, `limit`, `offset`, `sort`）は無視されます | `product_code[]=ABC123&product_code[]=DEF456` |
+| `product_id[]` | string[] | いいえ | `product_code[]` の別名（同じ動作） | `product_id[]=ABC123&product_id[]=DEF456` |
+
+**複数商品ID一括取得について**:
+- `product_code[]` または `product_id[]` パラメータを使用すると、指定された複数の商品コードの商品情報を一度のAPIリクエストで取得できます
+- 記事ページ内に複数商品がある場合、この機能を使用することで処理を軽減できます
+- 存在しない商品コードが含まれていても、存在する商品のみが返されます（エラーにはなりません）
 
 ### 商品詳細取得 (`GET /api/products/[productCode]`)
 
 商品コードを指定して1件の商品情報を取得します。
+
+### 複数商品ID一括取得 (`GET /api/products?product_code[]=...`)
+
+複数の商品コードを一度に指定して商品情報を取得します。記事ページ内に複数商品がある場合に便利です。
+
+**URL例**:
+```
+GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI789
+```
+
+または
+
+```
+GET /api/products?product_id[]=ABC123&product_id[]=DEF456&product_id[]=GHI789
+```
+
+**レスポンス形式**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "product_code": "ABC123",
+      "product_name": "商品名1",
+      ...
+    },
+    {
+      "product_code": "DEF456",
+      "product_name": "商品名2",
+      ...
+    }
+  ],
+  "pagination": {
+    "total": 2,
+    "limit": 2,
+    "offset": 0,
+    "has_more": false
+  }
+}
+```
 
 ### 商品検索 (`GET /api/products/search`)
 
@@ -665,6 +817,44 @@ if (!is_wp_error($response)) {
     }
 }
 ```
+
+### Q6: 記事ページ内の複数商品を効率的に取得したい
+
+**A:** `product_code[]` または `product_id[]` パラメータを使用して、複数の商品コードを一度のAPIリクエストで取得できます：
+
+```php
+// 複数の商品コードを一度に取得
+$product_codes = array('ABC123', 'DEF456', 'GHI789');
+$products = get_products_by_codes($product_codes);
+
+// または直接APIを呼び出す場合
+$api_url = 'https://mi-business-online.onrender.com/api/products';
+$params = array();
+foreach ($product_codes as $code) {
+    $params['product_code[]'] = $code;
+}
+$api_url .= '?' . http_build_query($params);
+
+$response = wp_remote_get($api_url, array(
+    'timeout' => 10,
+    'headers' => array('Accept' => 'application/json')
+));
+
+if (!is_wp_error($response)) {
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    
+    if (isset($data['success']) && $data['success'] && isset($data['data'])) {
+        $products = $data['data'];
+        // 商品情報を表示
+    }
+}
+```
+
+**メリット**:
+- 複数のAPIリクエストを1回にまとめられるため、処理が軽くなる
+- 記事ページ内に複数商品がある場合に特に有効
+- 存在しない商品コードが含まれていても、存在する商品のみが返される（エラーにはならない）
 
 ---
 

@@ -259,8 +259,15 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
     - `offset`: オフセット（デフォルト: 0）
     - `sort`: ソート順（`name`, `price_asc`, `price_desc`, `updated_desc`）
     - `q`: 検索キーワード
+    - `product_code[]`: 複数の商品コードを指定（配列形式、記事ページ内の複数商品を一度に取得可能）
+    - `product_id[]`: `product_code[]` の別名（同じ動作）
 - `GET /api/products/[productCode]`: 商品詳細取得
 - `GET /api/products/search?q=キーワード`: 商品検索
+
+**複数商品ID一括取得の例**:
+```
+GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI789
+```
 
 **レスポンス例**:
 ```json
