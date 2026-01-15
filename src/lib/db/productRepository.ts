@@ -106,7 +106,7 @@ export function getProductsByCodes(productCodes: string[]): Product[] {
   }
   
   // 重複を除去
-  const uniqueCodes = [...new Set(productCodes)]
+  const uniqueCodes = Array.from(new Set(productCodes))
   
   // SQLのIN句用にプレースホルダーを生成
   const placeholders = uniqueCodes.map(() => '?').join(',')
