@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     if (productCodes.length > 0) {
       const products = getProductsByCodes(productCodes)
       
-      // WordPress/SWELL用のレスポンス形式
+      // WordPress/STORK19用のレスポンス形式
       return NextResponse.json({
         success: true,
         data: products,
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       result = getAllProducts({ category, limit, offset, sort })
     }
     
-    // WordPress/SWELL用のレスポンス形式
+    // WordPress/STORK19用のレスポンス形式
     return NextResponse.json({
       success: true,
       data: result.products,

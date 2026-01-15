@@ -250,7 +250,7 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
 - `POST /api/crawl/products/incremental`: 差分クロールを実行（更新が必要な商品のみ）
 - `GET /api/crawl/products/status`: クロール実行状況を取得
 
-#### 商品データ取得（WordPress/SWELL用）
+#### 商品データ取得（WordPress/STORK19用）
 
 - `GET /api/products`: 商品一覧取得
   - クエリパラメータ:

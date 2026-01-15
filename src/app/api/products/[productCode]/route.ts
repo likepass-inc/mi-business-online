@@ -26,7 +26,7 @@ export async function GET(
       )
     }
     
-    // WordPress/SWELL用のレスポンス形式
+    // WordPress/STORK19用のレスポンス形式
     return NextResponse.json({
       success: true,
       data: product

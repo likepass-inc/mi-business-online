@@ -1,8 +1,8 @@
-# WordPress/SWELL 商品データ取得ガイド
+# WordPress/STORK19 商品データ取得ガイド
 
 ## 📖 はじめに
 
-このガイドでは、WordPress/SWELLテーマで商品データを取得・表示する方法を説明します。
+このガイドでは、WordPress/STORK19テーマで商品データを取得・表示する方法を説明します。
 
 商品データは `https://mi-business-online.onrender.com/api/products` から取得できます。このAPIは、[business.mistore.jp](https://business.mistore.jp/)の商品情報を自動的に収集・更新しているため、常に最新の商品データを取得できます。
 
@@ -216,9 +216,9 @@ add_shortcode('products', 'display_products_shortcode');
 ?>
 ```
 
-### 方法3: SWELLテーマのカスタムブロック（Gutenberg）
+### 方法3: STORK19テーマのカスタムブロック（Gutenberg）
 
-SWELLテーマでGutenbergブロックを使用する場合、以下のようなカスタムブロックを作成できます：
+STORK19テーマはブロックエディタに対応しているため、以下のようなカスタムブロックを作成できます：
 
 ```php
 <?php
@@ -232,7 +232,7 @@ function register_product_block() {
         true
     );
     
-    register_block_type('swell/product-list', array(
+    register_block_type('stork19/product-list', array(
         'editor_script' => 'product-block',
         'render_callback' => 'render_product_block',
     ));
@@ -251,15 +251,34 @@ function render_product_block($attributes) {
     }
     
     ob_start();
-    echo '<div class="swell-products-grid">';
+    echo '<div class="products-grid">';
     foreach ($products as $product) {
-        // 商品カードのHTML
+        ?>
+        <div class="product-card">
+            <?php if (!empty($product['image_url'])): ?>
+                <div class="product-image">
+                    <img src="<?php echo esc_url($product['image_url']); ?>" 
+                         alt="<?php echo esc_attr($product['product_name']); ?>">
+                </div>
+            <?php endif; ?>
+            <div class="product-info">
+                <h3 class="product-name"><?php echo esc_html($product['product_name']); ?></h3>
+                <p class="product-price">¥<?php echo number_format($product['price_incl_tax']); ?>（税込）</p>
+                <a href="<?php echo esc_url($product['product_url']); ?>" 
+                   class="product-link" 
+                   target="_blank" 
+                   rel="noopener">商品を見る</a>
+            </div>
+        </div>
+        <?php
     }
     echo '</div>';
     return ob_get_clean();
 }
 ?>
 ```
+
+**注意**: STORK19テーマでは、ショートコード機能も利用可能です。カスタムブロックの作成が難しい場合は、[方法2](#方法2-ショートコードを作成)のショートコードを使用することを推奨します。
 
 ---
 
