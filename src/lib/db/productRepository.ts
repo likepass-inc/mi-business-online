@@ -97,6 +97,54 @@ export function getProductByCode(productCode: string): Product | null {
   }
 }
 
+export function getProductsByCodes(productCodes: string[]): Product[] {
+  const db = getDatabase()
+  
+  // 空配列の場合は空配列を返す
+  if (productCodes.length === 0) {
+    return []
+  }
+  
+  // 重複を除去
+  const uniqueCodes = [...new Set(productCodes)]
+  
+  // SQLのIN句用にプレースホルダーを生成
+  const placeholders = uniqueCodes.map(() => '?').join(',')
+  
+  const stmt = db.prepare(`
+    SELECT * FROM products
+    WHERE product_code IN (${placeholders})
+  `)
+  
+  const rows = stmt.all(...uniqueCodes) as any[]
+  
+  // 存在しない商品コードをログに記録
+  const foundCodes = new Set(rows.map(row => row.product_code))
+  const notFoundCodes = uniqueCodes.filter(code => !foundCodes.has(code))
+  if (notFoundCodes.length > 0) {
+    console.log(`[ProductRepository] Products not found: ${notFoundCodes.join(', ')}`)
+  }
+  
+  // Product型に変換
+  const products: Product[] = rows.map(row => ({
+    product_code: row.product_code,
+    product_name: row.product_name,
+    brand_name: '',
+    category: row.category || '',
+    sub_category: row.sub_category || '',
+    price_excl_tax: row.price_excl_tax || 0,
+    price_incl_tax: row.price_incl_tax || 0,
+    description: row.description || '',
+    product_url: row.product_url,
+    image_url: row.image_urls ? JSON.parse(row.image_urls)[0] : undefined,
+    tags: [],
+    ...(row.image_urls && { image_urls: JSON.parse(row.image_urls) }),
+    ...(row.availability && { availability: row.availability })
+  }))
+  
+  return products
+}
+
 export function getAllProducts(query: ProductQuery = {}): {
   products: Product[]
   total: number

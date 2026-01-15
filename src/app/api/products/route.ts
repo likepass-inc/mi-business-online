@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllProducts, searchProducts } from '@/lib/db/productRepository'
+import { getAllProducts, searchProducts, getProductsByCodes } from '@/lib/db/productRepository'
 
 /**
  * 商品一覧取得API
  * GET /api/products?category=カテゴリ&limit=100&offset=0&sort=updated_desc
+ * GET /api/products?product_code[]=ABC123&product_code[]=DEF456
+ * GET /api/products?product_id[]=ABC123&product_id[]=DEF456
  */
 export async function GET(req: NextRequest) {
   try {
@@ -14,8 +16,35 @@ export async function GET(req: NextRequest) {
     const sort = (searchParams.get('sort') as 'name' | 'price_asc' | 'price_desc' | 'updated_desc') || 'updated_desc'
     const q = searchParams.get('q') // 検索キーワード
     
-    console.log('[Products API] Request:', { category, limit, offset, sort, q })
+    // 複数商品コードの取得（product_code[] または product_id[]）
+    const productCodesParam = searchParams.getAll('product_code[]')
+    const productIdsParam = searchParams.getAll('product_id[]')
+    const productCodes = productCodesParam.length > 0 ? productCodesParam : productIdsParam
     
+    console.log('[Products API] Request:', { category, limit, offset, sort, q, productCodesCount: productCodes.length })
+    
+    // 複数商品コードが指定された場合
+    if (productCodes.length > 0) {
+      const products = getProductsByCodes(productCodes)
+      
+      // WordPress/SWELL用のレスポンス形式
+      return NextResponse.json({
+        success: true,
+        data: products,
+        pagination: {
+          total: products.length,
+          limit: products.length,
+          offset: 0,
+          has_more: false
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      })
+    }
+    
+    // 既存のロジック（カテゴリ、検索、ページネーション）
     let result
     
     if (q) {
