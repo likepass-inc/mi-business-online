@@ -36,12 +36,18 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
 
   // 画像を抽出
   const imageUrls = extractProductImages($, baseUrl)
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:38',message:'Extracted image URLs',data:{productCode:basicInfo.product_code,imageUrlsCount:imageUrls.length,imageUrls:imageUrls.slice(0,3)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // 価格情報を抽出
   const priceInfo = extractProductPrice($)
 
   // 在庫状況を抽出
   const availability = extractProductAvailability($)
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:44',message:'Extracted availability',data:{productCode:basicInfo.product_code,availability:availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // カテゴリ情報を抽出
   const categoryInfo = extractProductCategory($, url)
@@ -67,7 +73,7 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
     }
   }
 
-  return {
+  const result = {
     product_code: basicInfo.product_code,
     product_name: basicInfo.product_name,
     price_incl_tax: priceInfo.price_incl_tax,
@@ -79,6 +85,10 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
     image_urls: imageUrls.length > 0 ? imageUrls : undefined,
     availability: availability || undefined
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:70',message:'parseProductPage result',data:{productCode:result.product_code,hasImageUrls:!!result.image_urls,imageUrlsCount:result.image_urls?.length||0,availability:result.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  return result
 }
 
 /**
@@ -164,33 +174,68 @@ function extractProductBasicInfo($: ReturnType<typeof cheerio.load>, url: string
 function extractProductImages($: ReturnType<typeof cheerio.load>, baseUrl: URL): string[] {
   const imageUrls: string[] = []
 
-  // メイン商品画像を探す（よくあるセレクタ）
-  const mainImageSelectors = [
-    '.product-image img',
-    '.product-main-image img',
-    '.product-photo img',
-    '.main-image img',
-    '[class*="product"][class*="image"] img',
-    '[class*="product"][class*="photo"] img'
-  ]
-
-  for (const selector of mainImageSelectors) {
-    const images = $(selector)
-    if (images.length > 0) {
-      images.each((_, el) => {
-        const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src')
-        if (src) {
-          try {
-            const imageUrl = new URL(src, baseUrl).href
-            if (!imageUrls.includes(imageUrl)) {
-              imageUrls.push(imageUrl)
-            }
-          } catch {
-            // URL解析エラーは無視
-          }
+  // 優先度1: 商品画像のパスパターンに一致する画像（/img/goods/を含む）
+  $('img[src*="/img/goods/"]').each((_, el) => {
+    // data-zoom-image属性を優先、なければsrc属性を使用
+    const src = $(el).attr('data-zoom-image') || $(el).attr('src')
+    if (src) {
+      try {
+        const imageUrl = new URL(src, baseUrl).href
+        if (!imageUrls.includes(imageUrl)) {
+          imageUrls.push(imageUrl)
         }
-      })
-      if (imageUrls.length > 0) break
+      } catch {
+        // URL解析エラーは無視
+      }
+    }
+  })
+
+  // 優先度2: data-zoom-image属性を持つ画像（商品画像パターンで見つからなかった場合）
+  if (imageUrls.length === 0) {
+    $('img[data-zoom-image]').each((_, el) => {
+      const zoomImage = $(el).attr('data-zoom-image')
+      if (zoomImage) {
+        try {
+          const imageUrl = new URL(zoomImage, baseUrl).href
+          if (!imageUrls.includes(imageUrl)) {
+            imageUrls.push(imageUrl)
+          }
+        } catch {
+          // URL解析エラーは無視
+        }
+      }
+    })
+  }
+
+  // 優先度3: メイン商品画像を探す（よくあるセレクタ - フォールバック）
+  if (imageUrls.length === 0) {
+    const mainImageSelectors = [
+      '.product-image img',
+      '.product-main-image img',
+      '.product-photo img',
+      '.main-image img',
+      '[class*="product"][class*="image"] img',
+      '[class*="product"][class*="photo"] img'
+    ]
+
+    for (const selector of mainImageSelectors) {
+      const images = $(selector)
+      if (images.length > 0) {
+        images.each((_, el) => {
+          const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('data-lazy-src')
+          if (src) {
+            try {
+              const imageUrl = new URL(src, baseUrl).href
+              if (!imageUrls.includes(imageUrl)) {
+                imageUrls.push(imageUrl)
+              }
+            } catch {
+              // URL解析エラーは無視
+            }
+          }
+        })
+        if (imageUrls.length > 0) break
+      }
     }
   }
 
@@ -229,7 +274,11 @@ function extractProductImages($: ReturnType<typeof cheerio.load>, baseUrl: URL):
     }
   })
 
-  return imageUrls.slice(0, 10) // 最大10枚まで
+  const result = imageUrls.slice(0, 10) // 最大10枚まで
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:174',message:'extractProductImages result',data:{foundImages:result.length,fromSelectors:imageUrls.length,fromOG:!!ogImage,resultImages:result.slice(0,2)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  return result
 }
 
 /**
@@ -352,6 +401,9 @@ function extractProductAvailability($: ReturnType<typeof cheerio.load>): string 
     }
   })
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:327',message:'extractProductAvailability result',data:{availability:availability,bodyTextLength:bodyText.length,foundInPatterns:availabilityPatterns.some(p=>p.test(bodyText))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   return availability
 }
 
