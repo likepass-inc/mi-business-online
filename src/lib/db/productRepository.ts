@@ -21,6 +21,38 @@ export interface ProductQuery {
   sort?: 'name' | 'price_asc' | 'price_desc' | 'updated_desc'
 }
 
+/**
+ * データベースの行をProduct型に安全に変換するヘルパー関数
+ */
+function mapRowToProduct(row: any): Product {
+  let imageUrls: string[] = []
+  if (row.image_urls) {
+    try {
+      const parsed = JSON.parse(row.image_urls)
+      imageUrls = Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+      console.warn(`[ProductRepository] Failed to parse image_urls for ${row.product_code}:`, e)
+      imageUrls = []
+    }
+  }
+  
+  return {
+    product_code: row.product_code,
+    product_name: row.product_name,
+    brand_name: '',
+    category: row.category || '',
+    sub_category: row.sub_category || '',
+    price_excl_tax: row.price_excl_tax || 0,
+    price_incl_tax: row.price_incl_tax || 0,
+    description: row.description || '',
+    product_url: row.product_url,
+    image_url: imageUrls.length > 0 ? imageUrls[0] : undefined,
+    image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+    tags: [],
+    availability: row.availability || undefined
+  }
+}
+
 export function saveProduct(productData: ProductData): void {
   const db = getDatabase()
   
@@ -80,21 +112,7 @@ export function getProductByCode(productCode: string): Product | null {
     return null
   }
 
-  return {
-    product_code: row.product_code,
-    product_name: row.product_name,
-    brand_name: '', // データベースに保存されていない場合は空文字
-    category: row.category || '',
-    sub_category: row.sub_category || '',
-    price_excl_tax: row.price_excl_tax || 0,
-    price_incl_tax: row.price_incl_tax || 0,
-    description: row.description || '',
-    product_url: row.product_url,
-    image_url: row.image_urls ? JSON.parse(row.image_urls)[0] : undefined,
-    tags: [],
-    ...(row.image_urls && { image_urls: JSON.parse(row.image_urls) }),
-    ...(row.availability && { availability: row.availability })
-  }
+  return mapRowToProduct(row)
 }
 
 export function getProductsByCodes(productCodes: string[]): Product[] {
@@ -126,21 +144,7 @@ export function getProductsByCodes(productCodes: string[]): Product[] {
   }
   
   // Product型に変換
-  const products: Product[] = rows.map(row => ({
-    product_code: row.product_code,
-    product_name: row.product_name,
-    brand_name: '',
-    category: row.category || '',
-    sub_category: row.sub_category || '',
-    price_excl_tax: row.price_excl_tax || 0,
-    price_incl_tax: row.price_incl_tax || 0,
-    description: row.description || '',
-    product_url: row.product_url,
-    image_url: row.image_urls ? JSON.parse(row.image_urls)[0] : undefined,
-    tags: [],
-    ...(row.image_urls && { image_urls: JSON.parse(row.image_urls) }),
-    ...(row.availability && { availability: row.availability })
-  }))
+  const products: Product[] = rows.map(row => mapRowToProduct(row))
   
   return products
 }
@@ -191,21 +195,7 @@ export function getAllProducts(query: ProductQuery = {}): {
   
   const rows = stmt.all(...params, limit, offset) as any[]
   
-  const products: Product[] = rows.map(row => ({
-    product_code: row.product_code,
-    product_name: row.product_name,
-    brand_name: '',
-    category: row.category || '',
-    sub_category: row.sub_category || '',
-    price_excl_tax: row.price_excl_tax || 0,
-    price_incl_tax: row.price_incl_tax || 0,
-    description: row.description || '',
-    product_url: row.product_url,
-    image_url: row.image_urls ? JSON.parse(row.image_urls)[0] : undefined,
-    tags: [],
-    ...(row.image_urls && { image_urls: JSON.parse(row.image_urls) }),
-    ...(row.availability && { availability: row.availability })
-  }))
+  const products: Product[] = rows.map(row => mapRowToProduct(row))
   
   return { products, total }
 }
@@ -242,21 +232,7 @@ export function searchProducts(keyword: string, limit = 100, offset = 0): {
   
   const rows = stmt.all(searchTerm, searchTerm, limit, offset) as any[]
   
-  const products: Product[] = rows.map(row => ({
-    product_code: row.product_code,
-    product_name: row.product_name,
-    brand_name: '',
-    category: row.category || '',
-    sub_category: row.sub_category || '',
-    price_excl_tax: row.price_excl_tax || 0,
-    price_incl_tax: row.price_incl_tax || 0,
-    description: row.description || '',
-    product_url: row.product_url,
-    image_url: row.image_urls ? JSON.parse(row.image_urls)[0] : undefined,
-    tags: [],
-    ...(row.image_urls && { image_urls: JSON.parse(row.image_urls) }),
-    ...(row.availability && { availability: row.availability })
-  }))
+  const products: Product[] = rows.map(row => mapRowToProduct(row))
   
   return { products, total }
 }
