@@ -248,6 +248,20 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
 - `POST /api/crawl/products`: 全商品のクロールを実行
   - リクエストボディ: `{ "type": "full" }` または `{ "type": "incremental" }`
 - `POST /api/crawl/products/incremental`: 差分クロールを実行（更新が必要な商品のみ）
+- `POST /api/crawl/products/single`: 特定の商品をクロール
+  - リクエストボディ: `{ "product_code": "g020W-977" }` または `{ "product_url": "https://business.mistore.jp/shop/g/g020W-977/" }`
+  - レスポンス例:
+    ```json
+    {
+      "success": true,
+      "product_code": "g020W-977",
+      "product_name": "商品名",
+      "image_url": "https://d3b4uw7lo85s1k.cloudfront.net/img/goods/L/020W-977_1.jpg",
+      "image_urls": ["https://..."],
+      "availability": null,
+      "message": "Product g020W-977 crawled and saved successfully"
+    }
+    ```
 - `GET /api/crawl/products/status`: クロール実行状況を取得
 
 #### 商品データ取得（WordPress/STORK19用）
