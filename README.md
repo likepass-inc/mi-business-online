@@ -235,6 +235,24 @@ GET /api/magazine/products-by-category?category=お詫び・謝罪&limit=12&sort
 
 business.mistore.jpの商品ページを定期的にクロールし、商品データをデータベースに保存して、WordPress/SWELLテーマ用のREST APIを提供します。
 
+### 商品URL収集の仕組み
+
+商品URLは以下の方法で収集されます：
+
+1. **カテゴリページからの収集（優先）**
+   - `/shop/` および `/shop/c/` からカテゴリページを発見
+   - 各カテゴリページから商品URL（`/shop/g/` で始まるURL）を抽出
+   - ページネーションに対応（最大200ページまで）
+
+2. **サイトマップからの収集（補助的）**
+   - 正規のサイトマップインデックス（`sitemap_index.xml`）から商品URLを収集
+   - `robots.txt`からサイトマップの場所を取得して収集
+   - 古いサイトマップ（`sitemap.xml`）は使用しません
+
+3. **URLの正規化**
+   - 古いドメイン（`kinogift.jp`）のURLは自動的に`business.mistore.jp`に正規化
+   - クエリパラメータを除去して正規化
+
 ### セットアップ
 
 1. データベースは自動的に作成されます（`data/products.db`）

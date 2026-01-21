@@ -6,8 +6,14 @@ const BASE_URL = 'https://business.mistore.jp'
 /**
  * 商品URLを収集（カテゴリページを優先、サイトマップは補助的に使用）
  * 
- * 注意: サイトマップが古いドメイン（kinogift.jp）を含んでいるため、
- * カテゴリページからの収集を優先し、サイトマップは補助的な手段として使用します。
+ * 収集方法:
+ * 1. カテゴリページから商品URLを収集（優先）
+ * 2. 正規のサイトマップ（sitemap_index.xml）から商品URLを収集（補助的）
+ * 3. robots.txtからサイトマップの場所を取得して収集（補助的）
+ * 
+ * 注意: 
+ * - 古いサイトマップ（sitemap.xml）は使用しません
+ * - サイトマップが古いドメイン（kinogift.jp）を含む場合でも、正規化して処理します
  */
 export async function collectProductUrls(): Promise<string[]> {
   const urls: string[] = []
@@ -36,16 +42,16 @@ export async function collectProductUrls(): Promise<string[]> {
   }
   
   // 2. サイトマップからも収集を試みる（補助的、正規化済み）
-  // 注意: サイトマップは古いドメインを含む可能性があるため、正規化が必要
+  // 正規のサイトマップのみを使用: sitemap_index.xml と robots.txt
+  // 注意: 古いサイトマップ（sitemap.xml）は使用しません
   console.log('[Collection] Step 2: Collecting from sitemaps (supplementary)...')
   const sitemapUrlsToTry = [
-    `${BASE_URL}/sitemap.xml`,
-    `${BASE_URL}/sitemap_index.xml`,
-    `${BASE_URL}/sitemaps/sitemap.xml`,
+    `${BASE_URL}/sitemap_index.xml`, // 正規のサイトマップインデックス
     `${BASE_URL}/robots.txt`, // robots.txtからサイトマップの場所を取得
   ]
   
   let sitemapUrlsFound = 0
+  
   for (const sitemapUrl of sitemapUrlsToTry) {
     try {
       console.log(`[Sitemap] Trying sitemap URL: ${sitemapUrl}`)
@@ -53,6 +59,7 @@ export async function collectProductUrls(): Promise<string[]> {
       if (sitemapUrls.length > 0) {
         console.log(`[Sitemap] Found ${sitemapUrls.length} product URLs from sitemap: ${sitemapUrl}`)
         sitemapUrlsFound += sitemapUrls.length
+        
         // 重複を排除してマージ（正規化済みのURLが含まれる）
         for (const url of sitemapUrls) {
           if (!seenUrls.has(url)) {
