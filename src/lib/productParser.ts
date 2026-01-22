@@ -360,26 +360,51 @@ function extractProductPrice($: ReturnType<typeof cheerio.load>): {
  * 在庫状況を抽出
  */
 function extractProductAvailability($: ReturnType<typeof cheerio.load>): string | null {
-  // 在庫状況のよくある表示パターン
-  const availabilityPatterns = [
-    /在庫あり/i,
-    /在庫なし/i,
-    /入荷待ち/i,
-    /予約受付中/i,
-    /販売終了/i,
-    /売り切れ/i
-  ]
-
-  const bodyText = $('body').text()
-
-  for (const pattern of availabilityPatterns) {
-    const match = bodyText.match(pattern)
-    if (match) {
-      return match[0]
+  // 優先度1: <p class="stock">要素から直接取得（実際の表示文言をそのまま使用）
+  const stockElement = $('p.stock').first()
+  if (stockElement.length > 0) {
+    const stockText = stockElement.text().trim()
+    if (stockText) {
+      // 実際の表示文言をそのまま返す
+      // 例: "一時欠品中", "販売を終了いたしました", "残り0点"
+      return stockText
     }
   }
 
-  // 構造化データから在庫状況を取得
+  // 優先度2: .sizeクラス内の.stock要素を確認
+  const sizeStockElement = $('.size p.stock').first()
+  if (sizeStockElement.length > 0) {
+    const stockText = sizeStockElement.text().trim()
+    if (stockText) {
+      return stockText
+    }
+  }
+
+  // 優先度3: btnCartの前後の要素から在庫状況を探す
+  const btnCart = $('.btnCart').first()
+  if (btnCart.length > 0) {
+    // btnCartの前の兄弟要素を確認
+    const prevSibling = btnCart.prev()
+    const stockInSibling = prevSibling.find('p.stock').first()
+    if (stockInSibling.length > 0) {
+      const stockText = stockInSibling.text().trim()
+      if (stockText) {
+        return stockText
+      }
+    }
+    
+    // btnCartの親要素内の.stock要素を確認
+    const parent = btnCart.parent()
+    const stockInParent = parent.find('p.stock').first()
+    if (stockInParent.length > 0) {
+      const stockText = stockInParent.text().trim()
+      if (stockText) {
+        return stockText
+      }
+    }
+  }
+
+  // 優先度4: 構造化データから在庫状況を取得
   let availability: string | null = null
   $('script[type="application/ld+json"]').each((_, el) => {
     try {
@@ -401,10 +426,29 @@ function extractProductAvailability($: ReturnType<typeof cheerio.load>): string 
     }
   })
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:327',message:'extractProductAvailability result',data:{availability:availability,bodyTextLength:bodyText.length,foundInPatterns:availabilityPatterns.some(p=>p.test(bodyText))},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-  return availability
+  if (availability) {
+    return availability
+  }
+
+  // 優先度5: 一般的なテキストパターンマッチング（フォールバック）
+  const availabilityPatterns = [
+    /在庫あり/i,
+    /在庫なし/i,
+    /入荷待ち/i,
+    /予約受付中/i,
+    /販売終了/i,
+    /売り切れ/i
+  ]
+
+  const bodyText = $('body').text()
+  for (const pattern of availabilityPatterns) {
+    const match = bodyText.match(pattern)
+    if (match) {
+      return match[0]
+    }
+  }
+
+  return null
 }
 
 /**
