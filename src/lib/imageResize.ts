@@ -1,0 +1,41 @@
+import sharp from 'sharp'
+import { TARGET_SIZES, PADDING_COLOR } from './imageResizeConfig'
+
+export interface ResizeResult {
+  large: Buffer
+  small: Buffer
+}
+
+/**
+ * 画像をアスペクト比を維持したまま2サイズにリサイズする。
+ * 指定サイズに収まるようにスケールし、必要なら余白（パディング）で中央配置する。
+ * @param input 入力画像の Buffer
+ * @returns 大・小2つの JPEG Buffer
+ */
+export async function resizeToTwoSizes(input: Buffer): Promise<ResizeResult> {
+  const pipeline = sharp(input)
+  const { large, small } = TARGET_SIZES
+
+  const [largeBuffer, smallBuffer] = await Promise.all([
+    pipeline
+      .clone()
+      .resize(large.width, large.height, {
+        fit: 'contain',
+        position: 'centre',
+        background: PADDING_COLOR,
+      })
+      .jpeg({ quality: 90 })
+      .toBuffer(),
+    pipeline
+      .clone()
+      .resize(small.width, small.height, {
+        fit: 'contain',
+        position: 'centre',
+        background: PADDING_COLOR,
+      })
+      .jpeg({ quality: 90 })
+      .toBuffer(),
+  ])
+
+  return { large: largeBuffer, small: smallBuffer }
+}
