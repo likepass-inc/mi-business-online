@@ -17,17 +17,22 @@ export default function ImageResizePage() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [zipDownloadUrl, setZipDownloadUrl] = useState<string | null>(null)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     setDragActive(false)
     const f = e.dataTransfer.files?.[0]
-    if (f?.type.startsWith('image/')) {
+    if (f && (f.type.startsWith('image/') || f.name.toLowerCase().endsWith('.zip') || f.type === 'application/zip')) {
       setFile(f)
       setError(null)
       setResult(null)
+      setZipDownloadUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
     } else {
-      setError('画像ファイルを選択してください。')
+      setError('画像ファイルまたはZIPを選択してください。')
     }
   }, [])
 
@@ -47,6 +52,10 @@ export default function ImageResizePage() {
       setFile(f)
       setError(null)
       setResult(null)
+      setZipDownloadUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
     }
     e.target.value = ''
   }, [])
@@ -59,6 +68,7 @@ export default function ImageResizePage() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setZipDownloadUrl(null)
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -66,6 +76,14 @@ export default function ImageResizePage() {
         method: 'POST',
         body: formData,
       })
+      const contentType = res.headers.get('content-type') ?? ''
+      if (contentType.includes('application/zip')) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        setZipDownloadUrl(url)
+        setLoading(false)
+        return
+      }
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || 'リサイズに失敗しました。')
@@ -89,7 +107,11 @@ export default function ImageResizePage() {
     setFile(null)
     setResult(null)
     setError(null)
-  }, [])
+    if (zipDownloadUrl) {
+      URL.revokeObjectURL(zipDownloadUrl)
+      setZipDownloadUrl(null)
+    }
+  }, [zipDownloadUrl])
 
   return (
     <AppLayout>
@@ -97,6 +119,7 @@ export default function ImageResizePage() {
         <h1 className="text-3xl font-bold mb-6">画像リサイズ</h1>
         <p className="text-gray-600 mb-6">
           画像をアップロードすると、大（640×533）と小（262×218）の2サイズにリサイズします。比率は維持され、必要に応じて余白が付きます。
+          ZIPで複数画像をまとめてアップロードすることもできます（最大30枚、50MBまで）。
         </p>
 
         <div
@@ -109,7 +132,7 @@ export default function ImageResizePage() {
         >
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/gif,.zip"
             onChange={handleFileChange}
             className="hidden"
             id="file-input"
@@ -117,10 +140,11 @@ export default function ImageResizePage() {
           <label htmlFor="file-input" className="cursor-pointer block">
             {file ? (
               <span className="text-gray-700">
-                選択中: <strong>{file.name}</strong>（{(file.size / 1024).toFixed(1)} KB）
+                {file.name.toLowerCase().endsWith('.zip') ? 'ZIPを選択中: ' : '選択中: '}
+                <strong>{file.name}</strong>（{(file.size / 1024).toFixed(1)} KB）
               </span>
             ) : (
-              <span className="text-gray-500">クリックまたはドラッグ＆ドロップで画像を選択</span>
+              <span className="text-gray-500">クリックまたはドラッグ＆ドロップで画像またはZIPを選択</span>
             )}
           </label>
         </div>
@@ -148,6 +172,20 @@ export default function ImageResizePage() {
             クリア
           </button>
         </div>
+
+        {zipDownloadUrl && (
+          <div className="mt-8 space-y-6">
+            <h2 className="text-xl font-bold">結果</h2>
+            <p className="text-gray-600">リサイズが完了しました。ZIPをダウンロードしてください。</p>
+            <a
+              href={zipDownloadUrl}
+              download="resized.zip"
+              className="inline-block px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              ZIPをダウンロード
+            </a>
+          </div>
+        )}
 
         {result && (
           <div className="mt-8 space-y-6">
