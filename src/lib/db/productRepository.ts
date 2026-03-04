@@ -289,8 +289,10 @@ export function getProductsNeedingUpdate(daysSinceLastCrawl = 7): ProductData[] 
   return rows.map(row => ({ product_url: row.product_url } as ProductData))
 }
 
-/** 販売終了を示す availability の値（定数化） */
+/** 販売終了を示す availability の値（完全一致用） */
 export const AVAILABILITY_DISCONTINUED = '販売を終了いたしました'
+/** 販売終了の部分一致（パーサーが「販売終了」のみ保存する場合に対応） */
+const AVAILABILITY_DISCONTINUED_LIKE = '%販売終了%'
 
 export function getNewProducts(
   days: number,
@@ -302,6 +304,7 @@ export function getNewProducts(
   since.setDate(since.getDate() - days)
   const sinceIso = since.toISOString()
 
+  // created_at が直近N日以内にDBに登録された商品（初回クロールで取り込まれた商品を含む）
   const countStmt = db.prepare(`
     SELECT COUNT(*) as count FROM products WHERE created_at >= ?
   `)
@@ -324,18 +327,20 @@ export function getDiscontinuedProducts(
 ): { products: Product[]; total: number } {
   const db = getDatabase()
 
+  // 完全一致に加え、LIKE で「販売終了」を含む行も対象（パーサーが「販売終了」のみ保存する場合に対応）
   const countStmt = db.prepare(`
-    SELECT COUNT(*) as count FROM products WHERE availability = ?
+    SELECT COUNT(*) as count FROM products
+    WHERE availability = ? OR (availability IS NOT NULL AND availability LIKE ?)
   `)
-  const total = (countStmt.get(AVAILABILITY_DISCONTINUED) as any).count
+  const total = (countStmt.get(AVAILABILITY_DISCONTINUED, AVAILABILITY_DISCONTINUED_LIKE) as any).count
 
   const stmt = db.prepare(`
     SELECT * FROM products
-    WHERE availability = ?
+    WHERE availability = ? OR (availability IS NOT NULL AND availability LIKE ?)
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
   `)
-  const rows = stmt.all(AVAILABILITY_DISCONTINUED, limit, offset) as any[]
+  const rows = stmt.all(AVAILABILITY_DISCONTINUED, AVAILABILITY_DISCONTINUED_LIKE, limit, offset) as any[]
   const products: Product[] = rows.map(row => mapRowToProduct(row))
   return { products, total }
 }

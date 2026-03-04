@@ -85,7 +85,7 @@ export default function Home() {
           </div>
           <div>
             <h2 className="text-2xl font-bold mb-4">新商品・販売終了商品</h2>
-            <ProductChanges newLimit={10} newDays={7} discontinuedLimit={10} />
+            <ProductChanges newLimit={10} newDays={30} discontinuedLimit={10} />
           </div>
           <div>
             <h2 className="text-2xl font-bold mb-4">AI アナリスト</h2>

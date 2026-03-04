@@ -25,7 +25,7 @@ function formatDate(iso?: string): string {
 
 export default function ProductChanges({
   newLimit = 10,
-  newDays = 7,
+  newDays = 30,
   discontinuedLimit = 10
 }: ProductChangesProps) {
   const [newProducts, setNewProducts] = useState<Product[]>([])
@@ -89,7 +89,7 @@ export default function ProductChanges({
       {/* 新商品 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">新規登録商品（直近{newDays}日）</h3>
+          <h3 className="text-lg font-semibold text-gray-900">新規登録商品（直近{newDays}日以内にDB登録）</h3>
           <Link
             href={`/products?tab=new&days=${newDays}`}
             className="text-sm text-blue-600 hover:text-blue-800"
@@ -123,7 +123,7 @@ export default function ProductChanges({
       {/* 販売終了 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">販売終了商品</h3>
+          <h3 className="text-lg font-semibold text-gray-900">販売終了商品（在庫状況が「販売終了」のもの）</h3>
           <Link
             href="/products?tab=discontinued"
             className="text-sm text-blue-600 hover:text-blue-800"

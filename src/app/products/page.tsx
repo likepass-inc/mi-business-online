@@ -27,8 +27,8 @@ function ProductsPageContent() {
   const daysParam = searchParams.get('days')
   const [tab, setTab] = useState<Tab>(tabParam === 'discontinued' ? 'discontinued' : 'new')
   const [days, setDays] = useState(() => {
-    const d = daysParam ? parseInt(daysParam, 10) : 7
-    return DAYS_OPTIONS.includes(d as any) ? d : 7
+    const d = daysParam ? parseInt(daysParam, 10) : 30
+    return DAYS_OPTIONS.includes(d as any) ? d : 30
   })
   const [page, setPage] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
