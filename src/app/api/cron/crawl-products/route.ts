@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
     
     if (cronSecret) {
-      const expectedAuth = `Bearer ${cronSecret}`
-      if (authHeader !== expectedAuth) {
+      const expectedAuth = `Bearer ${cronSecret.trim()}`
+      const receivedAuth = (authHeader || '').trim()
+      if (receivedAuth !== expectedAuth) {
         console.error('[Cron API] Unauthorized: Invalid or missing Authorization header')
         return NextResponse.json(
           {
@@ -37,83 +38,21 @@ export async function GET(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || req.nextUrl.origin
     const crawlUrl = `${baseUrl}/api/crawl/products`
     
-    console.log(`[Cron API] Calling internal API: ${crawlUrl}`)
+    console.log('[Cron API] Triggering crawl (fire-and-forget):', crawlUrl)
     
-    // 差分クロールを実行（毎日の定期実行では差分のみ）
-    let response: Response
-    try {
-      response = await fetch(crawlUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ type: 'incremental' }),
-        // タイムアウトを設定（30秒）
-        signal: AbortSignal.timeout(30000)
-      })
-    } catch (fetchError) {
-      console.error('[Cron API] Fetch error:', fetchError)
-      // fetchが失敗した場合（ネットワークエラーなど）、直接クロール処理を呼び出す
-      console.log('[Cron API] Attempting direct crawl execution...')
-      return await executeCrawlDirectly('incremental')
-    }
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`[Cron API] Internal API error: ${response.status} - ${errorText}`)
-      
-      // 500エラーの場合、直接実行を試みる
-      if (response.status === 500) {
-        console.log('[Cron API] Internal API returned 500, attempting direct crawl execution...')
-        return await executeCrawlDirectly('incremental')
-      }
-      
-      let errorData: any
-      try {
-        errorData = JSON.parse(errorText)
-      } catch {
-        errorData = { error: errorText }
-      }
-      
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorData.error || `Internal API returned ${response.status}`
-        },
-        { status: response.status }
-      )
-    }
-    
-    const data = await response.json()
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Crawl started successfully',
-      log_id: data.log_id
-    })
+    // クロールはバックグラウンドで開始し、即座に小さなレスポンスだけ返す（output too large 対策）
+    fetch(crawlUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'incremental' })
+    }).catch(err => console.error('[Cron API] Background fetch error:', err))
+
+    return NextResponse.json({ success: true, message: 'Crawl triggered' })
     
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'Failed to execute cron crawl'
-    const errorStack = e instanceof Error ? e.stack : undefined
-    console.error('[Cron API] Error:', errorMessage, errorStack)
-    
-    // タイムアウトエラーの場合、直接実行を試みる
-    if (errorMessage.includes('timeout') || errorMessage.includes('AbortError')) {
-      console.log('[Cron API] Timeout occurred, attempting direct crawl execution...')
-      try {
-        return await executeCrawlDirectly('incremental')
-      } catch (directError) {
-        console.error('[Cron API] Direct execution also failed:', directError)
-      }
-    }
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage
-      },
-      { status: 500 }
-    )
+    console.error('[Cron API] Error:', errorMessage)
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }
 

@@ -28,6 +28,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# cron secret (do not commit)
+CRON_SECRET
+
 # Google service account keys
 *.json
 !package.json
