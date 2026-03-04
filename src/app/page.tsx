@@ -6,6 +6,8 @@ import KpiCards from '@/components/dashboard/KpiCards'
 import TrafficChart from '@/components/dashboard/TrafficChart'
 import KeywordAnalysis from '@/components/dashboard/KeywordAnalysis'
 import ContentPopularityAnalysis from '@/components/dashboard/ContentPopularityAnalysis'
+import ConversionPath from '@/components/dashboard/ConversionPath'
+import ProductChanges from '@/components/dashboard/ProductChanges'
 import ChatWindow from '@/components/chat/ChatWindow'
 
 export default function Home() {
@@ -76,6 +78,14 @@ export default function Home() {
           <div>
             <h2 className="text-2xl font-bold mb-4">コンテンツ人気分析</h2>
             <ContentPopularityAnalysis dateRange={dateRange} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-4">コンバージョン経路</h2>
+            <ConversionPath dateRange={dateRange} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-4">新商品・販売終了商品</h2>
+            <ProductChanges newLimit={10} newDays={7} discontinuedLimit={10} />
           </div>
           <div>
             <h2 className="text-2xl font-bold mb-4">AI アナリスト</h2>

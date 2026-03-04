@@ -15,6 +15,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Link href="/" className="text-gray-700 hover:text-gray-900 font-medium">
               ダッシュボード
             </Link>
+            <Link href="/products" className="text-gray-700 hover:text-gray-900 font-medium">
+              商品動向
+            </Link>
             <Link href="/image-resize" className="text-gray-700 hover:text-gray-900 font-medium">
               画像リサイズ
             </Link>

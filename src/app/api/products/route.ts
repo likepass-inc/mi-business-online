@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllProducts, searchProducts, getProductsByCodes } from '@/lib/db/productRepository'
+import {
+  getAllProducts,
+  searchProducts,
+  getProductsByCodes,
+  getNewProducts,
+  getDiscontinuedProducts
+} from '@/lib/db/productRepository'
 
 /**
  * 商品一覧取得API
  * GET /api/products?category=カテゴリ&limit=100&offset=0&sort=updated_desc
  * GET /api/products?product_code[]=ABC123&product_code[]=DEF456
  * GET /api/products?product_id[]=ABC123&product_id[]=DEF456
+ * GET /api/products?filter=new&days=7  新商品（直近N日）
+ * GET /api/products?filter=discontinued 販売終了商品
  */
 export async function GET(req: NextRequest) {
   try {
@@ -15,6 +23,8 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const sort = (searchParams.get('sort') as 'name' | 'price_asc' | 'price_desc' | 'updated_desc') || 'updated_desc'
     const q = searchParams.get('q') // 検索キーワード
+    const filter = searchParams.get('filter') // 'new' | 'discontinued'
+    const days = parseInt(searchParams.get('days') || '7', 10) // filter=new 時の日数（デフォルト7）
     
     // 複数商品コードの取得（product_code[] または product_id[]）
     const productCodesParam = searchParams.getAll('product_code[]')
@@ -26,6 +36,21 @@ export async function GET(req: NextRequest) {
     // 複数商品コードが指定された場合
     if (productCodes.length > 0) {
       const products = getProductsByCodes(productCodes)
+      
+      // デバッグ: データベースから直接取得して確認
+      if (products.length > 0) {
+        const { getDatabase } = await import('@/lib/db/schema')
+        const db = getDatabase()
+        const rawRow = db.prepare('SELECT image_urls, availability FROM products WHERE product_code = ?').get(products[0].product_code) as any
+        console.log('[Products API] Debug - Raw DB data:', {
+          productCode: products[0].product_code,
+          rawImageUrls: rawRow?.image_urls,
+          rawAvailability: rawRow?.availability,
+          productHasImageUrl: !!products[0].image_url,
+          productHasImageUrls: !!products[0].image_urls,
+          productAvailability: products[0].availability
+        })
+      }
       
       // WordPress/STORK19用のレスポンス形式
       return NextResponse.json({
@@ -41,6 +66,38 @@ export async function GET(req: NextRequest) {
         headers: {
           'Content-Type': 'application/json; charset=utf-8'
         }
+      })
+    }
+    
+    // 新商品・販売終了フィルタ
+    if (filter === 'new') {
+      const result = getNewProducts(days, limit, offset)
+      return NextResponse.json({
+        success: true,
+        data: result.products,
+        pagination: {
+          total: result.total,
+          limit,
+          offset,
+          has_more: offset + limit < result.total
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      })
+    }
+    if (filter === 'discontinued') {
+      const result = getDiscontinuedProducts(limit, offset)
+      return NextResponse.json({
+        success: true,
+        data: result.products,
+        pagination: {
+          total: result.total,
+          limit,
+          offset,
+          has_more: offset + limit < result.total
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
     

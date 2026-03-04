@@ -79,6 +79,8 @@ export interface Product {
   match_score?: number
   tags: string[]
   availability?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface RelatedProductsRequest {
