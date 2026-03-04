@@ -313,7 +313,7 @@ export function getNewProducts(
   const stmt = db.prepare(`
     SELECT * FROM products
     WHERE created_at >= ?
-    ORDER BY created_at DESC
+    ORDER BY updated_at DESC, created_at DESC
     LIMIT ? OFFSET ?
   `)
   const rows = stmt.all(sinceIso, limit, offset) as any[]
