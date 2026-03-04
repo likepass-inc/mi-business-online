@@ -88,8 +88,8 @@ export default function ProductChanges({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 新商品 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">新規登録商品（直近{newDays}日以内にDB登録）</h3>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-semibold text-gray-900">新規登録商品（直近{newDays}日以内に当システムに登録）</h3>
           <Link
             href={`/products?tab=new&days=${newDays}`}
             className="text-sm text-blue-600 hover:text-blue-800"
@@ -97,6 +97,7 @@ export default function ProductChanges({
             もっと見る
           </Link>
         </div>
+        <p className="text-xs text-gray-500 mb-3">サイトで新規掲載された商品をクロールで取得したものを含みます。</p>
         {newProducts.length === 0 ? (
           <p className="text-gray-500 text-sm">該当なし</p>
         ) : (
@@ -122,7 +123,7 @@ export default function ProductChanges({
 
       {/* 販売終了 */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
           <h3 className="text-lg font-semibold text-gray-900">販売終了商品（在庫状況が「販売終了」のもの）</h3>
           <Link
             href="/products?tab=discontinued"
@@ -131,6 +132,7 @@ export default function ProductChanges({
             もっと見る
           </Link>
         </div>
+        <p className="text-xs text-gray-500 mb-3">商品ページ内の在庫表示に基づきます。</p>
         {discontinuedProducts.length === 0 ? (
           <p className="text-gray-500 text-sm">該当なし</p>
         ) : (

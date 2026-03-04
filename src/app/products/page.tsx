@@ -85,7 +85,7 @@ function ProductsPageContent() {
           </Link>
         </div>
 
-        <div className="mb-6 flex flex-wrap gap-4 items-center">
+        <div className="mb-4 flex flex-wrap gap-4 items-center">
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
             <button
               onClick={() => { setTab('new'); setPage(0) }}
@@ -115,6 +115,11 @@ function ProductsPageContent() {
             </div>
           )}
         </div>
+        <p className="text-sm text-gray-500 mb-6">
+          {tab === 'new'
+            ? `直近${days}日以内に当システムに登録された商品です。サイトで新規掲載された商品をクロールで取得したものを含みます。`
+            : '商品ページ内の在庫表示（販売終了に関連するテキスト）に基づいて表示しています。'}
+        </p>
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg">{error}</div>
