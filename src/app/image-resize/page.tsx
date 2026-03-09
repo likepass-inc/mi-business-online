@@ -227,6 +227,9 @@ export default function ImageResizePage() {
         <p className="text-gray-600 mb-4">
           数千枚・数 GB 規模の ZIP をアップロードして一括リサイズできます。まず ZIP をアップロードし、ジョブ登録後に完了までお待ちください。完了したらリサイズ済み ZIP をダウンロードできます。
         </p>
+        <p className="text-gray-600 mb-4">
+          <strong>限界値：</strong>1ジョブあたり <strong>最大5,000枚</strong>まで。ZIP のサイズは R2 の制限内であれば数 GB 規模まで対応しています。
+        </p>
         <BatchResizeSection />
       </div>
     </AppLayout>
