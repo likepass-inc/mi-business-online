@@ -95,6 +95,35 @@ function initializeSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_crawl_started ON crawl_logs(started_at);
   `)
 
+  // image_resize_jobs テーブル（大容量バッチ用）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS image_resize_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      object_key TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      output_key TEXT,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_image_resize_jobs_status ON image_resize_jobs(status);
+  `)
+
+  // image_resize_jobs に履歴用カラムを追加（既存DB用マイグレーション）
+  for (const col of [
+    'ALTER TABLE image_resize_jobs ADD COLUMN user_id TEXT',
+    'ALTER TABLE image_resize_jobs ADD COLUMN input_size_bytes INTEGER',
+    'ALTER TABLE image_resize_jobs ADD COLUMN image_count INTEGER',
+  ]) {
+    try {
+      db.exec(col)
+    } catch {
+      // カラムが既に存在する場合は無視
+    }
+  }
+
   // updated_at を自動更新するトリガー
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS update_products_timestamp 

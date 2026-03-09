@@ -1,7 +1,16 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
+
+type JobItem = {
+  jobId: number
+  status: string
+  createdAt: string
+  imageCount?: number
+  inputSizeBytes?: number
+  errorMessage?: string
+}
 
 type Result = {
   large: string
@@ -227,10 +236,31 @@ export default function ImageResizePage() {
         <p className="text-gray-600 mb-4">
           数千枚・数 GB 規模の ZIP をアップロードして一括リサイズできます。まず ZIP をアップロードし、ジョブ登録後に完了までお待ちください。完了したらリサイズ済み ZIP をダウンロードできます。
         </p>
+
+        <h3 className="text-lg font-semibold mb-2 text-gray-800">ご利用の流れ</h3>
+        <ol className="list-decimal list-inside text-gray-600 mb-4 space-y-1">
+          <li>ZIP を選択し「アップロードしてジョブ登録」を押す</li>
+          <li>ブラウザからアップロード先へ ZIP を直接アップロード（進捗表示あり）</li>
+          <li>ジョブ登録後、サーバー側でリサイズ処理が開始されます。画面を閉じても処理は続行され、再ログイン後に「履歴」からダウンロード可能です。</li>
+          <li>処理完了後、このページの「履歴」またはその場に表示されるリンクからリサイズ済み ZIP をダウンロードする</li>
+        </ol>
+
+        <h3 className="text-lg font-semibold mb-2 text-gray-800">所要時間の目安</h3>
+        <ul className="text-gray-600 mb-4 list-disc list-inside space-y-1">
+          <li><strong>アップロード：</strong>ZIP のサイズと回線速度により変動。数 GB の場合は十数分〜数十分かかることがあります。</li>
+          <li><strong>リサイズ処理：</strong>画像枚数・解像度により変動。数百枚で数分、数千枚で十数分〜数十分が目安です。</li>
+          <li><strong>ダウンロード：</strong>完了後に表示されるリンクから取得。ファイルサイズと回線速度により変動します。</li>
+        </ul>
+
+        <p className="text-gray-600 mb-4">
+          <strong>画面について：</strong>画面を閉じても処理は続きます。完了後は再ログインして「履歴」からダウンロードできます。
+        </p>
+
         <p className="text-gray-600 mb-4">
           <strong>限界値：</strong>1ジョブあたり <strong>最大5,000枚</strong>まで。ZIP のサイズは R2 の制限内であれば数 GB 規模まで対応しています。
         </p>
         <BatchResizeSection />
+        <BatchHistorySection />
       </div>
     </AppLayout>
   )
@@ -286,7 +316,10 @@ function BatchResizeSection() {
       const jobRes = await fetch('/api/image-resize/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ objectKey: urlData.objectKey }),
+        body: JSON.stringify({
+          objectKey: urlData.objectKey,
+          inputSizeBytes: batchFile.size,
+        }),
       })
       const jobData = await jobRes.json()
       if (!jobRes.ok || !jobData.jobId) {
@@ -379,6 +412,140 @@ function BatchResizeSection() {
       {batchError && (
         <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg" role="alert">
           {batchError}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function formatSize(bytes: number | undefined): string {
+  if (bytes == null || bytes === 0) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString('ja-JP')
+  } catch {
+    return iso
+  }
+}
+
+function BatchHistorySection() {
+  const [jobs, setJobs] = useState<JobItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/image-resize/jobs')
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || '履歴の取得に失敗しました')
+        setJobs([])
+        return
+      }
+      setJobs(data.jobs ?? [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '履歴の取得に失敗しました')
+      setJobs([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchJobs()
+  }, [fetchJobs])
+
+  const handleDownload = useCallback(async (jobId: number) => {
+    try {
+      const res = await fetch(`/api/image-resize/jobs/${jobId}`)
+      const data = await res.json()
+      if (data.downloadUrl) {
+        window.location.href = data.downloadUrl
+      } else {
+        alert(data.errorMessage || 'ダウンロードURLの取得に失敗しました')
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'ダウンロードに失敗しました')
+    }
+  }, [])
+
+  const statusLabel: Record<string, string> = {
+    pending: '待機中',
+    processing: '処理中',
+    completed: '完了',
+    failed: '失敗',
+  }
+
+  return (
+    <div className="mt-8 border border-gray-200 rounded-lg p-6 bg-white">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">履歴</h3>
+        <button
+          type="button"
+          onClick={fetchJobs}
+          disabled={loading}
+          className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+        >
+          {loading ? '読み込み中…' : '再読み込み'}
+        </button>
+      </div>
+      {error && (
+        <p className="text-red-600 text-sm mb-4" role="alert">
+          {error}
+        </p>
+      )}
+      {!loading && jobs.length === 0 && !error && (
+        <p className="text-gray-500 text-sm">まだジョブはありません。</p>
+      )}
+      {!loading && jobs.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 pr-4">ジョブID</th>
+                <th className="text-left py-2 pr-4">登録日時</th>
+                <th className="text-left py-2 pr-4">枚数</th>
+                <th className="text-left py-2 pr-4">サイズ</th>
+                <th className="text-left py-2 pr-4">ステータス</th>
+                <th className="text-left py-2">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.jobId} className="border-b border-gray-100">
+                  <td className="py-2 pr-4">{job.jobId}</td>
+                  <td className="py-2 pr-4">{formatDate(job.createdAt)}</td>
+                  <td className="py-2 pr-4">{job.imageCount != null ? `${job.imageCount} 枚` : '—'}</td>
+                  <td className="py-2 pr-4">{formatSize(job.inputSizeBytes)}</td>
+                  <td className="py-2 pr-4">{statusLabel[job.status] ?? job.status}</td>
+                  <td className="py-2">
+                    {job.status === 'completed' && (
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(job.jobId)}
+                        className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                      >
+                        ダウンロード
+                      </button>
+                    )}
+                    {job.status === 'failed' && job.errorMessage && (
+                      <span className="text-red-600 text-xs" title={job.errorMessage}>
+                        {job.errorMessage.length > 30 ? `${job.errorMessage.slice(0, 30)}…` : job.errorMessage}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
