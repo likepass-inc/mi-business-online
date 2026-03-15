@@ -33,20 +33,28 @@ export async function POST(req: NextRequest) {
   }
   const inputSizeBytes =
     typeof body.inputSizeBytes === 'number' && body.inputSizeBytes >= 0 ? body.inputSizeBytes : null
-  const store = getJobStore()
-  const jobId = await store.insertJob(objectKey, userId, inputSizeBytes)
-  if (!jobId) {
+  try {
+    const store = getJobStore()
+    const jobId = await store.insertJob(objectKey, userId, inputSizeBytes)
+    if (!jobId) {
+      return NextResponse.json(
+        { success: false, error: 'ジョブの登録に失敗しました' },
+        { status: 500 }
+      )
+    }
+
+    processNextImageResizeJob().catch((e) => {
+      console.error('[image-resize jobs] background process error:', e)
+    })
+
+    return NextResponse.json({ success: true, jobId })
+  } catch (e) {
+    console.error('[image-resize jobs] POST error:', e)
     return NextResponse.json(
-      { success: false, error: 'ジョブの登録に失敗しました' },
+      { success: false, error: e instanceof Error ? e.message : 'ジョブの登録に失敗しました' },
       { status: 500 }
     )
   }
-
-  processNextImageResizeJob().catch((e) => {
-    console.error('[image-resize jobs] background process error:', e)
-  })
-
-  return NextResponse.json({ success: true, jobId })
 }
 
 export async function GET(req: NextRequest) {
@@ -60,10 +68,11 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     )
   }
-  const store = getJobStore()
-  await store.markStaleAsFailed()
-  const rows = await store.listJobsByUserId(userId)
-  const jobs = rows.map((r) => ({
+  try {
+    const store = getJobStore()
+    await store.markStaleAsFailed()
+    const rows = await store.listJobsByUserId(userId)
+    const jobs = rows.map((r) => ({
     jobId: r.id,
     status: r.status,
     createdAt: r.created_at,
@@ -71,5 +80,12 @@ export async function GET(req: NextRequest) {
     inputSizeBytes: r.input_size_bytes ?? undefined,
     errorMessage: r.error_message ?? undefined,
   }))
-  return NextResponse.json({ success: true, jobs })
+    return NextResponse.json({ success: true, jobs })
+  } catch (e) {
+    console.error('[image-resize jobs] GET list error:', e)
+    return NextResponse.json(
+      { success: false, error: e instanceof Error ? e.message : '履歴の取得に失敗しました', jobs: [] },
+      { status: 500 }
+    )
+  }
 }

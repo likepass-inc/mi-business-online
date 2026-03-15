@@ -22,28 +22,36 @@ export async function GET(
   if (Number.isNaN(id) || id < 1) {
     return NextResponse.json({ success: false, error: '無効なジョブ ID です' }, { status: 400 })
   }
-  await markStaleImageResizeJobsAsFailed()
-  const store = getJobStore()
-  const row = await store.getJobById(id, userId)
-  if (!row) {
-    return NextResponse.json({ success: false, error: 'ジョブが見つかりません' }, { status: 404 })
-  }
-
-  let downloadUrl: string | null = null
-  if (row.status === 'completed' && row.output_key) {
-    try {
-      downloadUrl = await getDownloadPresignedUrl(row.output_key, 3600)
-    } catch (e) {
-      console.error('[jobs/:id] presigned url error:', e)
+  try {
+    await markStaleImageResizeJobsAsFailed()
+    const store = getJobStore()
+    const row = await store.getJobById(id, userId)
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'ジョブが見つかりません' }, { status: 404 })
     }
-  }
 
-  return NextResponse.json({
-    success: true,
-    jobId: row.id,
-    status: row.status,
-    errorMessage: row.error_message ?? undefined,
-    downloadUrl: downloadUrl ?? undefined,
-    processedCount: row.status === 'processing' ? (row.processed_count ?? 0) : undefined,
-  })
+    let downloadUrl: string | null = null
+    if (row.status === 'completed' && row.output_key) {
+      try {
+        downloadUrl = await getDownloadPresignedUrl(row.output_key, 3600)
+      } catch (e) {
+        console.error('[jobs/:id] presigned url error:', e)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      jobId: row.id,
+      status: row.status,
+      errorMessage: row.error_message ?? undefined,
+      downloadUrl: downloadUrl ?? undefined,
+      processedCount: row.status === 'processing' ? (row.processed_count ?? 0) : undefined,
+    })
+  } catch (e) {
+    console.error('[image-resize jobs] GET by id error:', e)
+    return NextResponse.json(
+      { success: false, error: e instanceof Error ? e.message : 'ジョブの取得に失敗しました' },
+      { status: 500 }
+    )
+  }
 }

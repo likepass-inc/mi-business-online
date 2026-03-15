@@ -299,7 +299,17 @@ function BatchResizeSection() {
       const urlRes = await fetch(
         `/api/image-resize/upload-url?filename=${encodeURIComponent(batchFile.name)}`
       )
-      const urlData = await urlRes.json()
+      const urlText = await urlRes.text()
+      let urlData: { uploadUrl?: string; objectKey?: string; error?: string }
+      try {
+        urlData = urlText.startsWith('{') ? JSON.parse(urlText) : {}
+      } catch {
+        setBatchError(
+          urlText.startsWith('<') ? 'サーバーが HTML を返しました。認証切れまたはサーバーエラーの可能性があります。' : 'アップロード URL の取得に失敗しました。'
+        )
+        setStep('error')
+        return
+      }
       if (!urlRes.ok || !urlData.uploadUrl || !urlData.objectKey) {
         setBatchError(urlData.error || 'アップロード URL の取得に失敗しました')
         setStep('error')
@@ -336,7 +346,17 @@ function BatchResizeSection() {
           inputSizeBytes: batchFile.size,
         }),
       })
-      const jobData = await jobRes.json()
+      const jobText = await jobRes.text()
+      let jobData: { jobId?: number; error?: string }
+      try {
+        jobData = jobText.startsWith('{') ? JSON.parse(jobText) : {}
+      } catch {
+        setBatchError(
+          jobText.startsWith('<') ? 'サーバーが HTML を返しました。PostgreSQL 接続や環境変数を確認してください。' : 'ジョブの登録に失敗しました。'
+        )
+        setStep('error')
+        return
+      }
       if (!jobRes.ok || !jobData.jobId) {
         setBatchError(jobData.error || 'ジョブの登録に失敗しました')
         setStep('error')
@@ -345,7 +365,13 @@ function BatchResizeSection() {
       setJobId(jobData.jobId)
       const poll = async () => {
         const res = await fetch(`/api/image-resize/jobs/${jobData.jobId}`)
-        const data = await res.json()
+        const text = await res.text()
+        let data: { status?: string; downloadUrl?: string; errorMessage?: string; processedCount?: number }
+        try {
+          data = text.startsWith('{') ? JSON.parse(text) : {}
+        } catch {
+          return
+        }
         if (data.processedCount !== undefined) setProcessedCount(data.processedCount)
         if (data.status === 'completed' && data.downloadUrl) {
           if (intervalRef.current) clearInterval(intervalRef.current)
@@ -488,7 +514,15 @@ function BatchHistorySection() {
     setError(null)
     try {
       const res = await fetch('/api/image-resize/jobs')
-      const data = await res.json()
+      const text = await res.text()
+      let data: { jobs?: JobItem[]; error?: string }
+      try {
+        data = text.startsWith('{') ? JSON.parse(text) : {}
+      } catch {
+        setError(text.startsWith('<') ? 'サーバーが HTML を返しました。' : '履歴の取得に失敗しました')
+        setJobs([])
+        return
+      }
       if (!res.ok) {
         setError(data.error || '履歴の取得に失敗しました')
         setJobs([])
@@ -510,7 +544,14 @@ function BatchHistorySection() {
   const handleDownload = useCallback(async (jobId: number) => {
     try {
       const res = await fetch(`/api/image-resize/jobs/${jobId}`)
-      const data = await res.json()
+      const text = await res.text()
+      let data: { downloadUrl?: string; errorMessage?: string }
+      try {
+        data = text.startsWith('{') ? JSON.parse(text) : {}
+      } catch {
+        alert(text.startsWith('<') ? 'サーバーエラーです。' : 'ダウンロードURLの取得に失敗しました')
+        return
+      }
       if (data.downloadUrl) {
         window.location.href = data.downloadUrl
       } else {
