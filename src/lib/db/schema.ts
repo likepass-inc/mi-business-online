@@ -116,6 +116,7 @@ function initializeSchema(db: Database.Database) {
     'ALTER TABLE image_resize_jobs ADD COLUMN user_id TEXT',
     'ALTER TABLE image_resize_jobs ADD COLUMN input_size_bytes INTEGER',
     'ALTER TABLE image_resize_jobs ADD COLUMN image_count INTEGER',
+    'ALTER TABLE image_resize_jobs ADD COLUMN processed_count INTEGER',
   ]) {
     try {
       db.exec(col)

@@ -24,11 +24,11 @@ export async function GET(
   const db = getDatabase()
   const row = db
     .prepare(
-      `SELECT id, status, output_key, error_message FROM image_resize_jobs
+      `SELECT id, status, output_key, error_message, processed_count FROM image_resize_jobs
        WHERE id = ? AND (user_id = ? OR user_id IS NULL)`
     )
     .get(id, userId) as
-    | { id: number; status: string; output_key: string | null; error_message: string | null }
+    | { id: number; status: string; output_key: string | null; error_message: string | null; processed_count: number | null }
     | undefined
 
   if (!row) {
@@ -50,5 +50,6 @@ export async function GET(
     status: row.status,
     errorMessage: row.error_message ?? undefined,
     downloadUrl: downloadUrl ?? undefined,
+    processedCount: row.status === 'processing' ? (row.processed_count ?? 0) : undefined,
   })
 }

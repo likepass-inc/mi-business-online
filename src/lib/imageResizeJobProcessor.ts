@@ -41,7 +41,9 @@ export async function processNextImageResizeJob(): Promise<void> {
   const objectKey = row.object_key
   const outputKey = `outputs/${jobId}.zip`
 
-  db.prepare(`UPDATE image_resize_jobs SET status = 'processing', updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(jobId)
+  db.prepare(
+    `UPDATE image_resize_jobs SET status = 'processing', processed_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(jobId)
 
   const tempDir = os.tmpdir()
   const tempPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}.zip`)
@@ -110,6 +112,11 @@ export async function processNextImageResizeJob(): Promise<void> {
                 archive.append(large, { name: largeName })
                 archive.append(small, { name: smallName })
                 count++
+                if (count % 50 === 0 || count === 1) {
+                  db.prepare(
+                    `UPDATE image_resize_jobs SET processed_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+                  ).run(count, jobId)
+                }
                 zipFile.readEntry()
               })
               .catch((e) => {

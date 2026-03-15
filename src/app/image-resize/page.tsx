@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 
 type JobItem = {
@@ -273,6 +273,10 @@ function BatchResizeSection() {
   const [jobId, setJobId] = useState<number | null>(null)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [batchError, setBatchError] = useState<string | null>(null)
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [processedCount, setProcessedCount] = useState<number | null>(null)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const handleBatchFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -321,6 +325,9 @@ function BatchResizeSection() {
         xhr.send(batchFile)
       })
       setStep('processing')
+      setProcessingStartedAt(Date.now())
+      setElapsedSeconds(0)
+      setProcessedCount(null)
       const jobRes = await fetch('/api/image-resize/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -339,18 +346,24 @@ function BatchResizeSection() {
       const poll = async () => {
         const res = await fetch(`/api/image-resize/jobs/${jobData.jobId}`)
         const data = await res.json()
+        if (data.processedCount !== undefined) setProcessedCount(data.processedCount)
         if (data.status === 'completed' && data.downloadUrl) {
+          if (intervalRef.current) clearInterval(intervalRef.current)
+          intervalRef.current = null
           setDownloadUrl(data.downloadUrl)
           setStep('done')
           return
         }
         if (data.status === 'failed') {
+          if (intervalRef.current) clearInterval(intervalRef.current)
+          intervalRef.current = null
           setBatchError(data.errorMessage || '処理に失敗しました')
           setStep('error')
           return
         }
         setTimeout(poll, 3000)
       }
+      intervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000)
       setTimeout(poll, 2000)
     } catch (e) {
       setBatchError(e instanceof Error ? e.message : 'エラーが発生しました')
@@ -358,13 +371,27 @@ function BatchResizeSection() {
     }
   }, [batchFile])
 
+  useEffect(() => {
+    if (step !== 'processing') {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [step])
+
   const resetBatch = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = null
     setBatchFile(null)
     setStep('idle')
     setUploadProgress(0)
     setJobId(null)
     setDownloadUrl(null)
     setBatchError(null)
+    setProcessingStartedAt(null)
+    setElapsedSeconds(0)
+    setProcessedCount(null)
   }, [])
 
   return (
@@ -403,7 +430,13 @@ function BatchResizeSection() {
         <p className="text-gray-600 mb-2">R2 へアップロード中… {uploadProgress}%</p>
       )}
       {step === 'processing' && (
-        <p className="text-gray-600 mb-2">リサイズ処理中です。完了までお待ちください（ジョブ ID: {jobId}）…</p>
+        <div className="text-gray-600 mb-2 space-y-1">
+          <p>リサイズ処理中です。完了までお待ちください（ジョブ ID: {jobId}）</p>
+          <p className="text-sm">
+            経過 {Math.floor(elapsedSeconds / 60)} 分 {elapsedSeconds % 60} 秒
+            {processedCount != null && `　（${processedCount} 枚リサイズ済み）`}
+          </p>
+        </div>
       )}
       {step === 'done' && downloadUrl && (
         <div className="mb-4">
@@ -435,7 +468,10 @@ function formatSize(bytes: number | undefined): string {
 
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso)
+    // サーバー（Render）は UTC で保存。Z や ±HH:MM が無い場合は UTC として解釈する
+    const hasTz = /Z|[+-]\d{2}:?\d{2}$/.test(iso.trim())
+    const normalized = hasTz ? iso.trim() : iso.trim().replace(/\s/, 'T') + 'Z'
+    const d = new Date(normalized)
     return d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
   } catch {
     return iso
