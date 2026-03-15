@@ -10,6 +10,23 @@ import { resizeToTwoSizes } from '@/lib/imageResize'
 
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
 const MAX_IMAGES = 5000
+/** この時間を超えて processing のままのジョブはタイムアウトとして失敗扱いにする（時間） */
+const STALE_PROCESSING_HOURS = 2
+
+/**
+ * 長時間「処理中」のままのジョブを失敗に更新する。
+ * デプロイ・スリープ等でプロセスが落ちた場合に、履歴で「失敗」と表示されるようにする。
+ */
+export function markStaleImageResizeJobsAsFailed(): void {
+  const db = getDatabase()
+  db.prepare(
+    `UPDATE image_resize_jobs SET status = 'failed', error_message = ?
+     WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)`
+  ).run(
+    '処理がタイムアウトしました（サーバー再起動・デプロイの可能性があります）。再度お試しください。',
+    `-${STALE_PROCESSING_HOURS} hours`
+  )
+}
 
 function getBasename(entryPath: string): string {
   const name = entryPath.replace(/^.*[/\\]/, '')
@@ -31,6 +48,7 @@ function streamToBuffer(stream: Readable): Promise<Buffer> {
  */
 export async function processNextImageResizeJob(): Promise<void> {
   const db = getDatabase()
+  markStaleImageResizeJobsAsFailed()
   const row = db.prepare(
     `SELECT id, object_key FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
   ).get() as { id: number; object_key: string } | undefined

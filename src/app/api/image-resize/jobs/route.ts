@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/db/schema'
 import { getSessionUserId } from '@/lib/auth'
 import { isR2Configured } from '@/lib/r2'
-import { processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
+import { markStaleImageResizeJobsAsFailed, processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
 
 export async function POST(req: NextRequest) {
   const userId = await getSessionUserId()
@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     )
   }
+  markStaleImageResizeJobsAsFailed()
   const db = getDatabase()
   const rows = db.prepare(
     `SELECT id, status, created_at, input_size_bytes, image_count, error_message

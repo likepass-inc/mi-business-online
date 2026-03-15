@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/db/schema'
 import { getSessionUserId } from '@/lib/auth'
 import { getDownloadPresignedUrl, isR2Configured } from '@/lib/r2'
+import { markStaleImageResizeJobsAsFailed } from '@/lib/imageResizeJobProcessor'
 
 export async function GET(
   req: NextRequest,
@@ -21,6 +22,7 @@ export async function GET(
   if (Number.isNaN(id) || id < 1) {
     return NextResponse.json({ success: false, error: '無効なジョブ ID です' }, { status: 400 })
   }
+  markStaleImageResizeJobsAsFailed()
   const db = getDatabase()
   const row = db
     .prepare(
