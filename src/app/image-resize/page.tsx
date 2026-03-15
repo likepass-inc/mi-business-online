@@ -436,7 +436,7 @@ function formatSize(bytes: number | undefined): string {
 function formatDate(iso: string): string {
   try {
     const d = new Date(iso)
-    return d.toLocaleString('ja-JP')
+    return d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
   } catch {
     return iso
   }
