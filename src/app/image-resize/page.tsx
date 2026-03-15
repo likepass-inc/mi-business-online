@@ -306,8 +306,16 @@ function BatchResizeSection() {
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
         })
-        xhr.addEventListener('load', () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload ${xhr.status}`))))
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`アップロードに失敗しました（HTTP ${xhr.status} ${xhr.statusText || ''}）. CORS またはバケット設定をご確認ください。`))
+          }
+        })
+        xhr.addEventListener('error', () =>
+          reject(new Error('アップロードに失敗しました。ネットワークまたは CORS 設定をご確認ください。'))
+        )
         xhr.open('PUT', urlData.uploadUrl)
         xhr.setRequestHeader('Content-Type', 'application/zip')
         xhr.send(batchFile)
