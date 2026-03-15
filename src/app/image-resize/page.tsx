@@ -315,6 +315,8 @@ function BatchResizeSection() {
         setStep('error')
         return
       }
+      const uploadUrl = urlData.uploadUrl
+      const objectKey = urlData.objectKey
       const xhr = new XMLHttpRequest()
       await new Promise<void>((resolve, reject) => {
         xhr.upload.addEventListener('progress', (e) => {
@@ -330,7 +332,7 @@ function BatchResizeSection() {
         xhr.addEventListener('error', () =>
           reject(new Error('アップロードに失敗しました。ネットワークまたは CORS 設定をご確認ください。'))
         )
-        xhr.open('PUT', urlData.uploadUrl)
+        xhr.open('PUT', uploadUrl)
         xhr.setRequestHeader('Content-Type', 'application/zip')
         xhr.send(batchFile)
       })
@@ -342,7 +344,7 @@ function BatchResizeSection() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          objectKey: urlData.objectKey,
+          objectKey,
           inputSizeBytes: batchFile.size,
         }),
       })
