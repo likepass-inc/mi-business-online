@@ -4,28 +4,20 @@ import os from 'os'
 import { Readable } from 'stream'
 import yauzl from 'yauzl'
 import archiver from 'archiver'
-import { getDatabase } from '@/lib/db/schema'
+import { getJobStore } from '@/lib/db/imageResizeJobStore'
 import { getObjectStream, getClient, getBucket, PutObjectCommand } from '@/lib/r2'
 import { resizeToTwoSizes } from '@/lib/imageResize'
 
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
 const MAX_IMAGES = 5000
-/** この時間を超えて processing のままのジョブはタイムアウトとして失敗扱いにする（時間） */
-const STALE_PROCESSING_HOURS = 2
 
 /**
  * 長時間「処理中」のままのジョブを失敗に更新する。
  * デプロイ・スリープ等でプロセスが落ちた場合に、履歴で「失敗」と表示されるようにする。
  */
-export function markStaleImageResizeJobsAsFailed(): void {
-  const db = getDatabase()
-  db.prepare(
-    `UPDATE image_resize_jobs SET status = 'failed', error_message = ?
-     WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)`
-  ).run(
-    '処理がタイムアウトしました（サーバー再起動・デプロイの可能性があります）。再度お試しください。',
-    `-${STALE_PROCESSING_HOURS} hours`
-  )
+export async function markStaleImageResizeJobsAsFailed(): Promise<void> {
+  const store = getJobStore()
+  await store.markStaleAsFailed()
 }
 
 function getBasename(entryPath: string): string {
@@ -47,21 +39,16 @@ function streamToBuffer(stream: Readable): Promise<Buffer> {
  * 呼び出し側は fire-and-forget でよい。
  */
 export async function processNextImageResizeJob(): Promise<void> {
-  const db = getDatabase()
-  markStaleImageResizeJobsAsFailed()
-  const row = db.prepare(
-    `SELECT id, object_key FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
-  ).get() as { id: number; object_key: string } | undefined
-
+  const store = getJobStore()
+  await store.markStaleAsFailed()
+  const row = await store.getNextPendingJob()
   if (!row) return
 
   const jobId = row.id
   const objectKey = row.object_key
   const outputKey = `outputs/${jobId}.zip`
 
-  db.prepare(
-    `UPDATE image_resize_jobs SET status = 'processing', processed_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-  ).run(jobId)
+  await store.updateToProcessing(jobId)
 
   const tempDir = os.tmpdir()
   const tempPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}.zip`)
@@ -131,9 +118,9 @@ export async function processNextImageResizeJob(): Promise<void> {
                 archive.append(small, { name: smallName })
                 count++
                 if (count % 50 === 0 || count === 1) {
-                  db.prepare(
-                    `UPDATE image_resize_jobs SET processed_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-                  ).run(count, jobId)
+                  store.setProcessedCount(jobId, count).catch((e) =>
+                    console.error('[imageResizeJob] setProcessedCount error:', e)
+                  )
                 }
                 zipFile.readEntry()
               })
@@ -161,19 +148,13 @@ export async function processNextImageResizeJob(): Promise<void> {
     )
 
     if (count === 0) {
-      db.prepare(
-        `UPDATE image_resize_jobs SET status = 'failed', error_message = ?, image_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-      ).run('ZIP内に画像がありません', count, jobId)
+      await store.failJob(jobId, 'ZIP内に画像がありません', count)
     } else {
-      db.prepare(
-        `UPDATE image_resize_jobs SET status = 'completed', output_key = ?, image_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-      ).run(outputKey, count, jobId)
+      await store.completeJob(jobId, outputKey, count)
     }
   } catch (e) {
     console.error('[imageResizeJob]', jobId, e)
-    db.prepare(
-      `UPDATE image_resize_jobs SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-    ).run(e instanceof Error ? e.message : String(e), jobId)
+    await store.failJob(jobId, e instanceof Error ? e.message : String(e))
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)

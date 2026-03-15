@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/schema'
+import { getJobStore } from '@/lib/db/imageResizeJobStore'
 import { getSessionUserId } from '@/lib/auth'
 import { isR2Configured } from '@/lib/r2'
-import { markStaleImageResizeJobsAsFailed, processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
+import { processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
 
 export async function POST(req: NextRequest) {
   const userId = await getSessionUserId()
@@ -33,13 +33,8 @@ export async function POST(req: NextRequest) {
   }
   const inputSizeBytes =
     typeof body.inputSizeBytes === 'number' && body.inputSizeBytes >= 0 ? body.inputSizeBytes : null
-  const db = getDatabase()
-  const result = db
-    .prepare(
-      `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes) VALUES (?, 'pending', ?, ?)`
-    )
-    .run(objectKey, userId, inputSizeBytes)
-  const jobId = Number(result.lastInsertRowid)
+  const store = getJobStore()
+  const jobId = await store.insertJob(objectKey, userId, inputSizeBytes)
   if (!jobId) {
     return NextResponse.json(
       { success: false, error: 'ジョブの登録に失敗しました' },
@@ -65,22 +60,9 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     )
   }
-  markStaleImageResizeJobsAsFailed()
-  const db = getDatabase()
-  const rows = db.prepare(
-    `SELECT id, status, created_at, input_size_bytes, image_count, error_message
-     FROM image_resize_jobs
-     WHERE user_id = ?
-     ORDER BY created_at DESC
-     LIMIT 50`
-  ).all(userId) as Array<{
-    id: number
-    status: string
-    created_at: string
-    input_size_bytes: number | null
-    image_count: number | null
-    error_message: string | null
-  }>
+  const store = getJobStore()
+  await store.markStaleAsFailed()
+  const rows = await store.listJobsByUserId(userId)
   const jobs = rows.map((r) => ({
     jobId: r.id,
     status: r.status,

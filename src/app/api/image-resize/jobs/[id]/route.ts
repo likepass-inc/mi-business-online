@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDatabase } from '@/lib/db/schema'
+import { getJobStore } from '@/lib/db/imageResizeJobStore'
 import { getSessionUserId } from '@/lib/auth'
 import { getDownloadPresignedUrl, isR2Configured } from '@/lib/r2'
 import { markStaleImageResizeJobsAsFailed } from '@/lib/imageResizeJobProcessor'
@@ -22,17 +22,9 @@ export async function GET(
   if (Number.isNaN(id) || id < 1) {
     return NextResponse.json({ success: false, error: '無効なジョブ ID です' }, { status: 400 })
   }
-  markStaleImageResizeJobsAsFailed()
-  const db = getDatabase()
-  const row = db
-    .prepare(
-      `SELECT id, status, output_key, error_message, processed_count FROM image_resize_jobs
-       WHERE id = ? AND (user_id = ? OR user_id IS NULL)`
-    )
-    .get(id, userId) as
-    | { id: number; status: string; output_key: string | null; error_message: string | null; processed_count: number | null }
-    | undefined
-
+  await markStaleImageResizeJobsAsFailed()
+  const store = getJobStore()
+  const row = await store.getJobById(id, userId)
   if (!row) {
     return NextResponse.json({ success: false, error: 'ジョブが見つかりません' }, { status: 404 })
   }
