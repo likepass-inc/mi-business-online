@@ -4,7 +4,6 @@ import os from 'os'
 import { Readable } from 'stream'
 import yauzl from 'yauzl'
 import archiver from 'archiver'
-import { Upload } from '@aws-sdk/lib-storage'
 import { getDatabase } from '@/lib/db/schema'
 import { getObjectStream, getClient, getBucket } from '@/lib/r2'
 import { resizeToTwoSizes } from '@/lib/imageResize'
@@ -62,6 +61,7 @@ export async function processNextImageResizeJob(): Promise<void> {
     const passThrough = new PassThrough()
     archive.pipe(passThrough)
 
+    const { Upload } = await import('@aws-sdk/lib-storage')
     const upload = new Upload({
       client: getClient(),
       params: {
