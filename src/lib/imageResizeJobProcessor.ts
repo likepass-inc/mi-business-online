@@ -5,7 +5,7 @@ import { Readable } from 'stream'
 import yauzl from 'yauzl'
 import archiver from 'archiver'
 import { getDatabase } from '@/lib/db/schema'
-import { getObjectStream, getClient, getBucket } from '@/lib/r2'
+import { getObjectStream, getClient, getBucket, PutObjectCommand } from '@/lib/r2'
 import { resizeToTwoSizes } from '@/lib/imageResize'
 
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
@@ -45,6 +45,7 @@ export async function processNextImageResizeJob(): Promise<void> {
 
   const tempDir = os.tmpdir()
   const tempPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}.zip`)
+  const outPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}-out.zip`)
 
   try {
     const readStream = await getObjectStream(objectKey)
@@ -57,27 +58,15 @@ export async function processNextImageResizeJob(): Promise<void> {
     })
 
     const archive = archiver('zip', { zlib: { level: 6 } })
-    const { PassThrough } = await import('stream')
-    const passThrough = new PassThrough()
-    archive.pipe(passThrough)
-
-    const { Upload } = await import('@aws-sdk/lib-storage')
-    const upload = new Upload({
-      client: getClient(),
-      params: {
-        Bucket: getBucket(),
-        Key: outputKey,
-        Body: passThrough,
-        ContentType: 'application/zip',
-      },
-    })
-
-    const uploadDone = upload.done()
+    const outStream = fs.createWriteStream(outPath)
+    archive.pipe(outStream)
 
     let count = 0
     const usedBasenames = new Map<string, number>()
 
     await new Promise<void>((resolve, reject) => {
+      outStream.on('finish', () => resolve())
+      outStream.on('error', reject)
       yauzl.open(tempPath, { lazyEntries: true }, (err, zipFile) => {
         if (err) {
           reject(err)
@@ -131,12 +120,20 @@ export async function processNextImageResizeJob(): Promise<void> {
         })
         zipFile.on('end', () => {
           archive.finalize()
-          resolve()
         })
       })
     })
 
-    await uploadDone
+    const size = fs.statSync(outPath).size
+    await getClient().send(
+      new PutObjectCommand({
+        Bucket: getBucket(),
+        Key: outputKey,
+        Body: fs.createReadStream(outPath),
+        ContentLength: size,
+        ContentType: 'application/zip',
+      })
+    )
 
     if (count === 0) {
       db.prepare(
@@ -155,6 +152,9 @@ export async function processNextImageResizeJob(): Promise<void> {
   } finally {
     try {
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+    } catch (_) {}
+    try {
+      if (fs.existsSync(outPath)) fs.unlinkSync(outPath)
     } catch (_) {}
   }
 }
