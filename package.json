@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "npx playwright install chromium && next build",
     "start": "next start",
-    "worker": "node -r ts-node/register -r tsconfig-paths/register scripts/image-resize-worker.ts",
+    "worker": "node scripts/run-worker-from-root.cjs",
     "lint": "next lint",
     "postinstall": "npx playwright install chromium || echo 'Playwright install failed, continuing...'"
   },

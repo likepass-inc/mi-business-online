@@ -75,7 +75,8 @@
    ```bash
    npm run worker
    ```
-   - これで 30 秒ごとに `processNextImageResizeJob()` が実行される。
+   - 内部で `scripts/run-worker-from-root.cjs` がプロジェクトルートに cd してからワーカーを起動するため、Render で cwd がずれていても動作する。
+   - 30 秒ごとに `processNextImageResizeJob()` が実行される。
 
 ### 3-5. 環境変数（DB URL + R2）
 

@@ -6,9 +6,13 @@
  * 必要環境変数:
  * - IMAGE_RESIZE_JOBS_DATABASE_URL または DATABASE_URL (PostgreSQL)
  * - R2 用の環境変数（Web サービスと同様）
+ *
+ * 注意: @/ のパス解決のため、プロジェクトルートを cwd にして実行すること。
+ * Render で cwd がずれる場合は npm run worker の代わりに
+ * node scripts/run-worker-from-root.cjs を Start Command に指定する。
  */
 
-import { processNextImageResizeJob } from '../src/lib/imageResizeJobProcessor'
+import { processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
 
 const POLL_INTERVAL_MS = 30_000 // 30秒
 
