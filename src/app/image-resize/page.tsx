@@ -344,6 +344,7 @@ function BatchResizeSection() {
       setProcessedCount(null)
       const jobRes = await fetch('/api/image-resize/jobs', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           objectKey,
@@ -369,7 +370,7 @@ function BatchResizeSection() {
       }
       setJobId(jobData.jobId)
       const poll = async () => {
-        const res = await fetch(`/api/image-resize/jobs/${jobData.jobId}`)
+        const res = await fetch(`/api/image-resize/jobs/${jobData.jobId}`, { credentials: 'include' })
         const text = await res.text()
         let data: { status?: string; downloadUrl?: string; errorMessage?: string; processedCount?: number }
         try {
@@ -543,7 +544,7 @@ function BatchHistorySection() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/image-resize/jobs')
+      const res = await fetch('/api/image-resize/jobs', { credentials: 'include' })
       const text = await res.text()
       let data: { jobs?: JobItem[]; error?: string }
       try {
@@ -554,7 +555,11 @@ function BatchHistorySection() {
         return
       }
       if (!res.ok) {
-        setError(data.error || '履歴の取得に失敗しました')
+        const message =
+          res.status === 401
+            ? '認証が必要です。ページを再読み込みするか、再度ログインしてください。'
+            : data.error || '履歴の取得に失敗しました'
+        setError(message)
         setJobs([])
         return
       }
@@ -575,7 +580,7 @@ function BatchHistorySection() {
 
   const handleDownload = useCallback(async (jobId: number) => {
     try {
-      const res = await fetch(`/api/image-resize/jobs/${jobId}`)
+      const res = await fetch(`/api/image-resize/jobs/${jobId}`, { credentials: 'include' })
       const text = await res.text()
       let data: { downloadUrl?: string; errorMessage?: string }
       try {
@@ -598,7 +603,10 @@ function BatchHistorySection() {
     async (jobId: number) => {
       setCancellingJobId(jobId)
       try {
-        const res = await fetch(`/api/image-resize/jobs/${jobId}/cancel`, { method: 'POST' })
+        const res = await fetch(`/api/image-resize/jobs/${jobId}/cancel`, {
+          method: 'POST',
+          credentials: 'include',
+        })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           alert(data.error || '中止に失敗しました')
