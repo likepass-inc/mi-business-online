@@ -91,6 +91,7 @@ Worker は **PostgreSQL と R2 の両方** に接続するため、次の環境�
 | `R2_ACCESS_KEY_ID` | Web サービスで設定している値と同じ |
 | `R2_SECRET_ACCESS_KEY` | Web サービスで設定している値と同じ |
 | `R2_BUCKET_NAME` | Web サービスで設定している値と同じ（例: `mi-business-image-resize`） |
+| `IMAGE_RESIZE_MAX_REQUEUE_COUNT` | （任意）リトライ上限。大容量ジョブで「Server unhealthy」が出やすい場合は `5` などに増やすと完了しやすい。省略時は 2（最大 3 回実行）。 |
 
 2. 値の取得方法:
    - **IMAGE_RESIZE_JOBS_DATABASE_URL**: ステップ 1 の Internal Database URL。
@@ -107,6 +108,30 @@ Worker は **PostgreSQL と R2 の両方** に接続するため、次の環境�
    [image-resize-worker] Started. Polling every 30 seconds.
    ```
 4. `IMAGE_RESIZE_JOBS_DATABASE_URL (PostgreSQL) が未設定です。終了します。` と出る場合は、環境変数名または値（Internal Database URL が正しいか）を確認する。
+
+---
+
+## 推奨インスタンス（大容量 ZIP 用）
+
+- **1GB 以上、とくに 2GB 超の ZIP** を扱う場合は、Worker の **Instance Type** で次を推奨する。
+  - **メモリ**: 4GB 以上（sharp による画像処理のピーク時に余裕を持たせる）。
+  - **ディスク**: 処理時に「入力 ZIP 全体 + 出力 ZIP 用」の一時ファイルが作成される。ZIP サイズと同程度以上のエフェメラルディスク空きがあるプランを選ぶ（例: 2.6GB の ZIP なら合計 4GB 程度以上の一時ディスクが望ましい）。
+- Render Dashboard → Background Worker → **Settings** → **Instance Type** で、メモリ・ディスクが十分なプラン（例: Pro 2 CPU 4 GB）を選択する。
+
+---
+
+## Server unhealthy が出た場合
+
+Worker または Web で「Server unhealthy」と通知され、ジョブがリトライ上限で失敗する場合は、次を順に確認する。
+
+1. **Render の Metrics を確認**  
+   Worker の **Metrics** タブでメモリ・ディスク使用量を確認する。処理中にメモリやディスクが上限に張り付いている場合はリソース不足が疑われる。
+2. **インスタンスのメモリ・ディスクを増やす**  
+   Worker の **Instance Type** を 1 段階以上上げる（例: Standard 2GB → Pro 4GB）。大容量 ZIP の目安は上記「推奨インスタンス」を参照。
+3. **リトライ回数を増やす**  
+   環境変数 **`IMAGE_RESIZE_MAX_REQUEUE_COUNT`** を `4` または `5` に設定する。まれに unhealthy になっても、再試行の余地が増え、完了しやすくなる。Worker の **Environment** に追加し、必要なら Web サービスにも同じキーで設定する（履歴表示時の stale 処理で同じ上限が使われる）。
+4. **未対応画像形式・巨大ファイル**  
+   ログに **`Input buffer contains unsupported image format`** が出る場合、ZIP 内に sharp が扱えない画像（未対応形式・破損・拡張子と中身が異なるファイルなど）が含まれている。Worker のログで **`resize error:`** の直後に出ている**ファイル名**を確認し、そのファイルを ZIP から削除するか、対応形式（例: sRGB の JPEG/PNG）に変換してからジョブを再登録する。1 ファイルあたりの読み込みサイズ上限（デフォルト 30MB）を超えるファイルはスキップされ、同様にログにファイル名が出る。環境変数 **`IMAGE_RESIZE_MAX_IMAGE_BYTES`** で上限を変更可能（バイト数）。
 
 ---
 
@@ -135,7 +160,8 @@ Worker は **PostgreSQL と R2 の両方** に接続するため、次の環境�
 - デプロイなどで Worker が落ち、「処理中」のまま更新が止まったジョブは、**約 5 分**（最終更新から）経過すると自動で **pending** に戻る。
 - 履歴を開く（または「再読み込み」）するたびに stale チェックが走る。Worker が動いていれば、pending に戻ったジョブを Worker が再取得して先頭から再実行する。
 - 5 分のしきい値は環境変数 **`IMAGE_RESIZE_STALE_RETRY_MINUTES`** で変更できる（例: `1` にすると 1 分で再試行対象になる）。2 時間以上更新がないジョブは従来どおり「失敗」になる。
-- **リトライ上限**: 同じジョブを何度も pending に戻すと無限ループになるため、**再投入（リトライ）回数に上限**を設けている。デフォルトは **2 回**（= 初回を含め最大 3 回まで実行）。上限に達したジョブは「リトライ上限に達しました」で failed になり、再実行されない。環境変数 **`IMAGE_RESIZE_MAX_REQUEUE_COUNT`** で変更可能（例: `3` で最大 4 回実行）。
+- **リトライ上限**: 同じジョブを何度も pending に戻すと無限ループになるため、**再投入（リトライ）回数に上限**を設けている。デフォルトは **2 回**（= 初回を含め最大 3 回まで実行）。上限に達したジョブは「リトライ上限に達しました」で failed になり、再実行されない。環境変数 **`IMAGE_RESIZE_MAX_REQUEUE_COUNT`** で変更可能（例: `5` で最大 6 回実行）。**大容量ジョブで Server unhealthy が発生しやすい場合は 4〜5 に増やすと完了しやすくなる。**  
+  「リトライ上限に達しました」は **Worker が何度か落ちた結果**であることが多い。未対応画像形式や巨大ファイルの除去・変換（上記「Server unhealthy が出た場合」の 4）のほか、推奨インスタンス（大容量 ZIP 用）のスペックと「Server unhealthy が出た場合」の手順を確認すること。
 
 ---
 

@@ -11,6 +11,33 @@ import { resizeToSize } from '@/lib/imageResize'
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
 const MAX_IMAGES = 5000
 
+const MAX_IMAGE_BYTES = (() => {
+  const n = Number(process.env.IMAGE_RESIZE_MAX_IMAGE_BYTES)
+  return Number.isFinite(n) && n > 0 ? n : 30 * 1024 * 1024 // 30MB default
+})()
+
+function streamToBuffer(stream: Readable, options?: { maxBytes?: number }): Promise<Buffer> {
+  const maxBytes = options?.maxBytes
+  const chunks: Buffer[] = []
+  let total = 0
+  return new Promise((resolve, reject) => {
+    const onData = (chunk: Buffer) => {
+      chunks.push(chunk)
+      total += chunk.length
+      if (maxBytes != null && total > maxBytes) {
+        stream.destroy()
+        reject(new Error(`Image size exceeds limit (${total} > ${maxBytes} bytes)`))
+      }
+    }
+    stream.on('data', onData)
+    stream.on('error', reject)
+    stream.on('end', () => {
+      if (maxBytes != null && total > maxBytes) return
+      resolve(Buffer.concat(chunks))
+    })
+  })
+}
+
 /**
  * 長時間「処理中」のままのジョブを整理する。
  * - 2時間以上更新なし → failed（タイムアウト失敗）
@@ -26,15 +53,6 @@ export async function markStaleImageResizeJobsAsFailed(): Promise<void> {
 function getBasename(entryPath: string): string {
   const name = entryPath.replace(/^.*[/\\]/, '')
   return name.replace(/\.[^.]+$/, '') || 'image'
-}
-
-function streamToBuffer(stream: Readable): Promise<Buffer> {
-  const chunks: Buffer[] = []
-  return new Promise((resolve, reject) => {
-    stream.on('data', (chunk: Buffer) => chunks.push(chunk))
-    stream.on('error', reject)
-    stream.on('end', () => resolve(Buffer.concat(chunks)))
-  })
 }
 
 /**
@@ -111,38 +129,43 @@ export async function processNextImageResizeJob(): Promise<void> {
           }
 
           zipFile.openReadStream(entry, (readErr, readStream) => {
-            if (readErr || !readStream) {
-              zipFile.readEntry()
-              return
-            }
-            streamToBuffer(readStream)
-              .then((buf) => resizeToSize(buf, outputSize))
-              .then((buffer) => {
-                if (cancelled) {
+            try {
+              if (readErr || !readStream) {
+                zipFile.readEntry()
+                return
+              }
+              streamToBuffer(readStream, { maxBytes: MAX_IMAGE_BYTES })
+                .then((buf) => resizeToSize(buf, outputSize))
+                .then((buffer) => {
+                  if (cancelled) {
+                    zipFile.readEntry()
+                    return
+                  }
+                  const base = getBasename(entry.fileName)
+                  let n = usedBasenames.get(base) ?? 0
+                  usedBasenames.set(base, n + 1)
+                  const suffix = n === 0 ? '' : `_${n + 1}`
+                  const fileName = outputSize === 'large' ? `${base}${suffix}.jpg` : `${base}${suffix}_s.jpg`
+                  archive.append(buffer, { name: fileName })
+                  count++
+                  if (count % 50 === 0 || count === 1) {
+                    store.getJobStatus(jobId).then((row) => {
+                      if (row?.status === 'failed') cancelled = true
+                    })
+                    store.setProcessedCount(jobId, count).catch((e) =>
+                      console.error('[imageResizeJob] setProcessedCount error:', e)
+                    )
+                  }
                   zipFile.readEntry()
-                  return
-                }
-                const base = getBasename(entry.fileName)
-                let n = usedBasenames.get(base) ?? 0
-                usedBasenames.set(base, n + 1)
-                const suffix = n === 0 ? '' : `_${n + 1}`
-                const fileName = outputSize === 'large' ? `${base}${suffix}.jpg` : `${base}${suffix}_s.jpg`
-                archive.append(buffer, { name: fileName })
-                count++
-                if (count % 50 === 0 || count === 1) {
-                  store.getJobStatus(jobId).then((row) => {
-                    if (row?.status === 'failed') cancelled = true
-                  })
-                  store.setProcessedCount(jobId, count).catch((e) =>
-                    console.error('[imageResizeJob] setProcessedCount error:', e)
-                  )
-                }
-                zipFile.readEntry()
-              })
-              .catch((e) => {
-                console.error('[imageResizeJob] resize error:', e)
-                zipFile.readEntry()
-              })
+                })
+                .catch((e) => {
+                  console.error('[imageResizeJob] resize error:', entry.fileName, e)
+                  zipFile.readEntry()
+                })
+            } catch (e) {
+              console.error('[imageResizeJob] entry error:', entry.fileName, e)
+              zipFile.readEntry()
+            }
           })
         })
         zipFile.on('end', () => {
