@@ -21,6 +21,13 @@ interface ReportResponse {
       ctr: number
       position: number
     }>
+    allQueries?: Array<{
+      query: string
+      clicks: number
+      impressions: number
+      ctr: number
+      position: number
+    }>
     topPages: Array<{
       page: string
       clicks: number
@@ -67,28 +74,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // GSCデータの取得
-    const gscData = await fetchGSCData({
-      startDate,
-      endDate,
-      rowLimit: 10000,
-    })
-
-    // クエリ別データの取得
-    const gscQueryData = await fetchGSCData({
-      startDate,
-      endDate,
-      dimensions: ['query'],
-      rowLimit: 100,
-    })
-
-    // ページ別データの取得
-    const gscPageData = await fetchGSCData({
-      startDate,
-      endDate,
-      dimensions: ['page'],
-      rowLimit: 100,
-    })
+    // GSCデータの取得（3本を並列実行）
+    const [gscData, gscQueryData, gscPageData] = await Promise.all([
+      fetchGSCData({ startDate, endDate, rowLimit: 10000 }),
+      fetchGSCData({ startDate, endDate, dimensions: ['query'], rowLimit: 10000 }),
+      fetchGSCData({ startDate, endDate, dimensions: ['page'], rowLimit: 100 }),
+    ])
 
     // GSCサマリー計算
     const totalClicks = gscData.rows.reduce((sum, row) => sum + row.clicks, 0)
@@ -99,90 +90,72 @@ export async function POST(req: NextRequest) {
         ? gscData.rows.reduce((sum, row) => sum + row.position, 0) / gscData.rows.length
         : 0
 
-    // GA4サマリーデータの取得
-    const ga4Summary = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['sessions', 'activeUsers', 'screenPageViews', 'totalRevenue'],
-    })
-    
-    // purchaseRevenueを個別に取得
-    const ga4PurchaseRevenue = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['purchaseRevenue'],
-    })
-    
-    // itemRevenueを取得（itemNameディメンションと一緒に）
-    const ga4ItemRevenue = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['itemRevenue', 'itemPurchaseQuantity'],
-      dimensions: ['itemName'],
-    })
-    
+    // GA4データの取得（8本を並列実行）
+    const [
+      ga4Summary,
+      ga4PurchaseRevenue,
+      ga4ItemRevenue,
+      ga4AllEvents,
+      ga4ByChannel,
+      ga4ByChannelTransactions,
+      ga4ByDevice,
+      ga4ByDeviceTransactions,
+    ] = await Promise.all([
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['sessions', 'activeUsers', 'screenPageViews', 'totalRevenue'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['purchaseRevenue'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['itemRevenue', 'itemPurchaseQuantity'],
+        dimensions: ['itemName'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['eventCount', 'totalRevenue'],
+        dimensions: ['eventName'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['sessions', 'activeUsers', 'purchaseRevenue', 'totalRevenue'],
+        dimensions: ['sessionDefaultChannelGroup'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['eventCount'],
+        dimensions: ['sessionDefaultChannelGroup', 'eventName'],
+        filters: [{ field: 'eventName', operator: 'EXACT', value: '購入完了' }],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['sessions', 'activeUsers', 'purchaseRevenue', 'totalRevenue'],
+        dimensions: ['deviceCategory'],
+      }),
+      fetchGA4Data({
+        dateRange: { startDate, endDate },
+        metrics: ['eventCount'],
+        dimensions: ['deviceCategory', 'eventName'],
+        filters: [{ field: 'eventName', operator: 'EXACT', value: '購入完了' }],
+      }),
+    ])
+
     // アイテム収益の合計を計算
     const totalItemRevenue = ga4ItemRevenue.rows.reduce(
       (sum: number, row: any) => sum + Number(row.itemRevenue || 0),
       0
     )
 
-    // GA4購入イベント数の取得
-    // まず、すべてのイベントを取得してpurchaseまたは支払完了イベントを探す
-    const ga4AllEvents = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['eventCount', 'totalRevenue'],
-      dimensions: ['eventName'],
-    })
-    
     // purchase、支払完了、購入完了イベントを探す
     const purchaseRow = ga4AllEvents.rows.find(
       (row: any) => row.eventName === 'purchase' || row.eventName === '支払完了' || row.eventName === '購入完了'
     )
-    
-    // 購入完了イベントも取得
     const purchaseCompletedRow = ga4AllEvents.rows.find(
       (row: any) => row.eventName === '購入完了'
     )
-
-    // GA4チャネル別データの取得
-    const ga4ByChannel = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['sessions', 'activeUsers', 'purchaseRevenue', 'totalRevenue'],
-      dimensions: ['sessionDefaultChannelGroup'],
-    })
-
-    // GA4チャネル別トランザクション数の取得
-    const ga4ByChannelTransactions = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['eventCount'],
-      dimensions: ['sessionDefaultChannelGroup', 'eventName'],
-      filters: [
-        {
-          field: 'eventName',
-          operator: 'EXACT',
-          value: '購入完了',
-        },
-      ],
-    })
-
-    // GA4デバイス別データの取得
-    const ga4ByDevice = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['sessions', 'activeUsers', 'purchaseRevenue', 'totalRevenue'],
-      dimensions: ['deviceCategory'],
-    })
-
-    // GA4デバイス別トランザクション数の取得
-    const ga4ByDeviceTransactions = await fetchGA4Data({
-      dateRange: { startDate, endDate },
-      metrics: ['eventCount'],
-      dimensions: ['deviceCategory', 'eventName'],
-      filters: [
-        {
-          field: 'eventName',
-          operator: 'EXACT',
-          value: '購入完了',
-        },
-      ],
-    })
 
     // GA4サマリー計算
     const summaryRow = ga4Summary.rows[0] || {}
@@ -232,6 +205,14 @@ export async function POST(req: NextRequest) {
         },
         topQueries: gscQueryData.rows
           .slice(0, 10)
+          .map((row) => ({
+            query: row.query || '',
+            clicks: row.clicks,
+            impressions: row.impressions,
+            ctr: Math.round(row.ctr * 10000) / 100,
+            position: Math.round(row.position * 100) / 100,
+          })),
+        allQueries: gscQueryData.rows
           .map((row) => ({
             query: row.query || '',
             clicks: row.clicks,

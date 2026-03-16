@@ -36,22 +36,7 @@ export async function GET(req: NextRequest) {
     // 複数商品コードが指定された場合
     if (productCodes.length > 0) {
       const products = getProductsByCodes(productCodes)
-      
-      // デバッグ: データベースから直接取得して確認
-      if (products.length > 0) {
-        const { getDatabase } = await import('@/lib/db/schema')
-        const db = getDatabase()
-        const rawRow = db.prepare('SELECT image_urls, availability FROM products WHERE product_code = ?').get(products[0].product_code) as any
-        console.log('[Products API] Debug - Raw DB data:', {
-          productCode: products[0].product_code,
-          rawImageUrls: rawRow?.image_urls,
-          rawAvailability: rawRow?.availability,
-          productHasImageUrl: !!products[0].image_url,
-          productHasImageUrls: !!products[0].image_urls,
-          productAvailability: products[0].availability
-        })
-      }
-      
+
       // WordPress/STORK19用のレスポンス形式
       return NextResponse.json({
         success: true,

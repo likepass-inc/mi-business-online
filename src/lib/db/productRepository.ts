@@ -1,6 +1,10 @@
 import { getDatabase } from './schema'
 import type { Product } from '../types'
 
+/** 本番では無効。開発時または DEBUG_AGENT_LOG=1 のときのみ ingest 送信する */
+const isDebugAgentLogEnabled =
+  process.env.NODE_ENV === 'development' || process.env.DEBUG_AGENT_LOG === '1'
+
 export interface ProductData {
   product_code: string
   product_name: string
@@ -25,10 +29,26 @@ export interface ProductQuery {
  * データベースの行をProduct型に安全に変換するヘルパー関数
  */
 function mapRowToProduct(row: any): Product {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productRepository.ts:27',message:'mapRowToProduct before conversion',data:{productCode:row.product_code,rawImageUrls:row.image_urls?.substring(0,100),rawAvailability:row.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-  
+  if (isDebugAgentLogEnabled) {
+    fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'productRepository.ts:27',
+        message: 'mapRowToProduct before conversion',
+        data: {
+          productCode: row.product_code,
+          rawImageUrls: row.image_urls?.substring(0, 100),
+          rawAvailability: row.availability,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'C',
+      }),
+    }).catch(() => {})
+  }
+
   let imageUrls: string[] = []
   if (row.image_urls) {
     try {
@@ -36,13 +56,29 @@ function mapRowToProduct(row: any): Product {
       imageUrls = Array.isArray(parsed) ? parsed : []
     } catch (e) {
       console.warn(`[ProductRepository] Failed to parse image_urls for ${row.product_code}:`, e)
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productRepository.ts:27',message:'mapRowToProduct JSON parse error',data:{productCode:row.product_code,error:String(e),rawImageUrls:row.image_urls?.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
+      if (isDebugAgentLogEnabled) {
+        fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: 'productRepository.ts:27',
+            message: 'mapRowToProduct JSON parse error',
+            data: {
+              productCode: row.product_code,
+              error: String(e),
+              rawImageUrls: row.image_urls?.substring(0, 100),
+            },
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'C',
+          }),
+        }).catch(() => {})
+      }
       imageUrls = []
     }
   }
-  
+
   const result = {
     product_code: row.product_code,
     product_name: row.product_name,
@@ -58,24 +94,60 @@ function mapRowToProduct(row: any): Product {
     tags: [],
     availability: row.availability || undefined,
     created_at: row.created_at || undefined,
-    updated_at: row.updated_at || undefined
+    updated_at: row.updated_at || undefined,
   }
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productRepository.ts:27',message:'mapRowToProduct after conversion',data:{productCode:result.product_code,hasImageUrl:!!result.image_url,hasImageUrls:!!result.image_urls,imageUrlsCount:result.image_urls?.length||0,availability:result.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-  
+
+  if (isDebugAgentLogEnabled) {
+    fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'productRepository.ts:27',
+        message: 'mapRowToProduct after conversion',
+        data: {
+          productCode: result.product_code,
+          hasImageUrl: !!result.image_url,
+          hasImageUrls: !!result.image_urls,
+          imageUrlsCount: result.image_urls?.length || 0,
+          availability: result.availability,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'C',
+      }),
+    }).catch(() => {})
+  }
+
   return result
 }
 
 export function saveProduct(productData: ProductData): void {
   const db = getDatabase()
-  
-  // #region agent log
-  const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null;
-  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productRepository.ts:56',message:'saveProduct before save',data:{productCode:productData.product_code,hasImageUrls:!!productData.image_urls,imageUrlsCount:productData.image_urls?.length||0,imageUrlsJson:imageUrlsJson?.substring(0,100),availability:productData.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
-  
+
+  if (isDebugAgentLogEnabled) {
+    const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null
+    fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'productRepository.ts:56',
+        message: 'saveProduct before save',
+        data: {
+          productCode: productData.product_code,
+          hasImageUrls: !!productData.image_urls,
+          imageUrlsCount: productData.image_urls?.length || 0,
+          imageUrlsJson: imageUrlsJson?.substring(0, 100),
+          availability: productData.availability,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'B',
+      }),
+    }).catch(() => {})
+  }
+
   const stmt = db.prepare(`
     INSERT INTO products (
       product_code, product_name, price_incl_tax, price_excl_tax,
@@ -108,11 +180,29 @@ export function saveProduct(productData: ProductData): void {
     imageUrlsJson,
     productData.availability || null
   )
-  
-  // #region agent log
-  const savedRow = db.prepare('SELECT image_urls, availability FROM products WHERE product_code = ?').get(productData.product_code) as any;
-  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productRepository.ts:56',message:'saveProduct after save',data:{productCode:productData.product_code,savedImageUrls:savedRow?.image_urls?.substring(0,100),savedAvailability:savedRow?.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
+
+  if (isDebugAgentLogEnabled) {
+    const savedRow = db
+      .prepare('SELECT image_urls, availability FROM products WHERE product_code = ?')
+      .get(productData.product_code) as any
+    fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'productRepository.ts:56',
+        message: 'saveProduct after save',
+        data: {
+          productCode: productData.product_code,
+          savedImageUrls: savedRow?.image_urls?.substring(0, 100),
+          savedAvailability: savedRow?.availability,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'run1',
+        hypothesisId: 'B',
+      }),
+    }).catch(() => {})
+  }
 }
 
 export function batchSaveProducts(products: ProductData[]): void {
