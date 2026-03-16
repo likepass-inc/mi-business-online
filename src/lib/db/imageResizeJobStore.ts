@@ -16,6 +16,7 @@ export type JobRow = {
   input_size_bytes: number | null
   image_count: number | null
   processed_count: number | null
+  output_size_bytes: number | null
 }
 
 export type PendingJobRow = { id: number; object_key: string; output_size: string }
@@ -31,20 +32,29 @@ export interface ImageResizeJobStore {
   ): Promise<number>
   updateToProcessing(jobId: number): Promise<void>
   setProcessedCount(jobId: number, count: number): Promise<void>
-  completeJob(jobId: number, outputKey: string, imageCount: number): Promise<void>
+  completeJob(jobId: number, outputKey: string, imageCount: number, outputSizeBytes?: number | null): Promise<void>
   failJob(jobId: number, errorMessage: string, imageCount?: number): Promise<void>
   getJobStatus(jobId: number): Promise<{ status: string } | null>
   getJobById(
     jobId: number,
     userId: string | null
-  ): Promise<(Pick<JobRow, 'id' | 'status' | 'output_key' | 'error_message' | 'processed_count'>) | null>
+  ): Promise<(Pick<JobRow, 'id' | 'status' | 'output_key' | 'object_key' | 'error_message' | 'processed_count'>) | null>
+  deleteJob(jobId: number, userId: string | null): Promise<void>
   listJobsByUserId(
     userId: string
   ): Promise<
     Array<
       Pick<
         JobRow,
-        'id' | 'status' | 'created_at' | 'input_size_bytes' | 'image_count' | 'error_message' | 'processed_count'
+        | 'id'
+        | 'status'
+        | 'created_at'
+        | 'updated_at'
+        | 'input_size_bytes'
+        | 'image_count'
+        | 'error_message'
+        | 'processed_count'
+        | 'output_size_bytes'
       >
     >
   >
@@ -120,10 +130,10 @@ function createSqliteStore(): ImageResizeJobStore {
         `UPDATE image_resize_jobs SET processed_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
       ).run(count, jobId)
     },
-    async completeJob(jobId, outputKey, imageCount) {
+    async completeJob(jobId, outputKey, imageCount, outputSizeBytes) {
       db.prepare(
-        `UPDATE image_resize_jobs SET status = 'completed', output_key = ?, image_count = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-      ).run(outputKey, imageCount, jobId)
+        `UPDATE image_resize_jobs SET status = 'completed', output_key = ?, image_count = ?, output_size_bytes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(outputKey, imageCount, outputSizeBytes ?? null, jobId)
     },
     async failJob(jobId, errorMessage, imageCount?) {
       if (imageCount !== undefined) {
@@ -145,28 +155,33 @@ function createSqliteStore(): ImageResizeJobStore {
     async getJobById(jobId, userId) {
       const row = db
         .prepare(
-          `SELECT id, status, output_key, error_message, processed_count FROM image_resize_jobs
+          `SELECT id, status, output_key, object_key, error_message, processed_count FROM image_resize_jobs
            WHERE id = ? AND (user_id = ? OR user_id IS NULL)`
         )
         .get(jobId, userId) as
-        | { id: number; status: string; output_key: string | null; error_message: string | null; processed_count: number | null }
+        | { id: number; status: string; output_key: string | null; object_key: string; error_message: string | null; processed_count: number | null }
         | undefined
       return row ?? null
+    },
+    async deleteJob(jobId, userId) {
+      db.prepare(`DELETE FROM image_resize_jobs WHERE id = ? AND (user_id = ? OR user_id IS NULL)`).run(jobId, userId)
     },
     async listJobsByUserId(userId) {
       const rows = db
         .prepare(
-          `SELECT id, status, created_at, input_size_bytes, image_count, error_message, processed_count
+          `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes
            FROM image_resize_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`
         )
         .all(userId) as Array<{
         id: number
         status: string
         created_at: string
+        updated_at: string
         input_size_bytes: number | null
         image_count: number | null
         error_message: string | null
         processed_count: number | null
+        output_size_bytes: number | null
       }>
       return rows
     },
@@ -195,7 +210,8 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
           image_count INTEGER,
           processed_count INTEGER,
           output_size TEXT DEFAULT 'large',
-          retry_count INTEGER DEFAULT 0
+          retry_count INTEGER DEFAULT 0,
+          output_size_bytes BIGINT
         )
       `)
       await client.query(`
@@ -204,6 +220,7 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
       for (const sql of [
         `ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'`,
         `ALTER TABLE image_resize_jobs ADD COLUMN retry_count INTEGER DEFAULT 0`,
+        `ALTER TABLE image_resize_jobs ADD COLUMN output_size_bytes BIGINT`,
       ]) {
         try {
           await client.query(sql)
@@ -280,11 +297,11 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
         [count, jobId]
       )
     },
-    async completeJob(jobId: number, outputKey: string, imageCount: number) {
+    async completeJob(jobId: number, outputKey: string, imageCount: number, outputSizeBytes?: number | null) {
       await ensure()
       await pool.query(
-        `UPDATE image_resize_jobs SET status = 'completed', output_key = $1, image_count = $2, updated_at = NOW() WHERE id = $3`,
-        [outputKey, imageCount, jobId]
+        `UPDATE image_resize_jobs SET status = 'completed', output_key = $1, image_count = $2, output_size_bytes = $3, updated_at = NOW() WHERE id = $4`,
+        [outputKey, imageCount, outputSizeBytes ?? null, jobId]
       )
     },
     async failJob(jobId: number, errorMessage: string, imageCount?: number) {
@@ -310,17 +327,24 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
     async getJobById(jobId: number, userId: string | null) {
       await ensure()
       const res = await pool.query(
-        `SELECT id, status, output_key, error_message, processed_count
+        `SELECT id, status, output_key, object_key, error_message, processed_count
          FROM image_resize_jobs WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
         [jobId, userId]
       )
       const row = res.rows[0]
       return row ?? null
     },
+    async deleteJob(jobId: number, userId: string | null) {
+      await ensure()
+      await pool.query(`DELETE FROM image_resize_jobs WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`, [
+        jobId,
+        userId,
+      ])
+    },
     async listJobsByUserId(userId: string) {
       await ensure()
       const res = await pool.query(
-        `SELECT id, status, created_at, input_size_bytes, image_count, error_message, processed_count
+        `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes
          FROM image_resize_jobs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [userId]
       )

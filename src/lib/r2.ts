@@ -2,6 +2,7 @@ import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  DeleteObjectCommand,
   type GetObjectCommandInput,
   type PutObjectCommandInput,
 } from '@aws-sdk/client-s3'
@@ -82,6 +83,21 @@ export async function getObjectStream(key: string): Promise<Readable> {
     throw new Error(`Failed to get object stream: ${key}`)
   }
   return body
+}
+
+/**
+ * R2 からオブジェクトを削除する。
+ * @param key オブジェクトキー。空の場合は何もしない。
+ */
+export async function deleteObject(key: string): Promise<void> {
+  if (!key || !key.trim()) return
+  const client = getClient()
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: getBucket(),
+      Key: key.trim(),
+    })
+  )
 }
 
 /**

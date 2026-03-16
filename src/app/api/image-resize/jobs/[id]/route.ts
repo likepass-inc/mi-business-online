@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJobStore } from '@/lib/db/imageResizeJobStore'
 import { getSessionUserId } from '@/lib/auth'
-import { getDownloadPresignedUrl, isR2Configured } from '@/lib/r2'
+import { getDownloadPresignedUrl, isR2Configured, deleteObject } from '@/lib/r2'
 import { markStaleImageResizeJobsAsFailed } from '@/lib/imageResizeJobProcessor'
 
 export async function GET(
@@ -51,6 +51,55 @@ export async function GET(
     console.error('[image-resize jobs] GET by id error:', e)
     return NextResponse.json(
       { success: false, error: e instanceof Error ? e.message : 'ジョブの取得に失敗しました' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return NextResponse.json({ success: false, error: '認証が必要です' }, { status: 401 })
+  }
+  if (!isR2Configured()) {
+    return NextResponse.json(
+      { success: false, error: '大容量バッチは現在利用できません（R2 未設定）' },
+      { status: 503 }
+    )
+  }
+  const id = parseInt((await params).id, 10)
+  if (Number.isNaN(id) || id < 1) {
+    return NextResponse.json({ success: false, error: '無効なジョブ ID です' }, { status: 400 })
+  }
+  try {
+    const store = getJobStore()
+    const row = await store.getJobById(id, userId)
+    if (!row) {
+      return NextResponse.json({ success: false, error: 'ジョブが見つかりません' }, { status: 404 })
+    }
+    if (row.object_key) {
+      try {
+        await deleteObject(row.object_key)
+      } catch (e) {
+        console.error('[image-resize jobs] DELETE object_key error:', e)
+      }
+    }
+    if (row.output_key) {
+      try {
+        await deleteObject(row.output_key)
+      } catch (e) {
+        console.error('[image-resize jobs] DELETE output_key error:', e)
+      }
+    }
+    await store.deleteJob(id, userId)
+    return new NextResponse(null, { status: 204 })
+  } catch (e) {
+    console.error('[image-resize jobs] DELETE error:', e)
+    return NextResponse.json(
+      { success: false, error: e instanceof Error ? e.message : '削除に失敗しました' },
       { status: 500 }
     )
   }

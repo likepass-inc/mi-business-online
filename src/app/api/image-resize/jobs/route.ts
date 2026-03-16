@@ -84,8 +84,10 @@ export async function GET(req: NextRequest) {
       jobId: r.id,
       status: r.status,
       createdAt: r.created_at,
+      updatedAt: r.updated_at ?? undefined,
       imageCount: r.image_count ?? undefined,
       inputSizeBytes: r.input_size_bytes ?? undefined,
+      outputSizeBytes: r.output_size_bytes ?? undefined,
       errorMessage: r.error_message ?? undefined,
       processedCount: r.status === 'processing' ? (r.processed_count ?? undefined) : undefined,
     }))

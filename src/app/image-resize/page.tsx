@@ -7,8 +7,10 @@ type JobItem = {
   jobId: number
   status: string
   createdAt: string
+  updatedAt?: string
   imageCount?: number
   inputSizeBytes?: number
+  outputSizeBytes?: number
   errorMessage?: string
   processedCount?: number
 }
@@ -577,6 +579,7 @@ function BatchHistorySection() {
   }, [fetchJobs])
 
   const [cancellingJobId, setCancellingJobId] = useState<number | null>(null)
+  const [deletingJobId, setDeletingJobId] = useState<number | null>(null)
 
   const handleDownload = useCallback(async (jobId: number) => {
     try {
@@ -622,6 +625,30 @@ function BatchHistorySection() {
     [fetchJobs]
   )
 
+  const handleDelete = useCallback(
+    async (jobId: number) => {
+      if (!confirm('このジョブを削除しますか？R2 上のファイルも削除されます。')) return
+      setDeletingJobId(jobId)
+      try {
+        const res = await fetch(`/api/image-resize/jobs/${jobId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          alert(data.error || '削除に失敗しました')
+          return
+        }
+        await fetchJobs()
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '削除に失敗しました')
+      } finally {
+        setDeletingJobId(null)
+      }
+    },
+    [fetchJobs]
+  )
+
   const statusLabel: Record<string, string> = {
     pending: '待機中',
     processing: '処理中',
@@ -657,6 +684,7 @@ function BatchHistorySection() {
               <tr className="border-b border-gray-200">
                 <th className="text-left py-2 pr-4">ジョブID</th>
                 <th className="text-left py-2 pr-4">登録日時</th>
+                <th className="text-left py-2 pr-4">完了日時</th>
                 <th className="text-left py-2 pr-4">枚数</th>
                 <th className="text-left py-2 pr-4">サイズ</th>
                 <th className="text-left py-2 pr-4">ステータス</th>
@@ -669,13 +697,22 @@ function BatchHistorySection() {
                   <td className="py-2 pr-4">{job.jobId}</td>
                   <td className="py-2 pr-4">{formatDate(job.createdAt)}</td>
                   <td className="py-2 pr-4">
+                    {job.status === 'completed' && job.updatedAt
+                      ? formatDate(job.updatedAt)
+                      : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
                     {job.status === 'processing' && job.processedCount != null
                       ? `約 ${job.processedCount} 枚リサイズ済み`
                       : job.imageCount != null
                         ? `${job.imageCount} 枚`
                         : '—'}
                   </td>
-                  <td className="py-2 pr-4">{formatSize(job.inputSizeBytes)}</td>
+                  <td className="py-2 pr-4">
+                    {job.status === 'completed' && job.outputSizeBytes != null
+                      ? `${formatSize(job.inputSizeBytes)} → ${formatSize(job.outputSizeBytes)}`
+                      : formatSize(job.inputSizeBytes)}
+                  </td>
                   <td className="py-2 pr-4">
                     {job.status === 'processing' && job.processedCount != null
                       ? `処理中（${job.processedCount} 枚済み）`
@@ -683,27 +720,59 @@ function BatchHistorySection() {
                   </td>
                   <td className="py-2">
                     {job.status === 'completed' && (
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(job.jobId)}
-                        className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-                      >
-                        ダウンロード
-                      </button>
+                      <span className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(job.jobId)}
+                          className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                        >
+                          ダウンロード
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(job.jobId)}
+                          disabled={deletingJobId === job.jobId}
+                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                        >
+                          {deletingJobId === job.jobId ? '削除中…' : '削除'}
+                        </button>
+                      </span>
                     )}
                     {(job.status === 'pending' || job.status === 'processing') && (
-                      <button
-                        type="button"
-                        onClick={() => handleCancel(job.jobId)}
-                        disabled={cancellingJobId === job.jobId}
-                        className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
-                      >
-                        {cancellingJobId === job.jobId ? '中止中…' : '中止'}
-                      </button>
+                      <span className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleCancel(job.jobId)}
+                          disabled={cancellingJobId === job.jobId}
+                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                        >
+                          {cancellingJobId === job.jobId ? '中止中…' : '中止'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(job.jobId)}
+                          disabled={deletingJobId === job.jobId}
+                          className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500 disabled:opacity-50"
+                        >
+                          {deletingJobId === job.jobId ? '削除中…' : '削除'}
+                        </button>
+                      </span>
                     )}
-                    {job.status === 'failed' && job.errorMessage && (
-                      <span className="text-red-600 text-xs" title={job.errorMessage}>
-                        {job.errorMessage.length > 30 ? `${job.errorMessage.slice(0, 30)}…` : job.errorMessage}
+                    {job.status === 'failed' && (
+                      <span className="flex items-center gap-2 flex-wrap">
+                        {job.errorMessage && (
+                          <span className="text-red-600 text-xs" title={job.errorMessage}>
+                            {job.errorMessage.length > 30 ? `${job.errorMessage.slice(0, 30)}…` : job.errorMessage}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(job.jobId)}
+                          disabled={deletingJobId === job.jobId}
+                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                        >
+                          {deletingJobId === job.jobId ? '削除中…' : '削除'}
+                        </button>
                       </span>
                     )}
                   </td>

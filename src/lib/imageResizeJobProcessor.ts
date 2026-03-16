@@ -192,7 +192,7 @@ export async function processNextImageResizeJob(): Promise<void> {
     if (count === 0) {
       await store.failJob(jobId, 'ZIP内に画像がありません', count)
     } else {
-      await store.completeJob(jobId, outputKey, count)
+      await store.completeJob(jobId, outputKey, count, size)
     }
   } catch (e) {
     console.error('[imageResizeJob]', jobId, e)

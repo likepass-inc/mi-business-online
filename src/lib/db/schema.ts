@@ -106,7 +106,8 @@ function initializeSchema(db: Database.Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       output_size TEXT DEFAULT 'large',
-      retry_count INTEGER DEFAULT 0
+      retry_count INTEGER DEFAULT 0,
+      output_size_bytes INTEGER
     )
   `)
   db.exec(`
@@ -121,6 +122,7 @@ function initializeSchema(db: Database.Database) {
     'ALTER TABLE image_resize_jobs ADD COLUMN processed_count INTEGER',
     "ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'",
     "ALTER TABLE image_resize_jobs ADD COLUMN retry_count INTEGER DEFAULT 0",
+    'ALTER TABLE image_resize_jobs ADD COLUMN output_size_bytes INTEGER',
   ]) {
     try {
       db.exec(col)
