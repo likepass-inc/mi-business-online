@@ -28,6 +28,7 @@ export interface ImageResizeJobStore {
   setProcessedCount(jobId: number, count: number): Promise<void>
   completeJob(jobId: number, outputKey: string, imageCount: number): Promise<void>
   failJob(jobId: number, errorMessage: string, imageCount?: number): Promise<void>
+  getJobStatus(jobId: number): Promise<{ status: string } | null>
   getJobById(
     jobId: number,
     userId: string | null
@@ -117,6 +118,12 @@ function createSqliteStore(): ImageResizeJobStore {
           `UPDATE image_resize_jobs SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
         ).run(errorMessage, jobId)
       }
+    },
+    async getJobStatus(jobId) {
+      const row = db.prepare(`SELECT status FROM image_resize_jobs WHERE id = ?`).get(jobId) as
+        | { status: string }
+        | undefined
+      return row ?? null
     },
     async getJobById(jobId, userId) {
       const row = db
@@ -253,6 +260,12 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
           [errorMessage, jobId]
         )
       }
+    },
+    async getJobStatus(jobId: number) {
+      await ensure()
+      const res = await pool.query(`SELECT status FROM image_resize_jobs WHERE id = $1`, [jobId])
+      const row = res.rows[0]
+      return row ? { status: row.status } : null
     },
     async getJobById(jobId: number, userId: string | null) {
       await ensure()

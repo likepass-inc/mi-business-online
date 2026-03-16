@@ -72,6 +72,7 @@ export async function processNextImageResizeJob(): Promise<void> {
     archive.pipe(outStream)
 
     let count = 0
+    let cancelled = false
     const usedBasenames = new Map<string, number>()
 
     await new Promise<void>((resolve, reject) => {
@@ -89,6 +90,11 @@ export async function processNextImageResizeJob(): Promise<void> {
 
         zipFile.readEntry()
         zipFile.on('entry', (entry) => {
+          if (cancelled) {
+            zipFile.close()
+            archive.finalize()
+            return
+          }
           if (entry.fileName.endsWith('/') || entry.fileName.includes('__MACOSX') || entry.fileName.startsWith('.')) {
             zipFile.readEntry()
             return
@@ -111,6 +117,10 @@ export async function processNextImageResizeJob(): Promise<void> {
             streamToBuffer(readStream)
               .then((buf) => resizeToTwoSizes(buf))
               .then(({ large, small }) => {
+                if (cancelled) {
+                  zipFile.readEntry()
+                  return
+                }
                 const base = getBasename(entry.fileName)
                 let n = usedBasenames.get(base) ?? 0
                 usedBasenames.set(base, n + 1)
@@ -121,6 +131,9 @@ export async function processNextImageResizeJob(): Promise<void> {
                 archive.append(small, { name: smallName })
                 count++
                 if (count % 50 === 0 || count === 1) {
+                  store.getJobStatus(jobId).then((row) => {
+                    if (row?.status === 'failed') cancelled = true
+                  })
                   store.setProcessedCount(jobId, count).catch((e) =>
                     console.error('[imageResizeJob] setProcessedCount error:', e)
                   )
@@ -138,6 +151,10 @@ export async function processNextImageResizeJob(): Promise<void> {
         })
       })
     })
+
+    if (cancelled) {
+      return
+    }
 
     const size = fs.statSync(outPath).size
     await getClient().send(

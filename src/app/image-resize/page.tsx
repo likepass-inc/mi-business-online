@@ -544,6 +544,8 @@ function BatchHistorySection() {
     fetchJobs()
   }, [fetchJobs])
 
+  const [cancellingJobId, setCancellingJobId] = useState<number | null>(null)
+
   const handleDownload = useCallback(async (jobId: number) => {
     try {
       const res = await fetch(`/api/image-resize/jobs/${jobId}`)
@@ -564,6 +566,26 @@ function BatchHistorySection() {
       alert(e instanceof Error ? e.message : 'ダウンロードに失敗しました')
     }
   }, [])
+
+  const handleCancel = useCallback(
+    async (jobId: number) => {
+      setCancellingJobId(jobId)
+      try {
+        const res = await fetch(`/api/image-resize/jobs/${jobId}/cancel`, { method: 'POST' })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          alert(data.error || '中止に失敗しました')
+          return
+        }
+        await fetchJobs()
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '中止に失敗しました')
+      } finally {
+        setCancellingJobId(null)
+      }
+    },
+    [fetchJobs]
+  )
 
   const statusLabel: Record<string, string> = {
     pending: '待機中',
@@ -632,6 +654,16 @@ function BatchHistorySection() {
                         className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
                       >
                         ダウンロード
+                      </button>
+                    )}
+                    {(job.status === 'pending' || job.status === 'processing') && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(job.jobId)}
+                        disabled={cancellingJobId === job.jobId}
+                        className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                      >
+                        {cancellingJobId === job.jobId ? '中止中…' : '中止'}
                       </button>
                     )}
                     {job.status === 'failed' && job.errorMessage && (
