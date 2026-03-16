@@ -35,7 +35,12 @@ export interface ImageResizeJobStore {
   listJobsByUserId(
     userId: string
   ): Promise<
-    Array<Pick<JobRow, 'id' | 'status' | 'created_at' | 'input_size_bytes' | 'image_count' | 'error_message'>>
+    Array<
+      Pick<
+        JobRow,
+        'id' | 'status' | 'created_at' | 'input_size_bytes' | 'image_count' | 'error_message' | 'processed_count'
+      >
+    >
   >
 }
 
@@ -118,7 +123,7 @@ function createSqliteStore(): ImageResizeJobStore {
     async listJobsByUserId(userId) {
       const rows = db
         .prepare(
-          `SELECT id, status, created_at, input_size_bytes, image_count, error_message
+          `SELECT id, status, created_at, input_size_bytes, image_count, error_message, processed_count
            FROM image_resize_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`
         )
         .all(userId) as Array<{
@@ -128,6 +133,7 @@ function createSqliteStore(): ImageResizeJobStore {
         input_size_bytes: number | null
         image_count: number | null
         error_message: string | null
+        processed_count: number | null
       }>
       return rows
     },
@@ -247,7 +253,7 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
     async listJobsByUserId(userId: string) {
       await ensure()
       const res = await pool.query(
-        `SELECT id, status, created_at, input_size_bytes, image_count, error_message
+        `SELECT id, status, created_at, input_size_bytes, image_count, error_message, processed_count
          FROM image_resize_jobs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [userId]
       )

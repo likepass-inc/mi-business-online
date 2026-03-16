@@ -73,13 +73,14 @@ export async function GET(req: NextRequest) {
     await store.markStaleAsFailed()
     const rows = await store.listJobsByUserId(userId)
     const jobs = rows.map((r) => ({
-    jobId: r.id,
-    status: r.status,
-    createdAt: r.created_at,
-    imageCount: r.image_count ?? undefined,
-    inputSizeBytes: r.input_size_bytes ?? undefined,
-    errorMessage: r.error_message ?? undefined,
-  }))
+      jobId: r.id,
+      status: r.status,
+      createdAt: r.created_at,
+      imageCount: r.image_count ?? undefined,
+      inputSizeBytes: r.input_size_bytes ?? undefined,
+      errorMessage: r.error_message ?? undefined,
+      processedCount: r.status === 'processing' ? (r.processed_count ?? undefined) : undefined,
+    }))
     return NextResponse.json({ success: true, jobs })
   } catch (e) {
     console.error('[image-resize jobs] GET list error:', e)
