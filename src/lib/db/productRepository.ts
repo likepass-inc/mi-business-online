@@ -124,9 +124,9 @@ function mapRowToProduct(row: any): Product {
 
 export function saveProduct(productData: ProductData): void {
   const db = getDatabase()
+  const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null
 
   if (isDebugAgentLogEnabled) {
-    const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null
     fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
