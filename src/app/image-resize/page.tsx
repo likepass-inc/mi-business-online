@@ -11,6 +11,7 @@ type JobItem = {
   imageCount?: number
   inputSizeBytes?: number
   outputSizeBytes?: number
+  outputSize?: 'large' | 'small'
   errorMessage?: string
   processedCount?: number
 }
@@ -685,6 +686,7 @@ function BatchHistorySection() {
                 <th className="text-left py-2 pr-4">ジョブID</th>
                 <th className="text-left py-2 pr-4">登録日時</th>
                 <th className="text-left py-2 pr-4">完了日時</th>
+                <th className="text-left py-2 pr-4">リサイズ</th>
                 <th className="text-left py-2 pr-4">枚数</th>
                 <th className="text-left py-2 pr-4">サイズ</th>
                 <th className="text-left py-2 pr-4">ステータス</th>
@@ -700,6 +702,9 @@ function BatchHistorySection() {
                     {job.status === 'completed' && job.updatedAt
                       ? formatDate(job.updatedAt)
                       : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {job.outputSize === 'small' ? '小(262×218)' : '大(640×533)'}
                   </td>
                   <td className="py-2 pr-4">
                     {job.status === 'processing' && job.processedCount != null

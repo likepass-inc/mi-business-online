@@ -17,6 +17,7 @@ export type JobRow = {
   image_count: number | null
   processed_count: number | null
   output_size_bytes: number | null
+  output_size: string | null
 }
 
 export type PendingJobRow = { id: number; object_key: string; output_size: string }
@@ -55,6 +56,7 @@ export interface ImageResizeJobStore {
         | 'error_message'
         | 'processed_count'
         | 'output_size_bytes'
+        | 'output_size'
       >
     >
   >
@@ -169,7 +171,7 @@ function createSqliteStore(): ImageResizeJobStore {
     async listJobsByUserId(userId) {
       const rows = db
         .prepare(
-          `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes
+          `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes, COALESCE(output_size, 'large') AS output_size
            FROM image_resize_jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`
         )
         .all(userId) as Array<{
@@ -182,6 +184,7 @@ function createSqliteStore(): ImageResizeJobStore {
         error_message: string | null
         processed_count: number | null
         output_size_bytes: number | null
+        output_size: string
       }>
       return rows
     },
@@ -344,7 +347,7 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
     async listJobsByUserId(userId: string) {
       await ensure()
       const res = await pool.query(
-        `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes
+        `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes, COALESCE(output_size, 'large') AS output_size
          FROM image_resize_jobs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [userId]
       )
