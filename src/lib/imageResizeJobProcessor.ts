@@ -12,8 +12,10 @@ const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
 const MAX_IMAGES = 5000
 
 /**
- * 長時間「処理中」のままのジョブを失敗に更新する。
- * デプロイ・スリープ等でプロセスが落ちた場合に、履歴で「失敗」と表示されるようにする。
+ * 長時間「処理中」のままのジョブを整理する。
+ * - 2時間以上更新なし → failed（タイムアウト失敗）
+ * - 30分以上2時間未満更新なし → pending に戻し、Worker が再取得して自動再試行する
+ * デプロイ等で Worker が落ちた場合の取り残しを防ぐ。
  */
 export async function markStaleImageResizeJobsAsFailed(): Promise<void> {
   const store = getJobStore()

@@ -45,6 +45,7 @@ export interface ImageResizeJobStore {
 }
 
 const STALE_HOURS = 2
+const STALE_RETRY_MINUTES = 30
 const STALE_ERROR =
   '処理がタイムアウトしました（サーバー再起動・デプロイの可能性があります）。再度お試しください。'
 
@@ -74,6 +75,11 @@ function createSqliteStore(): ImageResizeJobStore {
         `UPDATE image_resize_jobs SET status = 'failed', error_message = ?
          WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)`
       ).run(STALE_ERROR, `-${STALE_HOURS} hours`)
+      db.prepare(
+        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0
+         WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)
+         AND datetime(updated_at) >= datetime('now', ?)`
+      ).run(`-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`)
     },
     async insertJob(objectKey, userId, inputSizeBytes) {
       const result = db
@@ -194,6 +200,11 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
         `UPDATE image_resize_jobs SET status = 'failed', error_message = $1, updated_at = NOW()
          WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '${STALE_HOURS} hours'`,
         [STALE_ERROR]
+      )
+      await pool.query(
+        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0, updated_at = NOW()
+         WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '${STALE_RETRY_MINUTES} minutes'
+         AND updated_at >= NOW() - INTERVAL '${STALE_HOURS} hours'`
       )
     },
     async insertJob(objectKey: string, userId: string | null, inputSizeBytes: number | null) {
