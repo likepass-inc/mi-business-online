@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       { status: 503 }
     )
   }
-  let body: { objectKey?: string; inputSizeBytes?: number }
+  let body: { objectKey?: string; inputSizeBytes?: number; outputSize?: string }
   try {
     body = await req.json()
   } catch {
@@ -31,11 +31,19 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     )
   }
+  const outputSize =
+    body.outputSize === 'small' ? 'small' : body.outputSize === 'large' ? 'large' : 'large'
+  if (body.outputSize !== undefined && body.outputSize !== 'large' && body.outputSize !== 'small') {
+    return NextResponse.json(
+      { success: false, error: 'outputSize は "large" または "small" を指定してください' },
+      { status: 400 }
+    )
+  }
   const inputSizeBytes =
     typeof body.inputSizeBytes === 'number' && body.inputSizeBytes >= 0 ? body.inputSizeBytes : null
   try {
     const store = getJobStore()
-    const jobId = await store.insertJob(objectKey, userId, inputSizeBytes)
+    const jobId = await store.insertJob(objectKey, userId, inputSizeBytes, outputSize)
     if (!jobId) {
       return NextResponse.json(
         { success: false, error: 'ジョブの登録に失敗しました' },

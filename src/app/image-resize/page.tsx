@@ -268,6 +268,7 @@ export default function ImageResizePage() {
 }
 
 function BatchResizeSection() {
+  const [outputSize, setOutputSize] = useState<'large' | 'small'>('large')
   const [batchFile, setBatchFile] = useState<File | null>(null)
   const [step, setStep] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -347,6 +348,7 @@ function BatchResizeSection() {
         body: JSON.stringify({
           objectKey,
           inputSizeBytes: batchFile.size,
+          outputSize,
         }),
       })
       const jobText = await jobRes.text()
@@ -398,7 +400,7 @@ function BatchResizeSection() {
       setBatchError(e instanceof Error ? e.message : 'エラーが発生しました')
       setStep('error')
     }
-  }, [batchFile])
+  }, [batchFile, outputSize])
 
   useEffect(() => {
     if (step !== 'processing') {
@@ -425,6 +427,31 @@ function BatchResizeSection() {
 
   return (
     <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">リサイズするサイズ</p>
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="batch-output-size"
+              checked={outputSize === 'large'}
+              onChange={() => setOutputSize('large')}
+              className="text-blue-500"
+            />
+            <span className="text-sm">大（640×533）のみ</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="batch-output-size"
+              checked={outputSize === 'small'}
+              onChange={() => setOutputSize('small')}
+              className="text-blue-500"
+            />
+            <span className="text-sm">小（262×218）のみ</span>
+          </label>
+        </div>
+      </div>
       <input
         type="file"
         accept=".zip"

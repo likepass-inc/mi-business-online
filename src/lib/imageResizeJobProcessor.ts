@@ -6,7 +6,7 @@ import yauzl from 'yauzl'
 import archiver from 'archiver'
 import { getJobStore } from '@/lib/db/imageResizeJobStore'
 import { getObjectStream, getClient, getBucket, PutObjectCommand } from '@/lib/r2'
-import { resizeToTwoSizes } from '@/lib/imageResize'
+import { resizeToSize } from '@/lib/imageResize'
 
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
 const MAX_IMAGES = 5000
@@ -49,6 +49,7 @@ export async function processNextImageResizeJob(): Promise<void> {
 
   const jobId = row.id
   const objectKey = row.object_key
+  const outputSize = row.output_size === 'small' ? 'small' : 'large'
   const outputKey = `outputs/${jobId}.zip`
 
   await store.updateToProcessing(jobId)
@@ -115,8 +116,8 @@ export async function processNextImageResizeJob(): Promise<void> {
               return
             }
             streamToBuffer(readStream)
-              .then((buf) => resizeToTwoSizes(buf))
-              .then(({ large, small }) => {
+              .then((buf) => resizeToSize(buf, outputSize))
+              .then((buffer) => {
                 if (cancelled) {
                   zipFile.readEntry()
                   return
@@ -125,10 +126,8 @@ export async function processNextImageResizeJob(): Promise<void> {
                 let n = usedBasenames.get(base) ?? 0
                 usedBasenames.set(base, n + 1)
                 const suffix = n === 0 ? '' : `_${n + 1}`
-                const largeName = `${base}${suffix}.jpg`
-                const smallName = `${base}${suffix}_s.jpg`
-                archive.append(large, { name: largeName })
-                archive.append(small, { name: smallName })
+                const fileName = outputSize === 'large' ? `${base}${suffix}.jpg` : `${base}${suffix}_s.jpg`
+                archive.append(buffer, { name: fileName })
                 count++
                 if (count % 50 === 0 || count === 1) {
                   store.getJobStatus(jobId).then((row) => {

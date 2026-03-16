@@ -39,3 +39,22 @@ export async function resizeToTwoSizes(input: Buffer): Promise<ResizeResult> {
 
   return { large: largeBuffer, small: smallBuffer }
 }
+
+/**
+ * 画像をアスペクト比を維持したまま指定サイズにリサイズする。
+ * 大容量バッチで 1 サイズのみ出力するときに使用する。
+ * @param input 入力画像の Buffer
+ * @param size 'large' (640×533) または 'small' (262×218)
+ * @returns リサイズ後の JPEG Buffer
+ */
+export async function resizeToSize(input: Buffer, size: 'large' | 'small'): Promise<Buffer> {
+  const { width, height } = TARGET_SIZES[size]
+  return sharp(input)
+    .resize(width, height, {
+      fit: 'contain',
+      position: 'centre',
+      background: PADDING_COLOR,
+    })
+    .jpeg({ quality: 90 })
+    .toBuffer()
+}

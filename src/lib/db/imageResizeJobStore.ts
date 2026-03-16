@@ -18,12 +18,17 @@ export type JobRow = {
   processed_count: number | null
 }
 
-export type PendingJobRow = { id: number; object_key: string }
+export type PendingJobRow = { id: number; object_key: string; output_size: string }
 
 export interface ImageResizeJobStore {
   getNextPendingJob(): Promise<PendingJobRow | null>
   markStaleAsFailed(): Promise<void>
-  insertJob(objectKey: string, userId: string | null, inputSizeBytes: number | null): Promise<number>
+  insertJob(
+    objectKey: string,
+    userId: string | null,
+    inputSizeBytes: number | null,
+    outputSize: 'large' | 'small'
+  ): Promise<number>
   updateToProcessing(jobId: number): Promise<void>
   setProcessedCount(jobId: number, count: number): Promise<void>
   completeJob(jobId: number, outputKey: string, imageCount: number): Promise<void>
@@ -69,7 +74,7 @@ function createSqliteStore(): ImageResizeJobStore {
     async getNextPendingJob() {
       const row = db
         .prepare(
-          `SELECT id, object_key FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
+          `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
         )
         .get() as PendingJobRow | undefined
       return row ?? null
@@ -85,12 +90,12 @@ function createSqliteStore(): ImageResizeJobStore {
          AND datetime(updated_at) >= datetime('now', ?)`
       ).run(`-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`)
     },
-    async insertJob(objectKey, userId, inputSizeBytes) {
+    async insertJob(objectKey, userId, inputSizeBytes, outputSize) {
       const result = db
         .prepare(
-          `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes) VALUES (?, 'pending', ?, ?)`
+          `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size) VALUES (?, 'pending', ?, ?, ?)`
         )
-        .run(objectKey, userId, inputSizeBytes)
+        .run(objectKey, userId, inputSizeBytes, outputSize)
       return Number(result.lastInsertRowid)
     },
     async updateToProcessing(jobId) {
@@ -176,12 +181,18 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
           user_id TEXT,
           input_size_bytes BIGINT,
           image_count INTEGER,
-          processed_count INTEGER
+          processed_count INTEGER,
+          output_size TEXT DEFAULT 'large'
         )
       `)
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_image_resize_jobs_status ON image_resize_jobs(status)
       `)
+      try {
+        await client.query(`ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'`)
+      } catch {
+        // カラムが既に存在する場合は無視
+      }
     } finally {
       client.release()
     }
@@ -199,10 +210,10 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
     async getNextPendingJob() {
       await ensure()
       const res = await pool.query(
-        `SELECT id, object_key FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
+        `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
       )
       const row = res.rows[0]
-      return row ? { id: row.id, object_key: row.object_key } : null
+      return row ? { id: row.id, object_key: row.object_key, output_size: row.output_size } : null
     },
     async markStaleAsFailed() {
       await ensure()
@@ -217,12 +228,17 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
          AND updated_at >= NOW() - INTERVAL '${STALE_HOURS} hours'`
       )
     },
-    async insertJob(objectKey: string, userId: string | null, inputSizeBytes: number | null) {
+    async insertJob(
+      objectKey: string,
+      userId: string | null,
+      inputSizeBytes: number | null,
+      outputSize: 'large' | 'small'
+    ) {
       await ensure()
       const res = await pool.query(
-        `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes)
-         VALUES ($1, 'pending', $2, $3) RETURNING id`,
-        [objectKey, userId, inputSizeBytes]
+        `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size)
+         VALUES ($1, 'pending', $2, $3, $4) RETURNING id`,
+        [objectKey, userId, inputSizeBytes, outputSize]
       )
       return res.rows[0].id
     },
