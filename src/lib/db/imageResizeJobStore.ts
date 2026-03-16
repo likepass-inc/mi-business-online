@@ -45,7 +45,10 @@ export interface ImageResizeJobStore {
 }
 
 const STALE_HOURS = 2
-const STALE_RETRY_MINUTES = 30
+const STALE_RETRY_MINUTES = (() => {
+  const n = Number(process.env.IMAGE_RESIZE_STALE_RETRY_MINUTES)
+  return Number.isFinite(n) && n > 0 ? n : 5
+})()
 const STALE_ERROR =
   '処理がタイムアウトしました（サーバー再起動・デプロイの可能性があります）。再度お試しください。'
 

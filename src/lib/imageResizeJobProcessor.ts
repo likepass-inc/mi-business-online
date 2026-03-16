@@ -14,7 +14,8 @@ const MAX_IMAGES = 5000
 /**
  * 長時間「処理中」のままのジョブを整理する。
  * - 2時間以上更新なし → failed（タイムアウト失敗）
- * - 30分以上2時間未満更新なし → pending に戻し、Worker が再取得して自動再試行する
+ * - 5分以上2時間未満更新なし → pending に戻し、Worker が再取得して自動再試行する
+ *   （IMAGE_RESIZE_STALE_RETRY_MINUTES で変更可）
  * デプロイ等で Worker が落ちた場合の取り残しを防ぐ。
  */
 export async function markStaleImageResizeJobsAsFailed(): Promise<void> {
