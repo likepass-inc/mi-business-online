@@ -55,8 +55,14 @@ const STALE_RETRY_MINUTES = (() => {
   const n = Number(process.env.IMAGE_RESIZE_STALE_RETRY_MINUTES)
   return Number.isFinite(n) && n > 0 ? n : 5
 })()
+const MAX_REQUEUE_COUNT = (() => {
+  const n = Number(process.env.IMAGE_RESIZE_MAX_REQUEUE_COUNT)
+  return Number.isInteger(n) && n >= 0 ? n : 2
+})()
 const STALE_ERROR =
   '処理がタイムアウトしました（サーバー再起動・デプロイの可能性があります）。再度お試しください。'
+const MAX_RETRIES_ERROR =
+  'リトライ上限に達しました。ジョブを再登録するか、ZIP の画像数を減らして再実行してください。'
 
 function getStore(): ImageResizeJobStore {
   const url = process.env.IMAGE_RESIZE_JOBS_DATABASE_URL || process.env.DATABASE_URL
@@ -84,11 +90,17 @@ function createSqliteStore(): ImageResizeJobStore {
         `UPDATE image_resize_jobs SET status = 'failed', error_message = ?
          WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)`
       ).run(STALE_ERROR, `-${STALE_HOURS} hours`)
+      // 5分〜2時間更新なし: リトライ上限に達しているものは先に failed にし、残りを pending に戻す
       db.prepare(
-        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0
+        `UPDATE image_resize_jobs SET status = 'failed', error_message = ?
          WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)
-         AND datetime(updated_at) >= datetime('now', ?)`
-      ).run(`-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`)
+         AND datetime(updated_at) >= datetime('now', ?) AND COALESCE(retry_count, 0) >= ?`
+      ).run(MAX_RETRIES_ERROR, `-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`, MAX_REQUEUE_COUNT)
+      db.prepare(
+        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0, retry_count = COALESCE(retry_count, 0) + 1
+         WHERE status = 'processing' AND datetime(updated_at) < datetime('now', ?)
+         AND datetime(updated_at) >= datetime('now', ?) AND COALESCE(retry_count, 0) < ?`
+      ).run(`-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`, MAX_REQUEUE_COUNT)
     },
     async insertJob(objectKey, userId, inputSizeBytes, outputSize) {
       const result = db
@@ -182,16 +194,22 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
           input_size_bytes BIGINT,
           image_count INTEGER,
           processed_count INTEGER,
-          output_size TEXT DEFAULT 'large'
+          output_size TEXT DEFAULT 'large',
+          retry_count INTEGER DEFAULT 0
         )
       `)
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_image_resize_jobs_status ON image_resize_jobs(status)
       `)
-      try {
-        await client.query(`ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'`)
-      } catch {
-        // カラムが既に存在する場合は無視
+      for (const sql of [
+        `ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'`,
+        `ALTER TABLE image_resize_jobs ADD COLUMN retry_count INTEGER DEFAULT 0`,
+      ]) {
+        try {
+          await client.query(sql)
+        } catch {
+          // カラムが既に存在する場合は無視
+        }
       }
     } finally {
       client.release()
@@ -223,9 +241,15 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
         [STALE_ERROR]
       )
       await pool.query(
-        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0, updated_at = NOW()
+        `UPDATE image_resize_jobs SET status = 'failed', error_message = $1, updated_at = NOW()
          WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '${STALE_RETRY_MINUTES} minutes'
-         AND updated_at >= NOW() - INTERVAL '${STALE_HOURS} hours'`
+         AND updated_at >= NOW() - INTERVAL '${STALE_HOURS} hours' AND COALESCE(retry_count, 0) >= ${MAX_REQUEUE_COUNT}`,
+        [MAX_RETRIES_ERROR]
+      )
+      await pool.query(
+        `UPDATE image_resize_jobs SET status = 'pending', processed_count = 0, retry_count = COALESCE(retry_count, 0) + 1, updated_at = NOW()
+         WHERE status = 'processing' AND updated_at < NOW() - INTERVAL '${STALE_RETRY_MINUTES} minutes'
+         AND updated_at >= NOW() - INTERVAL '${STALE_HOURS} hours' AND COALESCE(retry_count, 0) < ${MAX_REQUEUE_COUNT}`
       )
     },
     async insertJob(
