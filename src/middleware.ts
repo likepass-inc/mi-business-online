@@ -7,6 +7,8 @@ const publicPaths = [
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',
+  // マガジン・ショップ連携モックアップ
+  '/mockup',
   // 商品API（WordPress/SWELLからアクセス）
   '/api/products',
   '/api/magazine',

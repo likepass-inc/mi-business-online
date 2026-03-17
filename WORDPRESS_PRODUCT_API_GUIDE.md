@@ -36,7 +36,234 @@ https://mi-business-online.onrender.com/api/products
 - **product_url**: 商品ページのURL
 - **image_url**: メイン画像URL
 - **image_urls**: 画像URLの配列（複数画像がある場合）
-- **availability**: 在庫状況
+- **availability**: 在庫状況（詳細は後述）
+
+---
+
+## 📦 在庫状況（availability）について
+
+### 概要
+
+`availability`フィールドは、商品の在庫状況を表す文字列です。このフィールドを使用することで、記事内で商品を紹介する際に、読者に対して在庫状況を明確に伝えることができます。
+
+### 可能な値
+
+`availability`フィールドには以下の値が設定される可能性があります：
+
+| 値 | 意味 | 説明 |
+|---|---|---|
+| `null` または `undefined` | 在庫あり | 在庫状況の情報がない場合、通常は在庫があることを意味します |
+| `"一時欠品中"` | 一時的に在庫切れ | 現在在庫がなく、入荷待ちの状態です |
+| `"販売を終了いたしました"` | 終売 | 商品の販売が終了しており、今後入荷予定はありません |
+| `"残り0点"` | 在庫0点 | 在庫が0点で、入荷待ちの状態です |
+
+**注意**: これらの値は、実際の商品ページ（`business.mistore.jp`）から自動的に抽出されます。商品ページの表示が変更された場合、APIのレスポンスも自動的に更新されます。
+
+### 使用方法
+
+#### PHPでの実装例
+
+```php
+<?php
+// 商品データを取得
+$products = get_products_from_api(10);
+
+foreach ($products as $product) {
+    ?>
+    <div class="product-card">
+        <h3><?php echo esc_html($product['product_name']); ?></h3>
+        <p class="price">¥<?php echo number_format($product['price_incl_tax']); ?>（税込）</p>
+        
+        <?php
+        // 在庫状況を表示
+        if (!empty($product['availability'])) {
+            $availability_class = '';
+            $availability_icon = '';
+            
+            // 在庫状況に応じてクラスとアイコンを設定
+            if ($product['availability'] === '一時欠品中' || $product['availability'] === '残り0点') {
+                $availability_class = 'availability-warning';
+                $availability_icon = '⚠️';
+            } elseif ($product['availability'] === '販売を終了いたしました') {
+                $availability_class = 'availability-discontinued';
+                $availability_icon = '🔴';
+            }
+            
+            ?>
+            <p class="availability <?php echo esc_attr($availability_class); ?>">
+                <?php echo esc_html($availability_icon); ?>
+                <?php echo esc_html($product['availability']); ?>
+            </p>
+            <?php
+        }
+        ?>
+        
+        <a href="<?php echo esc_url($product['product_url']); ?>" 
+           class="product-link" 
+           target="_blank" 
+           rel="noopener">商品を見る</a>
+    </div>
+    <?php
+}
+?>
+```
+
+#### CSSスタイル例
+
+```css
+/* 在庫状況のスタイル */
+.availability {
+    font-size: 0.9em;
+    font-weight: bold;
+    margin: 0.5em 0;
+    padding: 0.3em 0.5em;
+    border-radius: 3px;
+}
+
+.availability-warning {
+    color: #ff6b00;
+    background-color: #fff3e0;
+}
+
+.availability-discontinued {
+    color: #d32f2f;
+    background-color: #ffebee;
+}
+```
+
+#### JavaScriptでの実装例
+
+```javascript
+// APIから商品データを取得
+fetch('https://mi-business-online.onrender.com/api/products?limit=10')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.data) {
+            data.data.forEach(product => {
+                // 在庫状況を表示
+                if (product.availability) {
+                    let statusClass = '';
+                    let statusIcon = '';
+                    
+                    if (product.availability === '一時欠品中' || product.availability === '残り0点') {
+                        statusClass = 'availability-warning';
+                        statusIcon = '⚠️';
+                    } else if (product.availability === '販売を終了いたしました') {
+                        statusClass = 'availability-discontinued';
+                        statusIcon = '🔴';
+                    }
+                    
+                    const availabilityElement = document.createElement('p');
+                    availabilityElement.className = `availability ${statusClass}`;
+                    availabilityElement.textContent = `${statusIcon} ${product.availability}`;
+                    
+                    // 商品カードに追加
+                    // （実際のDOM操作は実装に応じて調整）
+                }
+            });
+        }
+    });
+```
+
+### 実装のベストプラクティス
+
+1. **在庫状況がない場合の処理**
+   - `availability`が`null`または`undefined`の場合は、在庫ありとして扱うか、何も表示しない
+   - ユーザーに誤解を与えないよう、明確な表示方針を決める
+
+2. **視覚的な区別**
+   - 終売商品は赤色で表示し、購入できないことを明確にする
+   - 一時欠品や在庫0点は警告色（オレンジなど）で表示し、入荷待ちであることを示す
+
+3. **ユーザー体験の向上**
+   - 終売商品の場合は「商品を見る」リンクを無効化するか、別のメッセージを表示
+   - 一時欠品の場合は「入荷待ち」であることを明確に伝える
+
+4. **記事編集者への配慮**
+   - 記事内で商品を紹介する際、在庫状況を確認してから掲載する
+   - 終売商品が含まれる場合は、記事の更新や商品の差し替えを検討
+
+### 使用例：記事内での商品表示
+
+```php
+<?php
+// 記事内で商品を表示する関数
+function display_product_in_article($product_code) {
+    $api_url = 'https://mi-business-online.onrender.com/api/products/' . $product_code;
+    $response = wp_remote_get($api_url, array(
+        'timeout' => 10,
+        'headers' => array('Accept' => 'application/json')
+    ));
+    
+    if (is_wp_error($response)) {
+        return '<p>商品情報の取得に失敗しました。</p>';
+    }
+    
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    
+    if (!isset($data['success']) || !$data['success'] || !isset($data['data'])) {
+        return '<p>商品が見つかりませんでした。</p>';
+    }
+    
+    $product = $data['data'];
+    
+    ob_start();
+    ?>
+    <div class="article-product">
+        <?php if (!empty($product['image_url'])): ?>
+            <img src="<?php echo esc_url($product['image_url']); ?>" 
+                 alt="<?php echo esc_attr($product['product_name']); ?>"
+                 class="article-product-image">
+        <?php endif; ?>
+        
+        <div class="article-product-info">
+            <h3><?php echo esc_html($product['product_name']); ?></h3>
+            <p class="article-product-price">¥<?php echo number_format($product['price_incl_tax']); ?>（税込）</p>
+            
+            <?php
+            // 在庫状況を表示
+            if (!empty($product['availability'])) {
+                $is_discontinued = ($product['availability'] === '販売を終了いたしました');
+                ?>
+                <p class="article-product-availability <?php echo $is_discontinued ? 'discontinued' : 'warning'; ?>">
+                    <?php echo esc_html($product['availability']); ?>
+                </p>
+                <?php
+                
+                // 終売商品の場合はリンクを無効化
+                if ($is_discontinued) {
+                    ?>
+                    <p class="article-product-note">この商品は販売を終了いたしました。</p>
+                    <?php
+                } else {
+                    ?>
+                    <a href="<?php echo esc_url($product['product_url']); ?>" 
+                       class="article-product-link" 
+                       target="_blank" 
+                       rel="noopener">商品ページを見る</a>
+                    <?php
+                }
+            } else {
+                // 在庫状況がない場合は通常通りリンクを表示
+                ?>
+                <a href="<?php echo esc_url($product['product_url']); ?>" 
+                   class="article-product-link" 
+                   target="_blank" 
+                   rel="noopener">商品ページを見る</a>
+                <?php
+            }
+            ?>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// 使用例
+echo display_product_in_article('g020W-977');
+?>
+```
 
 ---
 
@@ -351,7 +578,40 @@ if (!empty($products)) {
 GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI789
 ```
 
-### 例5: マガジン記事に関連する商品を表示
+### 例5: 在庫状況を表示する
+
+記事内で商品を紹介する際に、在庫状況を表示する例：
+
+```php
+<?php
+$products = get_products_from_api(5);
+
+foreach ($products as $product) {
+    ?>
+    <div class="product-card">
+        <h3><?php echo esc_html($product['product_name']); ?></h3>
+        <p class="price">¥<?php echo number_format($product['price_incl_tax']); ?>（税込）</p>
+        
+        <?php
+        // 在庫状況を表示
+        if (!empty($product['availability'])) {
+            $class = ($product['availability'] === '販売を終了いたしました') ? 'discontinued' : 'warning';
+            ?>
+            <p class="availability <?php echo esc_attr($class); ?>">
+                <?php echo esc_html($product['availability']); ?>
+            </p>
+            <?php
+        }
+        ?>
+        
+        <a href="<?php echo esc_url($product['product_url']); ?>" target="_blank">商品を見る</a>
+    </div>
+    <?php
+}
+?>
+```
+
+### 例6: マガジン記事に関連する商品を表示
 
 マガジン記事（`https://business.mistore.jp/magazine/`）のテンプレートで、記事IDに基づいて関連商品を取得します。
 
@@ -837,7 +1097,25 @@ if (!is_wp_error($response)) {
 }
 ```
 
-### Q6: 記事ページ内の複数商品を効率的に取得したい
+### Q6: 在庫状況（availability）を表示したい
+
+**A:** `availability`フィールドを使用して、商品の在庫状況を表示できます。詳細は[在庫状況（availability）について](#-在庫状況availabilityについて)のセクションを参照してください。
+
+簡単な実装例：
+
+```php
+<?php
+// 商品データを取得
+$product = get_product_by_code('ABC123');
+
+// 在庫状況を表示
+if (!empty($product['availability'])) {
+    echo '<p class="availability">' . esc_html($product['availability']) . '</p>';
+}
+?>
+```
+
+### Q7: 記事ページ内の複数商品を効率的に取得したい
 
 **A:** `product_code[]` または `product_id[]` パラメータを使用して、複数の商品コードを一度のAPIリクエストで取得できます：
 
@@ -923,5 +1201,5 @@ if (function_exists('display_related_products_shortcode')) {
 
 ---
 
-**最終更新日**: 2025年12月17日
+**最終更新日**: 2026年1月16日
 

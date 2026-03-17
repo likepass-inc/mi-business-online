@@ -48,3 +48,19 @@ CRON_SECRET
 *.tsbuildinfo
 next-env.d.ts
 
+# local data and exports (keep repo clean)
+/data/
+/gsc_full/
+/gsc_magazine/
+/analysis/
+/*.zip
+/*.pdf
+/*.csv
+/画像リサイズ企画/
+/GSC｜前年比較/
+# local reports and proposals (optional: move to reports/ and remove these lines to track)
+/report-*.md
+/proposal-*.md
+/ad-keyword-*.md
+/sitemap-issue-report.md
+/docs/大容量*
