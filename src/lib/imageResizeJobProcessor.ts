@@ -72,7 +72,14 @@ export async function processNextImageResizeJob(): Promise<void> {
 
   await store.updateToProcessing(jobId)
 
-  const tempDir = os.tmpdir()
+  const tempDir = process.env.IMAGE_RESIZE_TEMP_DIR || os.tmpdir()
+  if (process.env.IMAGE_RESIZE_TEMP_DIR) {
+    try {
+      fs.mkdirSync(tempDir, { recursive: true })
+    } catch (e) {
+      console.warn('[imageResizeJob] mkdirSync for IMAGE_RESIZE_TEMP_DIR failed:', e)
+    }
+  }
   const tempPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}.zip`)
   const outPath = path.join(tempDir, `image-resize-job-${jobId}-${Date.now()}-out.zip`)
 

@@ -92,6 +92,7 @@ Worker は **PostgreSQL と R2 の両方** に接続するため、次の環境�
 | `R2_SECRET_ACCESS_KEY` | Web サービスで設定している値と同じ |
 | `R2_BUCKET_NAME` | Web サービスで設定している値と同じ（例: `mi-business-image-resize`） |
 | `IMAGE_RESIZE_MAX_REQUEUE_COUNT` | （任意）リトライ上限。大容量ジョブで「Server unhealthy」が出やすい場合は `5` などに増やすと完了しやすい。省略時は 2（最大 3 回実行）。 |
+| `IMAGE_RESIZE_TEMP_DIR` | （任意）永続ディスクをマウントした場合、一時ファイル用ディレクトリ（例: `/var/data/tmp`）。設定すると /tmp の 2GB 制限を回避。下記「Evicted. Size of temporary storage volume /tmp exceeded」参照。 |
 
 2. 値の取得方法:
    - **IMAGE_RESIZE_JOBS_DATABASE_URL**: ステップ 1 の Internal Database URL。
@@ -132,6 +133,13 @@ Worker または Web で「Server unhealthy」と通知され、ジョブがリ�
    環境変数 **`IMAGE_RESIZE_MAX_REQUEUE_COUNT`** を `4` または `5` に設定する。まれに unhealthy になっても、再試行の余地が増え、完了しやすくなる。Worker の **Environment** に追加し、必要なら Web サービスにも同じキーで設定する（履歴表示時の stale 処理で同じ上限が使われる）。
 4. **未対応画像形式・巨大ファイル**  
    ログに **`Input buffer contains unsupported image format`** が出る場合、ZIP 内に sharp が扱えない画像（未対応形式・破損・拡張子と中身が異なるファイルなど）が含まれている。Worker のログで **`resize error:`** の直後に出ている**ファイル名**を確認し、そのファイルを ZIP から削除するか、対応形式（例: sRGB の JPEG/PNG）に変換してからジョブを再登録する。1 ファイルあたりの読み込みサイズ上限（デフォルト 30MB）を超えるファイルはスキップされ、同様にログにファイル名が出る。環境変数 **`IMAGE_RESIZE_MAX_IMAGE_BYTES`** で上限を変更可能（バイト数）。
+5. **「Evicted. Size of temporary storage volume /tmp exceeded the limit of 2GB」が出る場合**  
+   Render の Background Worker では **/tmp の上限が 2GB** です。入力 ZIP と出力 ZIP を両方 /tmp に保存するため、大容量ジョブ（例: 入力 1.5GB + 出力 1.5GB）で 2GB を超え、インスタンスが Evicted で強制終了されます。  
+   **対処**: Worker に **Persistent Disk をマウント**し、一時ファイルを /tmp ではなくそのディスク上に書くようにします。
+   - Render Dashboard → **Background Worker**（mi-business-image-resize-worker）→ **Disk** タブで **Add Disk** をクリックする。
+   - **Mount Path**: `/var/data`（例）。**Size**: 大容量 ZIP を想定し **10GB 以上**を推奨（入力＋出力で数 GB 使うため）。
+   - **Environment** タブで **Add Environment Variable** をクリックし、**Key**: `IMAGE_RESIZE_TEMP_DIR`、**Value**: `/var/data/tmp` を追加する（Mount Path が `/var/data` の場合は `/var/data/tmp`）。保存後、Worker が再デプロイされる。  
+   コード側で `IMAGE_RESIZE_TEMP_DIR` が指定されていると、そのディレクトリが存在しなければ自動作成され、入力・出力 ZIP はすべてそのディスク上に書かれるため、/tmp の 2GB 制限の影響を受けなくなります。
 
 ---
 
