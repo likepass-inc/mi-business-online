@@ -7,6 +7,7 @@
 - **Web サービス**: ジョブ登録・一覧・詳細・ダウンロード URL 発行。`image_resize_jobs` は PostgreSQL に接続。
 - **Background Worker**: 同一リポジトリ。30 秒ごとに `processNextImageResizeJob()` を実行。PostgreSQL から pending ジョブを取得し、R2 の ZIP を処理して結果を R2 にアップロード。
 - **PostgreSQL**: ジョブキュー用。Web と Worker の両方から同じ接続 URL で参照。
+- **画像処理**: リサイズ前に Sharp の `rotate()`（引数なし）で **EXIF Orientation を自動適用**し、ブラウザや他ツールの表示向きと整合させる（`src/lib/imageResize.ts`）。
 
 ---
 
