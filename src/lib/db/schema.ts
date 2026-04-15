@@ -123,6 +123,7 @@ function initializeSchema(db: Database.Database) {
     "ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'",
     "ALTER TABLE image_resize_jobs ADD COLUMN retry_count INTEGER DEFAULT 0",
     'ALTER TABLE image_resize_jobs ADD COLUMN output_size_bytes INTEGER',
+    "ALTER TABLE image_resize_jobs ADD COLUMN trim_mode TEXT DEFAULT 'off'",
   ]) {
     try {
       db.exec(col)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import AdmZip from 'adm-zip'
-import { resizeToTwoSizes } from '@/lib/imageResize'
+import { resizeToTwoSizes, type ImageResizeOptions } from '@/lib/imageResize'
+import type { TrimMode } from '@/lib/imageResizeTypes'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
@@ -23,9 +24,32 @@ function getBasename(entryPath: string): string {
   return name.replace(/\.[^.]+$/, '') || 'image'
 }
 
+function parseTrimMode(raw: FormDataEntryValue | null): TrimMode {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (s === 'sharp' || s === 'vision') return s
+  return 'off'
+}
+
+function parseTrimThreshold(raw: FormDataEntryValue | null): number | undefined {
+  if (raw == null || raw === '') return undefined
+  const n = Number(String(raw))
+  if (!Number.isFinite(n) || n < 0 || n > 255) return undefined
+  return Math.floor(n)
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
+    const trimMode = parseTrimMode(formData.get('trimMode'))
+    const trimThreshold = parseTrimThreshold(formData.get('trimThreshold'))
+    if (trimMode === 'vision' && !process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { success: false, error: 'AI トリミングにはサーバーに OPENAI_API_KEY が設定されている必要があります。' },
+        { status: 503 }
+      )
+    }
+    const resizeOptions: ImageResizeOptions = { trimMode, trimThreshold }
+
     const file = formData.get('file') ?? formData.get('files')
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -82,7 +106,7 @@ export async function POST(req: NextRequest) {
         let large: Buffer
         let small: Buffer
         try {
-          const result = await resizeToTwoSizes(data)
+          const result = await resizeToTwoSizes(data, resizeOptions)
           large = result.large
           small = result.small
         } catch {
@@ -127,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer()
     const input = Buffer.from(arrayBuffer)
-    const { large, small } = await resizeToTwoSizes(input)
+    const { large, small } = await resizeToTwoSizes(input, resizeOptions)
 
     const base64 = (buf: Buffer) => `data:image/jpeg;base64,${buf.toString('base64')}`
     const filename = file.name.replace(/\.[^.]+$/, '') || 'image'

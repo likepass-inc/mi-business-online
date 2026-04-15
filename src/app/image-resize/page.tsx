@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
+import type { BatchTrimMode, TrimMode } from '@/lib/imageResizeTypes'
 
 type JobItem = {
   jobId: number
@@ -31,6 +32,8 @@ export default function ImageResizePage() {
   const [result, setResult] = useState<Result | null>(null)
   const [dragActive, setDragActive] = useState(false)
   const [zipDownloadUrl, setZipDownloadUrl] = useState<string | null>(null)
+  const [trimMode, setTrimMode] = useState<TrimMode>('off')
+  const [trimThresholdInput, setTrimThresholdInput] = useState('')
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -85,6 +88,11 @@ export default function ImageResizePage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('trimMode', trimMode)
+      const t = trimThresholdInput.trim()
+      if (t !== '' && (trimMode === 'sharp' || trimMode === 'vision')) {
+        formData.append('trimThreshold', t)
+      }
       const res = await fetch('/api/image-resize', {
         method: 'POST',
         body: formData,
@@ -114,12 +122,14 @@ export default function ImageResizePage() {
     } finally {
       setLoading(false)
     }
-  }, [file])
+  }, [file, trimMode, trimThresholdInput])
 
   const clear = useCallback(() => {
     setFile(null)
     setResult(null)
     setError(null)
+    setTrimMode('off')
+    setTrimThresholdInput('')
     if (zipDownloadUrl) {
       URL.revokeObjectURL(zipDownloadUrl)
       setZipDownloadUrl(null)
@@ -136,6 +146,10 @@ export default function ImageResizePage() {
         <p className="text-gray-600 mb-6">
           <strong>小規模</strong>：下の枠で1枚の画像、またはZIP（最大30枚・50MBまで）をその場でリサイズできます。
           <strong>大容量</strong>：ページ下部の「大容量バッチ（R2）」で、数千枚・数GB規模のZIPにも対応しています。
+        </p>
+        <p className="text-gray-600 mb-4 text-sm">
+          テンプレートの上下などに白い余白が付いた画像は、オプションで<strong>余白トリミング</strong>（縁の単色を除去）または
+          <strong>AI によるコンテンツ領域の検出</strong>のあとにリサイズできます。均一な白余白は「自動（Sharp）」で十分なことが多く、AI はレイアウトが複雑なとき向けです（画像ごとに API 利用）。
         </p>
 
         <h2 className="text-xl font-semibold mb-3 text-gray-800">小規模（1枚 or ZIP 最大30枚・50MB）</h2>
@@ -164,6 +178,64 @@ export default function ImageResizePage() {
               <span className="text-gray-500">クリックまたはドラッグ＆ドロップで画像またはZIPを選択</span>
             )}
           </label>
+        </div>
+
+        <div className="mt-4 space-y-3 text-sm text-gray-800">
+          <p className="font-medium text-gray-700">余白トリミング（任意）</p>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="trim-mode-small"
+                checked={trimMode === 'off'}
+                onChange={() => setTrimMode('off')}
+                className="text-blue-500"
+              />
+              <span>なし</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="trim-mode-small"
+                checked={trimMode === 'sharp'}
+                onChange={() => setTrimMode('sharp')}
+                className="text-blue-500"
+              />
+              <span>自動（縁の単色を除去・Sharp）</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="trim-mode-small"
+                checked={trimMode === 'vision'}
+                onChange={() => setTrimMode('vision')}
+                className="text-blue-500"
+              />
+              <span>AI でコンテンツ領域を検出（OpenAI Vision）</span>
+            </label>
+          </div>
+          {(trimMode === 'sharp' || trimMode === 'vision') && (
+            <div className="flex flex-wrap items-center gap-2">
+              <label htmlFor="trim-threshold" className="text-gray-600">
+                しきい値（0–255、空欄でサーバー既定）
+              </label>
+              <input
+                id="trim-threshold"
+                type="number"
+                min={0}
+                max={255}
+                value={trimThresholdInput}
+                onChange={(e) => setTrimThresholdInput(e.target.value)}
+                className="w-24 border border-gray-300 rounded px-2 py-1"
+                placeholder="例: 10"
+              />
+            </div>
+          )}
+          {trimMode === 'vision' && (
+            <p className="text-xs text-gray-500">
+              失敗時は自動（Sharp）のトリミングにフォールバックします。処理に時間がかかることがあります。
+            </p>
+          )}
         </div>
 
         {error && (
@@ -272,6 +344,7 @@ export default function ImageResizePage() {
 
 function BatchResizeSection() {
   const [outputSize, setOutputSize] = useState<'large' | 'small'>('large')
+  const [batchTrimMode, setBatchTrimMode] = useState<BatchTrimMode>('off')
   const [batchFile, setBatchFile] = useState<File | null>(null)
   const [step, setStep] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle')
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -353,6 +426,7 @@ function BatchResizeSection() {
           objectKey,
           inputSizeBytes: batchFile.size,
           outputSize,
+          trimMode: batchTrimMode,
         }),
       })
       const jobText = await jobRes.text()
@@ -404,7 +478,7 @@ function BatchResizeSection() {
       setBatchError(e instanceof Error ? e.message : 'エラーが発生しました')
       setStep('error')
     }
-  }, [batchFile, outputSize])
+  }, [batchFile, outputSize, batchTrimMode])
 
   useEffect(() => {
     if (step !== 'processing') {
@@ -427,11 +501,38 @@ function BatchResizeSection() {
     setProcessingStartedAt(null)
     setElapsedSeconds(0)
     setProcessedCount(null)
+    setBatchTrimMode('off')
   }, [])
 
   return (
     <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
       <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">余白トリミング（大容量バッチ）</p>
+        <p className="text-xs text-gray-500 mb-2">
+          大量処理のため AI トリミングは利用できません。単色の縁除去（Sharp）のみ選択できます。
+        </p>
+        <div className="flex gap-6 mb-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="batch-trim"
+              checked={batchTrimMode === 'off'}
+              onChange={() => setBatchTrimMode('off')}
+              className="text-blue-500"
+            />
+            <span className="text-sm">なし</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="batch-trim"
+              checked={batchTrimMode === 'sharp'}
+              onChange={() => setBatchTrimMode('sharp')}
+              className="text-blue-500"
+            />
+            <span className="text-sm">自動（Sharp・縁の単色除去）</span>
+          </label>
+        </div>
         <p className="text-sm font-medium text-gray-700 mb-2">リサイズするサイズ</p>
         <div className="flex gap-6">
           <label className="flex items-center gap-2 cursor-pointer">

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       { status: 503 }
     )
   }
-  let body: { objectKey?: string; inputSizeBytes?: number; outputSize?: string }
+  let body: { objectKey?: string; inputSizeBytes?: number; outputSize?: string; trimMode?: string }
   try {
     body = await req.json()
   } catch {
@@ -41,9 +41,21 @@ export async function POST(req: NextRequest) {
   }
   const inputSizeBytes =
     typeof body.inputSizeBytes === 'number' && body.inputSizeBytes >= 0 ? body.inputSizeBytes : null
+  const rawTrim = body.trimMode
+  let batchTrimMode: 'off' | 'sharp'
+  if (rawTrim === 'sharp') {
+    batchTrimMode = 'sharp'
+  } else if (rawTrim === undefined || rawTrim === 'off' || rawTrim === '') {
+    batchTrimMode = 'off'
+  } else {
+    return NextResponse.json(
+      { success: false, error: 'trimMode は "off" または "sharp" のみ指定できます（大容量バッチでは AI トリミングは利用できません）。' },
+      { status: 400 }
+    )
+  }
   try {
     const store = getJobStore()
-    const jobId = await store.insertJob(objectKey, userId, inputSizeBytes, outputSize)
+    const jobId = await store.insertJob(objectKey, userId, inputSizeBytes, outputSize, batchTrimMode)
     if (!jobId) {
       return NextResponse.json(
         { success: false, error: 'ジョブの登録に失敗しました' },

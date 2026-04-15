@@ -68,6 +68,8 @@ export async function processNextImageResizeJob(): Promise<void> {
   const jobId = row.id
   const objectKey = row.object_key
   const outputSize = row.output_size === 'small' ? 'small' : 'large'
+  const trimMode = row.trim_mode === 'sharp' ? 'sharp' : 'off'
+  const resizeOpts = trimMode === 'sharp' ? { trimMode: 'sharp' as const } : undefined
   const outputKey = `outputs/${jobId}.zip`
 
   await store.updateToProcessing(jobId)
@@ -142,7 +144,7 @@ export async function processNextImageResizeJob(): Promise<void> {
                 return
               }
               streamToBuffer(readStream, { maxBytes: MAX_IMAGE_BYTES })
-                .then((buf) => resizeToSize(buf, outputSize))
+                .then((buf) => resizeToSize(buf, outputSize, resizeOpts))
                 .then((buffer) => {
                   if (cancelled) {
                     zipFile.readEntry()

@@ -1,9 +1,51 @@
 import sharp from 'sharp'
 import { TARGET_SIZES, PADDING_COLOR } from './imageResizeConfig'
+import { trimWithVisionOrSharpFallback } from './imageTrimVision'
+import type { TrimMode } from './imageResizeTypes'
+
+export type { TrimMode } from './imageResizeTypes'
+
+export interface ImageResizeOptions {
+  /** デフォルト off */
+  trimMode?: TrimMode
+  /** Sharp trim のしきい値 0–255（IMAGE_TRIM_THRESHOLD で上書き可） */
+  trimThreshold?: number
+}
 
 export interface ResizeResult {
   large: Buffer
   small: Buffer
+}
+
+const DEFAULT_TRIM_THRESHOLD = (() => {
+  const n = Number(process.env.IMAGE_TRIM_THRESHOLD)
+  return Number.isFinite(n) && n >= 0 && n <= 255 ? Math.floor(n) : 10
+})()
+
+function resolveTrimThreshold(override?: number): number {
+  if (override !== undefined && Number.isFinite(override) && override >= 0 && override <= 255) {
+    return Math.floor(override)
+  }
+  return DEFAULT_TRIM_THRESHOLD
+}
+
+/**
+ * EXIF 適用後バッファに対し、trimMode に応じて余白除去。
+ */
+export async function prepareImageForResize(
+  input: Buffer,
+  options?: ImageResizeOptions
+): Promise<Buffer> {
+  const rotated = await sharp(input).rotate().toBuffer()
+  const mode = options?.trimMode ?? 'off'
+  if (mode === 'off') {
+    return rotated
+  }
+  const threshold = resolveTrimThreshold(options?.trimThreshold)
+  if (mode === 'sharp') {
+    return sharp(rotated).trim({ threshold }).toBuffer()
+  }
+  return trimWithVisionOrSharpFallback(rotated, threshold)
 }
 
 /**
@@ -13,13 +55,12 @@ export interface ResizeResult {
  * @param input 入力画像の Buffer
  * @returns 大・小2つの JPEG Buffer
  */
-export async function resizeToTwoSizes(input: Buffer): Promise<ResizeResult> {
-  const pipeline = sharp(input).rotate()
+export async function resizeToTwoSizes(input: Buffer, options?: ImageResizeOptions): Promise<ResizeResult> {
+  const prepared = await prepareImageForResize(input, options)
   const { large, small } = TARGET_SIZES
 
   const [largeBuffer, smallBuffer] = await Promise.all([
-    pipeline
-      .clone()
+    sharp(prepared)
       .resize(large.width, large.height, {
         fit: 'contain',
         position: 'centre',
@@ -27,8 +68,7 @@ export async function resizeToTwoSizes(input: Buffer): Promise<ResizeResult> {
       })
       .jpeg({ quality: 90 })
       .toBuffer(),
-    pipeline
-      .clone()
+    sharp(prepared)
       .resize(small.width, small.height, {
         fit: 'contain',
         position: 'centre',
@@ -49,10 +89,14 @@ export async function resizeToTwoSizes(input: Buffer): Promise<ResizeResult> {
  * @param size 'large' (640×533) または 'small' (262×218)
  * @returns リサイズ後の JPEG Buffer
  */
-export async function resizeToSize(input: Buffer, size: 'large' | 'small'): Promise<Buffer> {
+export async function resizeToSize(
+  input: Buffer,
+  size: 'large' | 'small',
+  options?: ImageResizeOptions
+): Promise<Buffer> {
+  const prepared = await prepareImageForResize(input, options)
   const { width, height } = TARGET_SIZES[size]
-  return sharp(input)
-    .rotate()
+  return sharp(prepared)
     .resize(width, height, {
       fit: 'contain',
       position: 'centre',

@@ -20,7 +20,7 @@ export type JobRow = {
   output_size: string | null
 }
 
-export type PendingJobRow = { id: number; object_key: string; output_size: string }
+export type PendingJobRow = { id: number; object_key: string; output_size: string; trim_mode: string }
 
 export interface ImageResizeJobStore {
   getNextPendingJob(): Promise<PendingJobRow | null>
@@ -29,7 +29,8 @@ export interface ImageResizeJobStore {
     objectKey: string,
     userId: string | null,
     inputSizeBytes: number | null,
-    outputSize: 'large' | 'small'
+    outputSize: 'large' | 'small',
+    trimMode?: 'off' | 'sharp'
   ): Promise<number>
   updateToProcessing(jobId: number): Promise<void>
   setProcessedCount(jobId: number, count: number): Promise<void>
@@ -92,7 +93,7 @@ function createSqliteStore(): ImageResizeJobStore {
     async getNextPendingJob() {
       const row = db
         .prepare(
-          `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
+          `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size, COALESCE(trim_mode, 'off') AS trim_mode FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
         )
         .get() as PendingJobRow | undefined
       return row ?? null
@@ -114,12 +115,12 @@ function createSqliteStore(): ImageResizeJobStore {
          AND datetime(updated_at) >= datetime('now', ?) AND COALESCE(retry_count, 0) < ?`
       ).run(`-${STALE_RETRY_MINUTES} minutes`, `-${STALE_HOURS} hours`, MAX_REQUEUE_COUNT)
     },
-    async insertJob(objectKey, userId, inputSizeBytes, outputSize) {
+    async insertJob(objectKey, userId, inputSizeBytes, outputSize, trimMode: 'off' | 'sharp' = 'off') {
       const result = db
         .prepare(
-          `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size) VALUES (?, 'pending', ?, ?, ?)`
+          `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size, trim_mode) VALUES (?, 'pending', ?, ?, ?, ?)`
         )
-        .run(objectKey, userId, inputSizeBytes, outputSize)
+        .run(objectKey, userId, inputSizeBytes, outputSize, trimMode)
       return Number(result.lastInsertRowid)
     },
     async updateToProcessing(jobId) {
@@ -224,6 +225,7 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
         `ALTER TABLE image_resize_jobs ADD COLUMN output_size TEXT DEFAULT 'large'`,
         `ALTER TABLE image_resize_jobs ADD COLUMN retry_count INTEGER DEFAULT 0`,
         `ALTER TABLE image_resize_jobs ADD COLUMN output_size_bytes BIGINT`,
+        `ALTER TABLE image_resize_jobs ADD COLUMN trim_mode TEXT DEFAULT 'off'`,
       ]) {
         try {
           await client.query(sql)
@@ -248,10 +250,12 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
     async getNextPendingJob() {
       await ensure()
       const res = await pool.query(
-        `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
+        `SELECT id, object_key, COALESCE(output_size, 'large') AS output_size, COALESCE(trim_mode, 'off') AS trim_mode FROM image_resize_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1`
       )
       const row = res.rows[0]
-      return row ? { id: row.id, object_key: row.object_key, output_size: row.output_size } : null
+      return row
+        ? { id: row.id, object_key: row.object_key, output_size: row.output_size, trim_mode: row.trim_mode }
+        : null
     },
     async markStaleAsFailed() {
       await ensure()
@@ -276,13 +280,14 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
       objectKey: string,
       userId: string | null,
       inputSizeBytes: number | null,
-      outputSize: 'large' | 'small'
+      outputSize: 'large' | 'small',
+      trimMode: 'off' | 'sharp' = 'off'
     ) {
       await ensure()
       const res = await pool.query(
-        `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size)
-         VALUES ($1, 'pending', $2, $3, $4) RETURNING id`,
-        [objectKey, userId, inputSizeBytes, outputSize]
+        `INSERT INTO image_resize_jobs (object_key, status, user_id, input_size_bytes, output_size, trim_mode)
+         VALUES ($1, 'pending', $2, $3, $4, $5) RETURNING id`,
+        [objectKey, userId, inputSizeBytes, outputSize, trimMode]
       )
       return res.rows[0].id
     },
