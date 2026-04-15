@@ -33,7 +33,10 @@ export default function ImageResizePage() {
   const [dragActive, setDragActive] = useState(false)
   const [zipDownloadUrl, setZipDownloadUrl] = useState<string | null>(null)
   const [trimMode, setTrimMode] = useState<TrimMode>('off')
-  const [trimThresholdInput, setTrimThresholdInput] = useState('')
+  /** 既定 10（サーバー既定と一致）。空欄にすると API 側の IMAGE_TRIM_THRESHOLD / 10 が使われる */
+  const [trimThresholdInput, setTrimThresholdInput] = useState('10')
+  /** 純白 #FFFFFF を基準に Sharp trim（テンプレ帯向け。左上がロゴ等でも余白を削しやすい） */
+  const [trimBackgroundWhite, setTrimBackgroundWhite] = useState(false)
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -93,6 +96,9 @@ export default function ImageResizePage() {
       if (t !== '' && (trimMode === 'sharp' || trimMode === 'vision')) {
         formData.append('trimThreshold', t)
       }
+      if ((trimMode === 'sharp' || trimMode === 'vision') && trimBackgroundWhite) {
+        formData.append('trimBackground', 'white')
+      }
       const res = await fetch('/api/image-resize', {
         method: 'POST',
         body: formData,
@@ -122,14 +128,15 @@ export default function ImageResizePage() {
     } finally {
       setLoading(false)
     }
-  }, [file, trimMode, trimThresholdInput])
+  }, [file, trimMode, trimThresholdInput, trimBackgroundWhite])
 
   const clear = useCallback(() => {
     setFile(null)
     setResult(null)
     setError(null)
     setTrimMode('off')
-    setTrimThresholdInput('')
+    setTrimThresholdInput('10')
+    setTrimBackgroundWhite(false)
     if (zipDownloadUrl) {
       URL.revokeObjectURL(zipDownloadUrl)
       setZipDownloadUrl(null)
@@ -148,8 +155,9 @@ export default function ImageResizePage() {
           <strong>大容量</strong>：ページ下部の「大容量バッチ（R2）」で、数千枚・数GB規模のZIPにも対応しています。
         </p>
         <p className="text-gray-600 mb-4 text-sm">
-          テンプレートの上下などに白い余白が付いた画像は、オプションで<strong>余白トリミング</strong>（縁の単色を除去）または
-          <strong>AI によるコンテンツ領域の検出</strong>のあとにリサイズできます。均一な白余白は「自動（Sharp）」で十分なことが多く、AI はレイアウトが複雑なとき向けです（画像ごとに API 利用）。
+          処理の順序は<strong>向き補正 → 余白トリミング（任意）→ 指定サイズへ収めるリサイズ（contain）</strong>です。
+          トリム後に枠（640×533 / 262×218）へ収めるとき、<strong>左右または上下に均等な余白</strong>が付くことがあります（仕様どおり）。
+          テンプレの上下などに白い帯がある画像は、<strong>自動（Sharp）</strong>または<strong>AI（Vision）</strong>を選べます。しきい値の推奨は<strong>5〜20</strong>（大きいほど明るい領域まで「背景」とみなされ<strong>商品が欠ける</strong>恐れがあります）。
         </p>
 
         <h2 className="text-xl font-semibold mb-3 text-gray-800">小規模（1枚 or ZIP 最大30枚・50MB）</h2>
@@ -215,21 +223,38 @@ export default function ImageResizePage() {
             </label>
           </div>
           {(trimMode === 'sharp' || trimMode === 'vision') && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="trim-threshold" className="text-gray-600">
-                しきい値（0–255、空欄でサーバー既定）
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="trim-threshold" className="text-gray-600">
+                  しきい値（0–255、既定 10。空欄でサーバー既定）
+                </label>
+                <input
+                  id="trim-threshold"
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={trimThresholdInput}
+                  onChange={(e) => setTrimThresholdInput(e.target.value)}
+                  className="w-24 border border-gray-300 rounded px-2 py-1"
+                  placeholder="10"
+                />
+              </div>
+              <p className="text-xs text-gray-500">
+                推奨 5〜20。30 以上は注意、100 前後は商品まで欠けることがあります。
+              </p>
+              <label className="flex items-start gap-2 cursor-pointer max-w-xl">
+                <input
+                  type="checkbox"
+                  checked={trimBackgroundWhite}
+                  onChange={(e) => setTrimBackgroundWhite(e.target.checked)}
+                  className="text-blue-500 mt-0.5"
+                />
+                <span>
+                  純白（#FFFFFF）を基準にトリムする（テンプレの白帯向け。左上がロゴ等でも余白を削りやすい。OFF
+                  のときは Sharp 既定どおり左上ピクセルを基準にします）
+                </span>
               </label>
-              <input
-                id="trim-threshold"
-                type="number"
-                min={0}
-                max={255}
-                value={trimThresholdInput}
-                onChange={(e) => setTrimThresholdInput(e.target.value)}
-                className="w-24 border border-gray-300 rounded px-2 py-1"
-                placeholder="例: 10"
-              />
-            </div>
+            </>
           )}
           {trimMode === 'vision' && (
             <p className="text-xs text-gray-500">

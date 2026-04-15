@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import AdmZip from 'adm-zip'
 import { resizeToTwoSizes, type ImageResizeOptions } from '@/lib/imageResize'
-import type { TrimMode } from '@/lib/imageResizeTypes'
+import type { TrimBackground, TrimMode } from '@/lib/imageResizeTypes'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|webp|gif)$/i
@@ -37,18 +37,25 @@ function parseTrimThreshold(raw: FormDataEntryValue | null): number | undefined 
   return Math.floor(n)
 }
 
+function parseTrimBackground(raw: FormDataEntryValue | null): TrimBackground {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : ''
+  if (s === 'white') return 'white'
+  return 'auto'
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const trimMode = parseTrimMode(formData.get('trimMode'))
     const trimThreshold = parseTrimThreshold(formData.get('trimThreshold'))
+    const trimBackground = parseTrimBackground(formData.get('trimBackground'))
     if (trimMode === 'vision' && !process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { success: false, error: 'AI トリミングにはサーバーに OPENAI_API_KEY が設定されている必要があります。' },
         { status: 503 }
       )
     }
-    const resizeOptions: ImageResizeOptions = { trimMode, trimThreshold }
+    const resizeOptions: ImageResizeOptions = { trimMode, trimThreshold, trimBackground }
 
     const file = formData.get('file') ?? formData.get('files')
     if (!file || !(file instanceof File)) {

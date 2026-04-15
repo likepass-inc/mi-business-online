@@ -1,15 +1,23 @@
 import sharp from 'sharp'
 import { TARGET_SIZES, PADDING_COLOR } from './imageResizeConfig'
 import { trimWithVisionOrSharpFallback } from './imageTrimVision'
-import type { TrimMode } from './imageResizeTypes'
+import type { TrimBackground, TrimMode } from './imageResizeTypes'
+import {
+  applyTrimSanityCheck,
+  getDefaultTrimThreshold,
+  sharpTrimBuffer,
+} from './imageResizeTrim'
 
 export type { TrimMode } from './imageResizeTypes'
+export type { TrimBackground } from './imageResizeTypes'
 
 export interface ImageResizeOptions {
   /** デフォルト off */
   trimMode?: TrimMode
-  /** Sharp trim のしきい値 0–255（IMAGE_TRIM_THRESHOLD で上書き可） */
+  /** Sharp trim のしきい値 0–255（未指定時は IMAGE_TRIM_THRESHOLD または 10） */
   trimThreshold?: number
+  /** Sharp trim の参照色（Vision 失敗時のフォールバックにも使用） */
+  trimBackground?: TrimBackground
 }
 
 export interface ResizeResult {
@@ -17,16 +25,11 @@ export interface ResizeResult {
   small: Buffer
 }
 
-const DEFAULT_TRIM_THRESHOLD = (() => {
-  const n = Number(process.env.IMAGE_TRIM_THRESHOLD)
-  return Number.isFinite(n) && n >= 0 && n <= 255 ? Math.floor(n) : 10
-})()
-
 function resolveTrimThreshold(override?: number): number {
   if (override !== undefined && Number.isFinite(override) && override >= 0 && override <= 255) {
     return Math.floor(override)
   }
-  return DEFAULT_TRIM_THRESHOLD
+  return getDefaultTrimThreshold()
 }
 
 /**
@@ -42,10 +45,12 @@ export async function prepareImageForResize(
     return rotated
   }
   const threshold = resolveTrimThreshold(options?.trimThreshold)
+  const bg: TrimBackground = options?.trimBackground ?? 'auto'
   if (mode === 'sharp') {
-    return sharp(rotated).trim({ threshold }).toBuffer()
+    const trimmed = await sharpTrimBuffer(rotated, threshold, bg)
+    return applyTrimSanityCheck(rotated, trimmed)
   }
-  return trimWithVisionOrSharpFallback(rotated, threshold)
+  return trimWithVisionOrSharpFallback(rotated, { threshold, trimBackground: bg })
 }
 
 /**

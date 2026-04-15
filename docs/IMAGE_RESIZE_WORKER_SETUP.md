@@ -94,6 +94,10 @@ Worker は **PostgreSQL と R2 の両方** に接続するため、次の環境�
 | `R2_BUCKET_NAME` | Web サービスで設定している値と同じ（例: `mi-business-image-resize`） |
 | `IMAGE_RESIZE_MAX_REQUEUE_COUNT` | （任意）リトライ上限。大容量ジョブで「Server unhealthy」が出やすい場合は `5` などに増やすと完了しやすい。省略時は 2（最大 3 回実行）。 |
 | `IMAGE_RESIZE_TEMP_DIR` | （任意）永続ディスクをマウントした場合、一時ファイル用ディレクトリ（例: `/var/data/tmp`）。設定すると /tmp の 2GB 制限を回避。下記「Evicted. Size of temporary storage volume /tmp exceeded」参照。 |
+| `IMAGE_TRIM_THRESHOLD` | （任意）Sharp 余白トリムのしきい値 0–255。**未設定時は 10**（大きいほど明るい領域まで背景扱いになり、商品が欠けるリスクが上がる）。推奨は 5〜20 程度。 |
+| `IMAGE_TRIM_SHARP_BACKGROUND` | （任意）大容量バッチで `trim_mode=sharp` のとき、**`white`** とすると Sharp の `trim` 参照色を **純白 `#ffffff`** に固定（テンプレ白帯向け）。未設定またはそれ以外は **左上ピクセル基準（auto）**。 |
+| `IMAGE_TRIM_MIN_RESULT_RATIO` | （任意）トリム後の幅・高さが元のこれ未満ならトリムを棄却して元に戻す（過剰トリム防止）。**既定 0.2**（20%）。 |
+| `IMAGE_TRIM_MIN_AREA_RATIO` | （任意）トリム後の面積が元のこれ未満なら棄却。**既定 0.12**（12%）。 |
 
 2. 値の取得方法:
    - **IMAGE_RESIZE_JOBS_DATABASE_URL**: ステップ 1 の Internal Database URL。

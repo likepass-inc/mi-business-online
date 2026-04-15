@@ -69,7 +69,12 @@ export async function processNextImageResizeJob(): Promise<void> {
   const objectKey = row.object_key
   const outputSize = row.output_size === 'small' ? 'small' : 'large'
   const trimMode = row.trim_mode === 'sharp' ? 'sharp' : 'off'
-  const resizeOpts = trimMode === 'sharp' ? { trimMode: 'sharp' as const } : undefined
+  const trimBackground =
+    process.env.IMAGE_TRIM_SHARP_BACKGROUND === 'white' ? ('white' as const) : ('auto' as const)
+  const resizeOpts =
+    trimMode === 'sharp'
+      ? { trimMode: 'sharp' as const, trimBackground }
+      : undefined
   const outputKey = `outputs/${jobId}.zip`
 
   await store.updateToProcessing(jobId)
