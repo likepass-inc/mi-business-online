@@ -11,6 +11,8 @@ const VISION_BBOX_INSET_RATIO = 0.015
 const VISION_MIN_CROP_AREA_RATIO = 0.04
 /** この超の面積比は実質トリムなしとみなし Sharp にフォールバック */
 const VISION_MAX_CROP_AREA_RATIO = 0.97
+/** Vision が Sharp より小さく切りすぎるのを防ぐ（0.98 = Sharp 面積の 98% 未満なら棄却） */
+const VISION_MIN_VS_SHARP_AREA_RATIO = 0.98
 
 export type VisionTrimOptions = {
   threshold: number
@@ -68,6 +70,18 @@ async function sharpTrimFallback(
   return applyTrimSanityCheck(rotated, trimmed)
 }
 
+function isVisionTooAggressiveComparedToSharp(
+  visionW: number,
+  visionH: number,
+  sharpW: number,
+  sharpH: number
+): boolean {
+  if (visionW < 1 || visionH < 1 || sharpW < 1 || sharpH < 1) return true
+  const visionArea = visionW * visionH
+  const sharpArea = sharpW * sharpH
+  return visionArea < sharpArea * VISION_MIN_VS_SHARP_AREA_RATIO
+}
+
 /**
  * Vision でコンテンツ矩形を推定し extract。失敗時は Sharp trim にフォールバック。
  * rotated は既に EXIF rotate 済みのバッファ。
@@ -77,11 +91,17 @@ export async function trimWithVisionOrSharpFallback(
   options: VisionTrimOptions
 ): Promise<Buffer> {
   const { threshold, trimBackground } = options
+  // 「自動（Sharp）」を品質下限として先に計算し、Vision が攻めすぎたら戻す。
+  const sharpBaseline = await sharpTrimFallback(rotated, threshold, trimBackground)
+  const sharpMeta = await sharp(sharpBaseline).metadata()
+  const sharpW = sharpMeta.width ?? 0
+  const sharpH = sharpMeta.height ?? 0
+
   const meta = await sharp(rotated).metadata()
   const w = meta.width ?? 0
   const h = meta.height ?? 0
   if (w < 2 || h < 2) {
-    return sharpTrimFallback(rotated, threshold, trimBackground)
+    return sharpBaseline
   }
 
   const scale = Math.min(1, ANALYSIS_MAX_EDGE / Math.max(w, h))
@@ -92,7 +112,7 @@ export async function trimWithVisionOrSharpFallback(
   try {
     analysisBuf = await sharp(rotated).resize(analysisW, analysisH).jpeg({ quality: 85 }).toBuffer()
   } catch {
-    return sharpTrimFallback(rotated, threshold, trimBackground)
+    return sharpBaseline
   }
 
   const dataUrl = `data:image/jpeg;base64,${analysisBuf.toString('base64')}`
@@ -112,8 +132,9 @@ export async function trimWithVisionOrSharpFallback(
                 'This image may have large white or template margins (especially above and below the main content). ' +
                 'Return ONLY a JSON object with integer fields: left, top, width, height — the bounding box in pixels ' +
                 'for the coordinate system of the PROVIDED image (top-left origin). ' +
-                'The box should wrap the main product/content area (including photos, text, and logos) that must remain after cropping away template margins. ' +
-                'Include a modest margin inside the content so product edges are not cut off. ' +
+                'The box should conservatively wrap the main product/content area (including photos, text, logos, and inset panels) that must remain after cropping away template margins. ' +
+                'Do not crop tightly. Keep extra safety margin so product edges and text are never cut. ' +
+                'It is acceptable to leave a little white margin. ' +
                 'The box must stay inside the image.',
             },
             { type: 'image_url', image_url: { url: dataUrl } },
@@ -127,7 +148,7 @@ export async function trimWithVisionOrSharpFallback(
     const text = completion.choices[0]?.message?.content?.trim() ?? ''
     const analysisBox = parseCropJson(text)
     if (!analysisBox) {
-      return sharpTrimFallback(rotated, threshold, trimBackground)
+      return sharpBaseline
     }
 
     const sx = w / analysisW
@@ -141,24 +162,42 @@ export async function trimWithVisionOrSharpFallback(
 
     const clamped = clampCrop(fullBox, w, h)
     if (!clamped) {
-      return sharpTrimFallback(rotated, threshold, trimBackground)
+      return sharpBaseline
     }
 
     const areaRatio = (clamped.width * clamped.height) / (w * h)
     if (areaRatio < VISION_MIN_CROP_AREA_RATIO || areaRatio > VISION_MAX_CROP_AREA_RATIO) {
       console.warn('[imageTrimVision] vision crop area ratio out of range, falling back to sharp trim')
-      return sharpTrimFallback(rotated, threshold, trimBackground)
+      return sharpBaseline
     }
 
     const inset = insetCropBox(clamped, w, h)
     if (!inset) {
-      return sharpTrimFallback(rotated, threshold, trimBackground)
+      return sharpBaseline
     }
 
     const extracted = await sharp(rotated).extract(inset).toBuffer()
-    return applyTrimSanityCheck(rotated, extracted)
+    const visionResult = await applyTrimSanityCheck(rotated, extracted)
+    const visionMeta = await sharp(visionResult).metadata()
+    const visionW = visionMeta.width ?? 0
+    const visionH = visionMeta.height ?? 0
+
+    if (isVisionTooAggressiveComparedToSharp(visionW, visionH, sharpW, sharpH)) {
+      console.warn('[imageTrimVision] vision crop is tighter than sharp baseline, using sharp result')
+      return sharpBaseline
+    }
+
+    if (process.env.DEBUG_IMAGE_TRIM_COMPARE === '1') {
+      console.log('[imageTrimVision] compare sharp vs vision', {
+        sharpW,
+        sharpH,
+        visionW,
+        visionH,
+      })
+    }
+    return visionResult
   } catch (e) {
     console.warn('[imageTrimVision] vision trim failed, using sharp trim:', e)
-    return sharpTrimFallback(rotated, threshold, trimBackground)
+    return sharpBaseline
   }
 }
