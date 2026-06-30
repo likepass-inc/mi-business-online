@@ -54,6 +54,8 @@ DB_DIR=/var/data
 # DB_PATH=/var/data/products.db
 
 # Slack デイリー SEO モニタリング
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL_ID=C0XXXXXXX
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 SEO_DAILY_OFFSET_DAYS=3
 CRON_SECRET=your-secret-token-here
@@ -398,11 +400,15 @@ curl -X POST https://mi-business-online.onrender.com/api/crawl/products \
 
 GSC のクリック数上位キーワード TOP10（順位・CTR 併記）と、GA4 の当日セッション・購入完了・売上を Slack に投稿します。対象日は JST 基準で「今日 − N 日」（デフォルト 3 日、GSC 反映遅延を考慮）。
 
+**投稿形式**: `SLACK_BOT_TOKEN` と `SLACK_CHANNEL_ID` を設定すると、親メッセージ（タイトル+日付）のスレッドに詳細を返信します。未設定時は `SLACK_WEBHOOK_URL` で1通にまとめて投稿します。
+
 ### セットアップ
 
-1. Slack で Incoming Webhook を作成し、投稿先チャンネルを選択
+1. Slack App に Bot Token Scopes `chat:write` を付与し、Bot を投稿先チャンネルに `/invite` で招待
 2. Render.com（または `.env.local`）に以下を設定:
-   - `SLACK_WEBHOOK_URL`: Webhook URL
+   - `SLACK_BOT_TOKEN`: Bot User OAuth Token（`xoxb-...`）
+   - `SLACK_CHANNEL_ID`: 投稿先チャンネル ID（`C...`）
+   - `SLACK_WEBHOOK_URL`: フォールバック用（Bot Token 未設定時のみ使用）
    - `SEO_DAILY_OFFSET_DAYS`: 任意（デフォルト `3`）
    - `CRON_SECRET`: cron ルート認証用（商品クロールと共通で可）
 

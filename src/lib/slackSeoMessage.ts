@@ -25,19 +25,19 @@ function formatRankingLine(rank: number, q: GscQueryRanking): string {
   return `${rank}. ${query} — クリック *${formatNumber(q.clicks)}* / 順位 ${q.position.toFixed(1)} / CTR ${q.ctr.toFixed(2)}%`
 }
 
-export function formatSeoDailyMessage(report: DailySeoReport): SlackMessagePayload {
+function buildHeaderText(report: DailySeoReport): string {
   const siteLabel = formatSiteLabel(report.siteUrl)
   const weekday = formatWeekday(report.targetDate)
-  const header = `:bar_chart: SEO デイリー (${siteLabel}) — ${report.targetDate}(${weekday})`
+  return `:bar_chart: SEO デイリー (${siteLabel}) — ${report.targetDate}(${weekday})`
+}
 
+function buildDetailText(report: DailySeoReport): string {
   const rankingLines =
     report.gsc.topQueries.length > 0
       ? report.gsc.topQueries.map((q, i) => formatRankingLine(i + 1, q))
       : ['データなし']
 
   const lines = [
-    header,
-    '',
     '*GSC クリック数 上位キーワード TOP10*',
     ...rankingLines,
     '',
@@ -46,9 +46,10 @@ export function formatSeoDailyMessage(report: DailySeoReport): SlackMessagePaylo
     `購入完了 *${formatNumber(report.ga4.transactions)}*`,
     `売上 *¥${formatNumber(report.ga4.revenue)}*`,
   ]
+  return lines.join('\n')
+}
 
-  const text = lines.join('\n')
-
+function toPayload(text: string): SlackMessagePayload {
   return {
     text,
     blocks: [
@@ -58,4 +59,20 @@ export function formatSeoDailyMessage(report: DailySeoReport): SlackMessagePaylo
       },
     ],
   }
+}
+
+/** 親メッセージ（タイトル + 日付） */
+export function formatSeoDailyParentMessage(report: DailySeoReport): SlackMessagePayload {
+  return toPayload(buildHeaderText(report))
+}
+
+/** スレッド内に投稿する詳細メッセージ */
+export function formatSeoDailyDetailMessage(report: DailySeoReport): SlackMessagePayload {
+  return toPayload(buildDetailText(report))
+}
+
+/** Webhook フォールバック用: 親メッセージと詳細を1通にまとめる */
+export function formatSeoDailyMessage(report: DailySeoReport): SlackMessagePayload {
+  const text = `${buildHeaderText(report)}\n\n${buildDetailText(report)}`
+  return toPayload(text)
 }

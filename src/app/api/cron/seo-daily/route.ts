@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildDailySeoReport } from '@/lib/buildDailySeoReport'
-import { postToSlack } from '@/lib/slackClient'
-import { formatSeoDailyMessage } from '@/lib/slackSeoMessage'
+import { isSlackBotConfigured, postSlackMessage, postToSlack } from '@/lib/slackClient'
+import {
+  formatSeoDailyDetailMessage,
+  formatSeoDailyMessage,
+  formatSeoDailyParentMessage,
+} from '@/lib/slackSeoMessage'
 
 function verifyCronAuth(req: NextRequest): NextResponse | null {
   const authHeader = req.headers.get('authorization')
@@ -33,13 +37,21 @@ export async function GET(req: NextRequest) {
 
   try {
     const report = await buildDailySeoReport()
-    const payload = formatSeoDailyMessage(report)
-    await postToSlack(payload)
+
+    if (isSlackBotConfigured()) {
+      // 親メッセージ（タイトル+日付）を投稿し、その ts にスレッド返信で詳細を投稿
+      const parentTs = await postSlackMessage(formatSeoDailyParentMessage(report))
+      await postSlackMessage(formatSeoDailyDetailMessage(report), { threadTs: parentTs })
+    } else {
+      // Bot Token 未設定時は Webhook で1通にまとめて投稿
+      await postToSlack(formatSeoDailyMessage(report))
+    }
 
     return NextResponse.json({
       success: true,
       message: 'SEO daily report posted to Slack',
       targetDate: report.targetDate,
+      threaded: isSlackBotConfigured(),
     })
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'Failed to post SEO daily report'
