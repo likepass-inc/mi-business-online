@@ -9,6 +9,7 @@
     "start": "next start",
     "worker": "node scripts/run-worker-from-root.cjs",
     "lint": "next lint",
+    "seo:daily": "npx tsx scripts/send-seo-daily.ts",
     "postinstall": "npx playwright install chromium || echo 'Playwright install failed, continuing...'"
   },
   "keywords": [],

@@ -8,6 +8,7 @@ GA4 と GSC のデータをリアルタイムで取得し、LLM（OpenAI）を�
 - **GSC データ取得**: Google Search Console のデータを API から取得
 - **AI アナリスト**: 自然言語で質問すると、データを分析してインサイトと改善提案を生成
 - **ダッシュボード**: KPI カードとトラフィック推移グラフを表示
+- **Slack デイリー SEO モニタリング**: GSC クリック上位キーワード TOP10 と GA4 当日 KPI を Slack に毎朝通知（`/api/cron/seo-daily`）
 
 ## 技術スタック
 
@@ -51,6 +52,11 @@ PRODUCT_CSV_PATH=./data/AIチャットボット用商品情報_UTF8.csv
 DB_DIR=/var/data
 # または個別にファイルパスを指定
 # DB_PATH=/var/data/products.db
+
+# Slack デイリー SEO モニタリング
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+SEO_DAILY_OFFSET_DAYS=3
+CRON_SECRET=your-secret-token-here
 ```
 
 ### 3. Google サービスアカウントの設定
@@ -387,6 +393,46 @@ curl -X POST https://mi-business-online.onrender.com/api/crawl/products \
 3. **定期実行の設定**:
    - cron-job.org等の外部サービスを使用
    - または、サーバーのcronで設定
+
+## Slack デイリー SEO モニタリング
+
+GSC のクリック数上位キーワード TOP10（順位・CTR 併記）と、GA4 の当日セッション・購入完了・売上を Slack に投稿します。対象日は JST 基準で「今日 − N 日」（デフォルト 3 日、GSC 反映遅延を考慮）。
+
+### セットアップ
+
+1. Slack で Incoming Webhook を作成し、投稿先チャンネルを選択
+2. Render.com（または `.env.local`）に以下を設定:
+   - `SLACK_WEBHOOK_URL`: Webhook URL
+   - `SEO_DAILY_OFFSET_DAYS`: 任意（デフォルト `3`）
+   - `CRON_SECRET`: cron ルート認証用（商品クロールと共通で可）
+
+### ローカルテスト
+
+```bash
+npm run seo:daily
+```
+
+### Cron エンドポイント
+
+- `GET /api/cron/seo-daily`: レポート生成 → Slack 投稿
+- 認証: `Authorization: Bearer {CRON_SECRET}`
+
+**手動実行例**:
+```bash
+curl -H "Authorization: Bearer your-secret-token-here" \
+  https://mi-business-online.onrender.com/api/cron/seo-daily
+```
+
+### cron-job.org 設定（毎朝）
+
+1. [cron-job.org](https://cron-job.org/) で「Create cronjob」
+2. 以下を入力:
+   - **Title**: `SEO デイリーモニタリング`
+   - **URL**: `https://mi-business-online.onrender.com/api/cron/seo-daily`
+   - **Schedule**: `Daily` → `09:00`（Time zone: `Asia/Tokyo`）
+   - **Request Method**: `GET`
+   - **ADVANCED → Headers**: Key `Authorization` / Value `Bearer your-secret-token-here`
+3. 「Create cronjob」をクリック
 
 ## ライセンス
 
