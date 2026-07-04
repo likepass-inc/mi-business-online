@@ -71,6 +71,13 @@ export function getWeekdayIndex(dateStr: string): number {
   return new Date(`${dateStr}T12:00:00Z`).getUTCDay()
 }
 
+/** YYYY-MM-DD の前年同日を返す（UTC 正午基準、実行環境のタイムゾーンに依存しない） */
+export function getSameDayLastYear(dateStr: string): string {
+  const d = new Date(`${dateStr}T12:00:00Z`)
+  d.setUTCFullYear(d.getUTCFullYear() - 1)
+  return d.toISOString().split('T')[0]
+}
+
 // 前年同時期の日付範囲を計算
 /** GSC 反映遅延を考慮したデイリー SEO 対象日と比較日（前日・前週同曜日）。JST 基準。 */
 export function getDailySeoDates(options?: { offsetDays?: number }): {

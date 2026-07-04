@@ -8,7 +8,7 @@ GA4 と GSC のデータをリアルタイムで取得し、LLM（OpenAI）を�
 - **GSC データ取得**: Google Search Console のデータを API から取得
 - **AI アナリスト**: 自然言語で質問すると、データを分析してインサイトと改善提案を生成
 - **ダッシュボード**: KPI カードとトラフィック推移グラフを表示
-- **Slack デイリー SEO モニタリング**: GSC クリック上位キーワード TOP10 と GA4 当日 KPI を Slack に毎朝通知（`/api/cron/seo-daily`）
+- **Slack デイリー SEO モニタリング**: GSC クリック上位キーワード TOP10 と GA4 対象日 KPI（前年同日対比% 付き）を Slack に毎朝通知（`/api/cron/seo-daily`）
 
 ## 技術スタック
 
@@ -398,7 +398,7 @@ curl -X POST https://mi-business-online.onrender.com/api/crawl/products \
 
 ## Slack デイリー SEO モニタリング
 
-GSC のクリック数上位キーワード TOP10（順位・CTR 併記）と、GA4 の当日セッション・購入完了・売上を Slack に投稿します。対象日は JST 基準で「今日 − N 日」（デフォルト 3 日、GSC 反映遅延を考慮）。
+GSC のクリック数上位キーワード TOP10（順位・CTR 併記）と、GA4 の対象日セッション・購入完了・売上（前年同日対比% 付き）を Slack に投稿します。対象日は JST 基準で「今日 − N 日」（デフォルト 3 日、GSC 反映遅延を考慮）。
 
 **投稿形式**: `SLACK_BOT_TOKEN` と `SLACK_CHANNEL_ID` を設定すると、親メッセージ（タイトル+日付）のスレッドに詳細を返信します。未設定時は `SLACK_WEBHOOK_URL` で1通にまとめて投稿します。
 

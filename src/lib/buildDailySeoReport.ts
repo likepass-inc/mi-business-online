@@ -1,6 +1,6 @@
 import { fetchGA4Data } from '@/lib/ga4Client'
 import { fetchGSCData } from '@/lib/gscClient'
-import { getDailySeoDates } from '@/lib/dateUtils'
+import { getDailySeoDates, getSameDayLastYear } from '@/lib/dateUtils'
 
 export interface GscQueryRanking {
   query: string
@@ -20,7 +20,23 @@ export interface DailySeoReport {
     sessions: number
     transactions: number
     revenue: number
+    yoyPercent: {
+      sessions: number | null
+      transactions: number | null
+      revenue: number | null
+    }
   }
+}
+
+interface Ga4DayMetrics {
+  sessions: number
+  transactions: number
+  revenue: number
+}
+
+function calculateYoYPercent(current: number, previous: number): number | null {
+  if (previous === 0) return null
+  return Math.round(((current - previous) / previous) * 1000) / 10
 }
 
 async function fetchGscTopQueries(date: string, limit = 10): Promise<GscQueryRanking[]> {
@@ -43,7 +59,7 @@ async function fetchGscTopQueries(date: string, limit = 10): Promise<GscQueryRan
     .slice(0, limit)
 }
 
-async function fetchGa4DayMetrics(date: string): Promise<DailySeoReport['ga4']> {
+async function fetchGa4DayMetrics(date: string): Promise<Ga4DayMetrics> {
   const [summary, purchaseRevenue, purchaseCompleted] = await Promise.all([
     fetchGA4Data({
       dateRange: { startDate: date, endDate: date },
@@ -69,17 +85,26 @@ async function fetchGa4DayMetrics(date: string): Promise<DailySeoReport['ga4']> 
 
 export async function buildDailySeoReport(): Promise<DailySeoReport> {
   const { targetDate } = getDailySeoDates()
+  const yoyDate = getSameDayLastYear(targetDate)
   const siteUrl = process.env.GSC_SITE_URL || 'https://business.mistore.jp/'
 
-  const [topQueries, ga4] = await Promise.all([
+  const [topQueries, ga4Current, ga4Previous] = await Promise.all([
     fetchGscTopQueries(targetDate),
     fetchGa4DayMetrics(targetDate),
+    fetchGa4DayMetrics(yoyDate),
   ])
 
   return {
     siteUrl,
     targetDate,
     gsc: { topQueries },
-    ga4,
+    ga4: {
+      ...ga4Current,
+      yoyPercent: {
+        sessions: calculateYoYPercent(ga4Current.sessions, ga4Previous.sessions),
+        transactions: calculateYoYPercent(ga4Current.transactions, ga4Previous.transactions),
+        revenue: calculateYoYPercent(ga4Current.revenue, ga4Previous.revenue),
+      },
+    },
   }
 }

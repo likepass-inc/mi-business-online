@@ -20,6 +20,22 @@ function formatNumber(n: number): string {
   return n.toLocaleString('ja-JP')
 }
 
+function formatYoYSuffix(percent: number | null): string {
+  if (percent === null) return '（前年同日 —）'
+  const sign = percent > 0 ? '+' : ''
+  return `（前年同日 ${sign}${percent.toFixed(1)}%）`
+}
+
+function formatGa4MetricLine(
+  label: string,
+  value: number,
+  yoyPercent: number | null,
+  options?: { prefix?: string }
+): string {
+  const prefix = options?.prefix ?? ''
+  return `${label} *${prefix}${formatNumber(value)}*${formatYoYSuffix(yoyPercent)}`
+}
+
 function formatRankingLine(rank: number, q: GscQueryRanking): string {
   const query = q.query || '(不明)'
   return `${rank}. ${query} — クリック *${formatNumber(q.clicks)}* / 順位 ${q.position.toFixed(1)} / CTR ${q.ctr.toFixed(2)}%`
@@ -41,10 +57,10 @@ function buildDetailText(report: DailySeoReport): string {
     '*GSC クリック数 上位キーワード TOP10*',
     ...rankingLines,
     '',
-    '*GA4（当日）*',
-    `セッション *${formatNumber(report.ga4.sessions)}*`,
-    `購入完了 *${formatNumber(report.ga4.transactions)}*`,
-    `売上 *¥${formatNumber(report.ga4.revenue)}*`,
+    '*GA4（対象日）*',
+    formatGa4MetricLine('セッション', report.ga4.sessions, report.ga4.yoyPercent.sessions),
+    formatGa4MetricLine('購入完了', report.ga4.transactions, report.ga4.yoyPercent.transactions),
+    formatGa4MetricLine('売上', report.ga4.revenue, report.ga4.yoyPercent.revenue, { prefix: '¥' }),
   ]
   return lines.join('\n')
 }
