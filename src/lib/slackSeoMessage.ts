@@ -21,9 +21,9 @@ function formatNumber(n: number): string {
 }
 
 function formatYoYSuffix(percent: number | null): string {
-  if (percent === null) return '（前年同日 —）'
+  if (percent === null) return '（前年同曜日 —）'
   const sign = percent > 0 ? '+' : ''
-  return `（前年同日 ${sign}${percent.toFixed(1)}%）`
+  return `（前年同曜日 ${sign}${percent.toFixed(1)}%）`
 }
 
 function formatGa4MetricLine(
@@ -58,6 +58,7 @@ function buildDetailText(report: DailySeoReport): string {
     ...rankingLines,
     '',
     '*GA4（対象日）*',
+    `比較: ${report.yoyCompareDate}（${formatWeekday(report.yoyCompareDate)}・52週前）`,
     formatGa4MetricLine('セッション', report.ga4.sessions, report.ga4.yoyPercent.sessions),
     formatGa4MetricLine('購入完了', report.ga4.transactions, report.ga4.yoyPercent.transactions),
     formatGa4MetricLine('売上', report.ga4.revenue, report.ga4.yoyPercent.revenue, { prefix: '¥' }),

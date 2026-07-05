@@ -1,6 +1,6 @@
 import { fetchGA4Data } from '@/lib/ga4Client'
 import { fetchGSCData } from '@/lib/gscClient'
-import { getDailySeoDates, getSameDayLastYear } from '@/lib/dateUtils'
+import { getDailySeoDates, getSameWeekdayLastYear } from '@/lib/dateUtils'
 
 export interface GscQueryRanking {
   query: string
@@ -13,6 +13,7 @@ export interface GscQueryRanking {
 export interface DailySeoReport {
   siteUrl: string
   targetDate: string
+  yoyCompareDate: string
   gsc: {
     topQueries: GscQueryRanking[]
   }
@@ -85,18 +86,19 @@ async function fetchGa4DayMetrics(date: string): Promise<Ga4DayMetrics> {
 
 export async function buildDailySeoReport(): Promise<DailySeoReport> {
   const { targetDate } = getDailySeoDates()
-  const yoyDate = getSameDayLastYear(targetDate)
+  const yoyCompareDate = getSameWeekdayLastYear(targetDate)
   const siteUrl = process.env.GSC_SITE_URL || 'https://business.mistore.jp/'
 
   const [topQueries, ga4Current, ga4Previous] = await Promise.all([
     fetchGscTopQueries(targetDate),
     fetchGa4DayMetrics(targetDate),
-    fetchGa4DayMetrics(yoyDate),
+    fetchGa4DayMetrics(yoyCompareDate),
   ])
 
   return {
     siteUrl,
     targetDate,
+    yoyCompareDate,
     gsc: { topQueries },
     ga4: {
       ...ga4Current,
