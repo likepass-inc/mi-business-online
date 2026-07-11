@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildDailySeoReport } from '@/lib/buildDailySeoReport'
 import { isSlackBotConfigured, postSlackMessage, postToSlack } from '@/lib/slackClient'
+import { saveLastPostRecord, shouldSkipDuplicatePost } from '@/lib/seoDailyDedupe'
 import {
   formatSeoDailyMessage,
   formatSeoDailyParentMessage,
   formatSeoDailyThreadMessages,
 } from '@/lib/slackSeoMessage'
+
+function isDryRun(req: NextRequest): boolean {
+  return req.nextUrl.searchParams.get('dryRun') === '1'
+}
 
 function verifyCronAuth(req: NextRequest): NextResponse | null {
   const authHeader = req.headers.get('authorization')
@@ -37,6 +42,27 @@ export async function GET(req: NextRequest) {
 
   try {
     const report = await buildDailySeoReport()
+    const dryRun = isDryRun(req)
+
+    if (dryRun) {
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        message: 'Report built without posting to Slack',
+        targetDate: report.targetDate,
+        threaded: isSlackBotConfigured(),
+        threadCount: isSlackBotConfigured() ? formatSeoDailyThreadMessages(report).length : 1,
+      })
+    }
+
+    if (shouldSkipDuplicatePost(report.targetDate)) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: `Already posted for targetDate ${report.targetDate}; skipping duplicate Slack post`,
+        targetDate: report.targetDate,
+      })
+    }
 
     if (isSlackBotConfigured()) {
       const parentTs = await postSlackMessage(formatSeoDailyParentMessage(report))
@@ -44,6 +70,8 @@ export async function GET(req: NextRequest) {
       for (const thread of threads) {
         await postSlackMessage(thread, { threadTs: parentTs })
       }
+
+      saveLastPostRecord(report.targetDate)
 
       return NextResponse.json({
         success: true,
@@ -55,6 +83,8 @@ export async function GET(req: NextRequest) {
     } else {
       // Bot Token 未設定時は Webhook で1通にまとめて投稿
       await postToSlack(formatSeoDailyMessage(report))
+
+      saveLastPostRecord(report.targetDate)
 
       return NextResponse.json({
         success: true,

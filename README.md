@@ -432,7 +432,13 @@ npm run seo:daily
 - `GET /api/cron/seo-daily`: レポート生成 → Slack 投稿
 - 認証: `Authorization: Bearer {CRON_SECRET}`
 
-**手動実行例**:
+**手動実行例**（Slack に投稿せず確認する場合）:
+```bash
+curl -H "Authorization: Bearer your-secret-token-here" \
+  "https://mi-business-online.onrender.com/api/cron/seo-daily?dryRun=1"
+```
+
+本番投稿（同一 targetDate は1日1回まで。再実行しても重複投稿しません）:
 ```bash
 curl -H "Authorization: Bearer your-secret-token-here" \
   https://mi-business-online.onrender.com/api/cron/seo-daily
