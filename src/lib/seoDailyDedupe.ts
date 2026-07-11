@@ -35,3 +35,10 @@ export function shouldSkipDuplicatePost(targetDate: string): boolean {
   const last = getLastPostRecord()
   return last?.targetDate === targetDate
 }
+
+/** Render 等で `SEO_DAILY_POSTING_ENABLED=false` にすると Slack 投稿を停止 */
+export function isSeoDailyPostingEnabled(): boolean {
+  const v = process.env.SEO_DAILY_POSTING_ENABLED?.trim().toLowerCase()
+  if (!v) return true
+  return v === '1' || v === 'true' || v === 'yes'
+}

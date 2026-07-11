@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildDailySeoReport } from '@/lib/buildDailySeoReport'
 import { isSlackBotConfigured, postSlackMessage, postToSlack } from '@/lib/slackClient'
-import { saveLastPostRecord, shouldSkipDuplicatePost } from '@/lib/seoDailyDedupe'
+import { saveLastPostRecord, shouldSkipDuplicatePost, isSeoDailyPostingEnabled } from '@/lib/seoDailyDedupe'
 import {
   formatSeoDailyMessage,
   formatSeoDailyParentMessage,
@@ -64,14 +64,24 @@ export async function GET(req: NextRequest) {
       })
     }
 
+    if (!isSeoDailyPostingEnabled()) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: 'SEO_DAILY_POSTING_ENABLED is false; Slack posting disabled',
+        targetDate: report.targetDate,
+      })
+    }
+
+    // 投稿前に記録して連投・リトライ時の重複を防ぐ
+    saveLastPostRecord(report.targetDate)
+
     if (isSlackBotConfigured()) {
       const parentTs = await postSlackMessage(formatSeoDailyParentMessage(report))
       const threads = formatSeoDailyThreadMessages(report)
       for (const thread of threads) {
         await postSlackMessage(thread, { threadTs: parentTs })
       }
-
-      saveLastPostRecord(report.targetDate)
 
       return NextResponse.json({
         success: true,
@@ -83,8 +93,6 @@ export async function GET(req: NextRequest) {
     } else {
       // Bot Token 未設定時は Webhook で1通にまとめて投稿
       await postToSlack(formatSeoDailyMessage(report))
-
-      saveLastPostRecord(report.targetDate)
 
       return NextResponse.json({
         success: true,

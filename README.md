@@ -59,6 +59,7 @@ SLACK_CHANNEL_ID=C0XXXXXXX
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 SEO_DAILY_OFFSET_DAYS=3
 SEO_DAILY_MAGAZINE_PREFIX=/magazine/
+SEO_DAILY_POSTING_ENABLED=true
 CRON_SECRET=your-secret-token-here
 ```
 
@@ -419,6 +420,7 @@ GSC のクリック数上位キーワード TOP10（順位・CTR 併記）に加
    - `SLACK_WEBHOOK_URL`: フォールバック用（Bot Token 未設定時のみ使用）
    - `SEO_DAILY_OFFSET_DAYS`: 任意（デフォルト `3`）
    - `SEO_DAILY_MAGAZINE_PREFIX`: 任意（デフォルト `/magazine/`）。マガジンLP セグメント判定に使用
+   - `SEO_DAILY_POSTING_ENABLED`: 任意（デフォルト有効）。`false` で Slack 投稿のみ停止（緊急時）
    - `CRON_SECRET`: cron ルート認証用（商品クロールと共通で可）
 
 ### ローカルテスト
