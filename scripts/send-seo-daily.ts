@@ -6,9 +6,9 @@ import { existsSync } from 'fs'
 
 import { buildDailySeoReport } from '../src/lib/buildDailySeoReport'
 import {
-  formatSeoDailyDetailMessage,
   formatSeoDailyMessage,
   formatSeoDailyParentMessage,
+  formatSeoDailyThreadMessages,
 } from '../src/lib/slackSeoMessage'
 import { isSlackBotConfigured, postSlackMessage, postToSlack } from '../src/lib/slackClient'
 
@@ -27,13 +27,17 @@ async function main() {
   if (isSlackBotConfigured()) {
     console.log('\n--- Posting to Slack (threaded via Bot Token) ---\n')
     const parent = formatSeoDailyParentMessage(report)
-    const detail = formatSeoDailyDetailMessage(report)
+    const threads = formatSeoDailyThreadMessages(report)
     console.log(parent.text)
-    console.log('---（スレッド内）---')
-    console.log(detail.text)
+    threads.forEach((thread, i) => {
+      console.log(`---（スレッド ${i + 1}）---`)
+      console.log(thread.text)
+    })
     const parentTs = await postSlackMessage(parent)
-    await postSlackMessage(detail, { threadTs: parentTs })
-    console.log('\nPosted successfully (parent + thread reply).')
+    for (const thread of threads) {
+      await postSlackMessage(thread, { threadTs: parentTs })
+    }
+    console.log(`\nPosted successfully (parent + ${threads.length} thread replies).`)
   } else {
     console.log('\n--- Posting to Slack (single message via Webhook) ---\n')
     const payload = formatSeoDailyMessage(report)
