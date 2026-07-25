@@ -446,19 +446,29 @@ curl -H "Authorization: Bearer your-secret-token-here" \
   https://mi-business-online.onrender.com/api/cron/seo-weekly
 ```
 
-旧エンドポイント `/api/cron/seo-daily` は **410 Gone** を返します（移行後は cron-job.org のジョブを無効化してください）。
+旧エンドポイント `/api/cron/seo-daily` は **410 Gone** を返します。
 
-### cron-job.org 設定（毎週月曜）
+### GitHub Actions 設定（毎週月曜 8:00 JST）
 
-1. [cron-job.org](https://cron-job.org/) で「Create cronjob」
-2. 以下を入力:
-   - **Title**: `Weekly KPI Bot`
-   - **URL**: `https://mi-business-online.onrender.com/api/cron/seo-weekly`
-   - **Schedule**: `Weekly` → `Monday` → `08:00`（Time zone: `Asia/Tokyo`）
-   - **Request Method**: `GET`
-   - **ADVANCED → Headers**: Key `Authorization` / Value `Bearer your-secret-token-here`
-3. 「Create cronjob」をクリック
-4. 旧 `Daily KPI Bot`（`/api/cron/seo-daily`）ジョブは削除または無効化
+スケジュール実行は [`.github/workflows/seo-weekly.yml`](.github/workflows/seo-weekly.yml) が担当します（cron-job.org は不要）。
+
+1. [GitHub → Settings → Secrets and variables → Actions](https://github.com/tknakamuratakeshi/mi-business-online/settings/secrets/actions) で Secret を追加:
+   - **Name**: `CRON_SECRET`
+   - **Value**: Render の `CRON_SECRET` と同一の値
+2. 手動テスト: GitHub の **Actions** タブ → **SEO Weekly KPI Bot** → **Run workflow**
+   - 初回は `dry_run: true` で Slack 投稿なし確認を推奨
+3. スケジュール: 毎週月曜 08:00 JST（workflow 内 cron: 日曜 23:00 UTC）
+
+**ローカルテスト**（dryRun）:
+```bash
+./scripts/test-seo-weekly.sh your-secret-token --dry-run
+```
+
+**curl で直接確認**:
+```bash
+curl -H "Authorization: Bearer your-secret-token-here" \
+  "https://mi-business-online.onrender.com/api/cron/seo-weekly?dryRun=1"
+```
 
 ## ライセンス
 

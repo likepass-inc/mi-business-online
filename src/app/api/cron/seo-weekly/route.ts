@@ -36,7 +36,7 @@ function verifyCronAuth(req: NextRequest): NextResponse | null {
 
 /**
  * 週次 SEO / KPI モニタリングを Slack に投稿
- * cron-job.org 等から毎週月曜 8:00 JST に呼び出し
+ * GitHub Actions 等から毎週月曜 8:00 JST に呼び出し
  *
  * 認証: Authorization: Bearer {CRON_SECRET}
  */
