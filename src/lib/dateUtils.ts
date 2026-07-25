@@ -112,3 +112,33 @@ export function getYearOverYearPeriod(
   }
 }
 
+export interface WeeklySeoPeriod {
+  weekStart: string
+  weekEnd: string
+  weekKey: string
+  yoyWeekStart: string
+  yoyWeekEnd: string
+}
+
+/**
+ * 直前の完全週（日曜〜土曜）を JST 基準で返す。
+ * 月曜実行時は weekEnd = 土曜（today - 2）。土曜当日実行時は前週土曜まで。
+ */
+export function getWeeklySeoPeriod(referenceDate?: string): WeeklySeoPeriod {
+  const today = referenceDate ?? getTodayJst()
+  const weekday = getWeekdayIndex(today)
+  let daysSinceSaturday = (weekday + 1) % 7
+  if (daysSinceSaturday === 0) daysSinceSaturday = 7
+
+  const weekEnd = shiftDate(today, -daysSinceSaturday)
+  const weekStart = shiftDate(weekEnd, -6)
+  const weekKey = `${weekStart}_${weekEnd}`
+
+  return {
+    weekStart,
+    weekEnd,
+    weekKey,
+    yoyWeekStart: shiftDate(weekStart, -364),
+    yoyWeekEnd: shiftDate(weekEnd, -364),
+  }
+}

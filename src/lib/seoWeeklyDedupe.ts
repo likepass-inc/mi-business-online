@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 interface LastPostRecord {
-  targetDate: string
+  weekKey: string
   postedAt: string
 }
 
@@ -11,7 +11,7 @@ function getDedupeFilePath(): string {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
-  return join(dir, 'seo-daily-last-post.json')
+  return join(dir, 'seo-weekly-last-post.json')
 }
 
 export function getLastPostRecord(): LastPostRecord | null {
@@ -24,21 +24,23 @@ export function getLastPostRecord(): LastPostRecord | null {
   }
 }
 
-export function saveLastPostRecord(targetDate: string): void {
+export function saveLastPostRecord(weekKey: string): void {
   const path = getDedupeFilePath()
-  const record: LastPostRecord = { targetDate, postedAt: new Date().toISOString() }
+  const record: LastPostRecord = { weekKey, postedAt: new Date().toISOString() }
   writeFileSync(path, JSON.stringify(record), 'utf-8')
 }
 
-/** 同一 targetDate は1日1回のみ Slack 投稿（cron 再実行・手動 curl の連投防止） */
-export function shouldSkipDuplicatePost(targetDate: string): boolean {
+/** 同一 weekKey は1週1回のみ Slack 投稿（cron 再実行・手動 curl の連投防止） */
+export function shouldSkipDuplicatePost(weekKey: string): boolean {
   const last = getLastPostRecord()
-  return last?.targetDate === targetDate
+  return last?.weekKey === weekKey
 }
 
-/** Render 等で `SEO_DAILY_POSTING_ENABLED=false` にすると Slack 投稿を停止 */
-export function isSeoDailyPostingEnabled(): boolean {
-  const v = process.env.SEO_DAILY_POSTING_ENABLED?.trim().toLowerCase()
+/** Render 等で `SEO_WEEKLY_POSTING_ENABLED=false` にすると Slack 投稿を停止 */
+export function isSeoWeeklyPostingEnabled(): boolean {
+  const v =
+    process.env.SEO_WEEKLY_POSTING_ENABLED?.trim().toLowerCase() ??
+    process.env.SEO_DAILY_POSTING_ENABLED?.trim().toLowerCase()
   if (!v) return true
   return v === '1' || v === 'true' || v === 'yes'
 }

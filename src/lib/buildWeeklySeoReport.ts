@@ -1,6 +1,6 @@
 import { fetchGA4Data } from '@/lib/ga4Client'
 import { fetchGSCData } from '@/lib/gscClient'
-import { getDailySeoDates, getSameWeekdayLastYear } from '@/lib/dateUtils'
+import { getWeeklySeoPeriod } from '@/lib/dateUtils'
 import type { GA4Filter } from '@/lib/types'
 
 export interface GscQueryRanking {
@@ -27,15 +27,17 @@ export interface LandingPageMetric {
   cvr: number
 }
 
-export interface DailySeoReport {
+export interface WeeklySeoReport {
   siteUrl: string
-  targetDate: string
-  yoyCompareDate: string
+  weekStart: string
+  weekEnd: string
+  weekKey: string
+  yoyWeekStart: string
+  yoyWeekEnd: string
   magazinePrefix: string
   gsc: {
     topQueries: GscQueryRanking[]
   }
-  /** トータル KPI（後方互換 + 前年同曜日比） */
   ga4: {
     sessions: number
     transactions: number
@@ -54,9 +56,14 @@ export interface DailySeoReport {
 }
 
 const LANDING_TOP_N = 5
+const PURCHASE_KEY_EVENT = '購入完了'
 
 function getMagazinePrefix(): string {
-  return process.env.SEO_DAILY_MAGAZINE_PREFIX ?? '/magazine/'
+  return (
+    process.env.SEO_WEEKLY_MAGAZINE_PREFIX ??
+    process.env.SEO_DAILY_MAGAZINE_PREFIX ??
+    '/magazine/'
+  )
 }
 
 function calcCvr(sessions: number, transactions: number): number {
@@ -73,10 +80,18 @@ function calculateYoYPercent(current: number, previous: number): number | null {
   return Math.round(((current - previous) / previous) * 1000) / 10
 }
 
-async function fetchGscTopQueries(date: string, limit = 10): Promise<GscQueryRanking[]> {
+function dateRange(startDate: string, endDate: string) {
+  return { startDate, endDate }
+}
+
+async function fetchGscTopQueries(
+  startDate: string,
+  endDate: string,
+  limit = 10
+): Promise<GscQueryRanking[]> {
   const { rows } = await fetchGSCData({
-    startDate: date,
-    endDate: date,
+    startDate,
+    endDate,
     dimensions: ['query'],
     rowLimit: 1000,
   })
@@ -94,31 +109,39 @@ async function fetchGscTopQueries(date: string, limit = 10): Promise<GscQueryRan
 }
 
 async function fetchSegmentKpi(
-  date: string,
+  startDate: string,
+  endDate: string,
   filters?: GA4Filter[]
 ): Promise<{ sessions: number; transactions: number; revenue: number }> {
-  const [summary, purchaseRevenue, purchaseCompleted] = await Promise.all([
+  const range = dateRange(startDate, endDate)
+  const purchaseFilter: GA4Filter = {
+    field: 'eventName',
+    operator: 'EXACT',
+    value: PURCHASE_KEY_EVENT,
+  }
+
+  const [summary, purchaseRevenue, keyEvents] = await Promise.all([
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       metrics: ['sessions'],
       filters,
     }),
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       metrics: ['purchaseRevenue'],
       filters,
     }),
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
-      metrics: ['eventCount'],
-      filters: [...(filters ?? []), { field: 'eventName', operator: 'EXACT', value: '購入完了' }],
+      dateRange: range,
+      metrics: ['keyEvents'],
+      filters: [...(filters ?? []), purchaseFilter],
     }),
   ])
 
   return {
     sessions: Number(summary.rows[0]?.sessions ?? 0),
     revenue: Math.round(Number(purchaseRevenue.rows[0]?.purchaseRevenue ?? 0)),
-    transactions: Number(purchaseCompleted.rows[0]?.eventCount ?? 0),
+    transactions: Number(keyEvents.rows[0]?.keyEvents ?? 0),
   }
 }
 
@@ -136,31 +159,38 @@ function toSegmentSummary(
 }
 
 async function fetchSegmentSummaries(
-  date: string,
+  startDate: string,
+  endDate: string,
   magazinePrefix: string
 ): Promise<Ga4SegmentSummary[]> {
+  const range = dateRange(startDate, endDate)
   const magazineFilter: GA4Filter = {
     field: 'landingPage',
     operator: 'CONTAINS',
     value: magazinePrefix,
   }
+  const purchaseFilter: GA4Filter = {
+    field: 'eventName',
+    operator: 'EXACT',
+    value: PURCHASE_KEY_EVENT,
+  }
 
   const [total, magazine] = await Promise.all([
-    fetchSegmentKpi(date),
-    fetchSegmentKpi(date, [magazineFilter]),
+    fetchSegmentKpi(startDate, endDate),
+    fetchSegmentKpi(startDate, endDate, [magazineFilter]),
   ])
 
-  const [sessionsByLp, cvByLp] = await Promise.all([
+  const [sessionsByLp, keyEventsByLp] = await Promise.all([
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       dimensions: ['landingPage'],
       metrics: ['sessions'],
     }),
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       dimensions: ['landingPage'],
-      metrics: ['eventCount'],
-      filters: [{ field: 'eventName', operator: 'EXACT', value: '購入完了' }],
+      metrics: ['keyEvents'],
+      filters: [purchaseFilter],
     }),
   ])
 
@@ -172,10 +202,10 @@ async function fetchSegmentSummaries(
       nonMagSessions += Number(row.sessions ?? 0)
     }
   }
-  for (const row of cvByLp.rows) {
+  for (const row of keyEventsByLp.rows) {
     const path = String(row.landingPage ?? '')
     if (!isMagazineLanding(path, magazinePrefix)) {
-      nonMagTransactions += Number(row.eventCount ?? 0)
+      nonMagTransactions += Number(row.keyEvents ?? 0)
     }
   }
 
@@ -193,49 +223,75 @@ async function fetchSegmentSummaries(
 }
 
 async function fetchLandingPageMetrics(
-  date: string,
+  startDate: string,
+  endDate: string,
   magazinePrefix: string
-): Promise<DailySeoReport['landingPages']> {
-  const [sessionsByLp, cvByLp] = await Promise.all([
+): Promise<WeeklySeoReport['landingPages']> {
+  const range = dateRange(startDate, endDate)
+  const purchaseFilter: GA4Filter = {
+    field: 'eventName',
+    operator: 'EXACT',
+    value: PURCHASE_KEY_EVENT,
+  }
+
+  const [sessionsByLp, keyEventsByLp, revenueByLp] = await Promise.all([
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       dimensions: ['landingPage'],
       metrics: ['sessions'],
     }),
     fetchGA4Data({
-      dateRange: { startDate: date, endDate: date },
+      dateRange: range,
       dimensions: ['landingPage'],
-      metrics: ['eventCount'],
-      filters: [{ field: 'eventName', operator: 'EXACT', value: '購入完了' }],
+      metrics: ['keyEvents'],
+      filters: [purchaseFilter],
+    }),
+    fetchGA4Data({
+      dateRange: range,
+      dimensions: ['landingPage'],
+      metrics: ['purchaseRevenue'],
     }),
   ])
 
   const cvMap = new Map<string, number>()
-  for (const row of cvByLp.rows) {
+  for (const row of keyEventsByLp.rows) {
     const path = String(row.landingPage ?? '')
-    cvMap.set(path, Number(row.eventCount ?? 0))
+    cvMap.set(path, Number(row.keyEvents ?? 0))
   }
 
-  const all: LandingPageMetric[] = sessionsByLp.rows
-    .map((row) => {
-      const path = String(row.landingPage ?? '')
-      const sessions = Number(row.sessions ?? 0)
+  const revenueMap = new Map<string, number>()
+  for (const row of revenueByLp.rows) {
+    const path = String(row.landingPage ?? '')
+    revenueMap.set(path, Math.round(Number(row.purchaseRevenue ?? 0)))
+  }
+
+  const paths = new Set<string>()
+  for (const row of sessionsByLp.rows) paths.add(String(row.landingPage ?? ''))
+  for (const row of keyEventsByLp.rows) paths.add(String(row.landingPage ?? ''))
+  for (const row of revenueByLp.rows) paths.add(String(row.landingPage ?? ''))
+
+  const all: LandingPageMetric[] = Array.from(paths)
+    .filter((path) => path.length > 0)
+    .map((path) => {
+      const sessions =
+        Number(sessionsByLp.rows.find((r) => String(r.landingPage ?? '') === path)?.sessions ?? 0)
       const transactions = cvMap.get(path) ?? 0
+      const revenue = revenueMap.get(path) ?? 0
       return {
         path,
         sessions,
         transactions,
-        revenue: 0,
+        revenue,
         cvr: calcCvr(sessions, transactions),
       }
     })
-    .filter((r) => r.sessions > 0 || r.transactions > 0)
+    .filter((r) => r.sessions > 0 || r.transactions > 0 || r.revenue > 0)
 
   const magazine = all.filter((r) => isMagazineLanding(r.path, magazinePrefix))
 
   const sortBySessions = (a: LandingPageMetric, b: LandingPageMetric) => b.sessions - a.sessions
   const sortByCv = (a: LandingPageMetric, b: LandingPageMetric) =>
-    b.transactions - a.transactions || b.sessions - a.sessions
+    b.transactions - a.transactions || b.revenue - a.revenue || b.sessions - a.sessions
 
   return {
     topBySessions: {
@@ -249,17 +305,16 @@ async function fetchLandingPageMetrics(
   }
 }
 
-export async function buildDailySeoReport(): Promise<DailySeoReport> {
-  const { targetDate } = getDailySeoDates()
-  const yoyCompareDate = getSameWeekdayLastYear(targetDate)
+export async function buildWeeklySeoReport(): Promise<WeeklySeoReport> {
+  const { weekStart, weekEnd, weekKey, yoyWeekStart, yoyWeekEnd } = getWeeklySeoPeriod()
   const siteUrl = process.env.GSC_SITE_URL || 'https://business.mistore.jp/'
   const magazinePrefix = getMagazinePrefix()
 
   const [topQueries, ga4Segments, landingPages, ga4Previous] = await Promise.all([
-    fetchGscTopQueries(targetDate),
-    fetchSegmentSummaries(targetDate, magazinePrefix),
-    fetchLandingPageMetrics(targetDate, magazinePrefix),
-    fetchSegmentKpi(yoyCompareDate),
+    fetchGscTopQueries(weekStart, weekEnd),
+    fetchSegmentSummaries(weekStart, weekEnd, magazinePrefix),
+    fetchLandingPageMetrics(weekStart, weekEnd, magazinePrefix),
+    fetchSegmentKpi(yoyWeekStart, yoyWeekEnd),
   ])
 
   const totalSegment = ga4Segments.find((s) => s.label === 'トータル')!
@@ -276,8 +331,11 @@ export async function buildDailySeoReport(): Promise<DailySeoReport> {
 
   return {
     siteUrl,
-    targetDate,
-    yoyCompareDate,
+    weekStart,
+    weekEnd,
+    weekKey,
+    yoyWeekStart,
+    yoyWeekEnd,
     magazinePrefix,
     gsc: { topQueries },
     ga4,

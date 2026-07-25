@@ -8,7 +8,7 @@ GA4 と GSC のデータをリアルタイムで取得し、LLM（OpenAI）を�
 - **GSC データ取得**: Google Search Console のデータを API から取得
 - **AI アナリスト**: 自然言語で質問すると、データを分析してインサイトと改善提案を生成
 - **ダッシュボード**: KPI カードとトラフィック推移グラフを表示
-- **Daily KPI Bot**: GSC キーワード TOP10、GA4 セグメント比較（トータル/マガジンLP/その他）、ランディングページ TOP5、トータル KPI の前年同曜日比を Slack スレッドで毎朝通知（`/api/cron/seo-daily`）
+- **Weekly KPI Bot**: GSC キーワード TOP10（週間）、GA4 セグメント比較（トータル/マガジンLP/その他）、ランディングページ TOP5、トータル KPI の前年同週比を Slack スレッドで毎週月曜 8:00 に通知（`/api/cron/seo-weekly`）
 
 ## 技術スタック
 
@@ -53,13 +53,12 @@ DB_DIR=/var/data
 # または個別にファイルパスを指定
 # DB_PATH=/var/data/products.db
 
-# Daily KPI Bot
+# Weekly KPI Bot
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_CHANNEL_ID=C0XXXXXXX
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-SEO_DAILY_OFFSET_DAYS=3
-SEO_DAILY_MAGAZINE_PREFIX=/magazine/
-SEO_DAILY_POSTING_ENABLED=true
+SEO_WEEKLY_MAGAZINE_PREFIX=/magazine/
+SEO_WEEKLY_POSTING_ENABLED=true
 CRON_SECRET=your-secret-token-here
 ```
 
@@ -398,16 +397,18 @@ curl -X POST https://mi-business-online.onrender.com/api/crawl/products \
    - cron-job.org等の外部サービスを使用
    - または、サーバーのcronで設定
 
-## Daily KPI Bot
+## Weekly KPI Bot
 
-GSC のクリック数上位キーワード TOP10（順位・CTR 併記）に加え、GA4 のセグメント別サマリ（トータル / マガジンLP / マガジン以外LP）、ランディングページ TOP5（セッション数・CV 貢献）、トータル KPI の前年同曜日比（52週前・同曜日）を Slack に投稿します。対象日は JST 基準で「今日 − N 日」（デフォルト 3 日、GSC 反映遅延を考慮）。
+GSC のクリック数上位キーワード TOP10（順位・CTR 併記、週間集計）に加え、GA4 のセグメント別サマリ（トータル / マガジンLP / マガジン以外LP）、ランディングページ TOP5（セッション数・貢献CV・貢献売上）、トータル KPI の前年同週比（52週前）を Slack に投稿します。対象期間は JST 基準で**直前の完全週（日曜〜土曜）**です。
+
+**売上・CV の帰属**: GA4 キーイベント帰属（`keyEvents` / `purchaseRevenue`）を使用します。GA4 管理画面で `購入完了` のルックバックウィンドウを **30日** に設定してください（Admin → データの表示 → アトリビューション）。
 
 **投稿形式**（Bot Token 設定時）:
-1. 親メッセージ: タイトル + 日付
-2. スレッド1: GSC キーワード TOP10
-3. スレッド2: GA4 セグメント概況（トータル / マガジンLP / マガジン以外LP）
+1. 親メッセージ: タイトル + 週間期間
+2. スレッド1: GSC キーワード TOP10（週間）
+3. スレッド2: GA4 セグメント概況（トータル / マガジンLP / マガジン以外LP）+ 前年同週比
 4. スレッド3: ランディングページ TOP5（セッション数）— 全体 + マガジン
-5. スレッド4: ランディングページ TOP5（CV 貢献）— 全体 + マガジン
+5. スレッド4: ランディングページ TOP5（貢献CV・貢献売上）— 全体 + マガジン
 
 未設定時は `SLACK_WEBHOOK_URL` で上記を1通にまとめて投稿します。
 
@@ -418,44 +419,46 @@ GSC のクリック数上位キーワード TOP10（順位・CTR 併記）に加
    - `SLACK_BOT_TOKEN`: Bot User OAuth Token（`xoxb-...`）
    - `SLACK_CHANNEL_ID`: 投稿先チャンネル ID（`C...`）
    - `SLACK_WEBHOOK_URL`: フォールバック用（Bot Token 未設定時のみ使用）
-   - `SEO_DAILY_OFFSET_DAYS`: 任意（デフォルト `3`）
-   - `SEO_DAILY_MAGAZINE_PREFIX`: 任意（デフォルト `/magazine/`）。マガジンLP セグメント判定に使用
-   - `SEO_DAILY_POSTING_ENABLED`: 任意（デフォルト有効）。`false` で Slack 投稿のみ停止（緊急時）
+   - `SEO_WEEKLY_MAGAZINE_PREFIX`: 任意（デフォルト `/magazine/`）。マガジンLP セグメント判定に使用
+   - `SEO_WEEKLY_POSTING_ENABLED`: 任意（デフォルト有効）。`false` で Slack 投稿のみ停止（緊急時）
    - `CRON_SECRET`: cron ルート認証用（商品クロールと共通で可）
 
 ### ローカルテスト
 
 ```bash
-npm run seo:daily
+npm run seo:weekly
 ```
 
 ### Cron エンドポイント
 
-- `GET /api/cron/seo-daily`: レポート生成 → Slack 投稿
+- `GET /api/cron/seo-weekly`: レポート生成 → Slack 投稿
 - 認証: `Authorization: Bearer {CRON_SECRET}`
 
 **手動実行例**（Slack に投稿せず確認する場合）:
 ```bash
 curl -H "Authorization: Bearer your-secret-token-here" \
-  "https://mi-business-online.onrender.com/api/cron/seo-daily?dryRun=1"
+  "https://mi-business-online.onrender.com/api/cron/seo-weekly?dryRun=1"
 ```
 
-本番投稿（同一 targetDate は1日1回まで。再実行しても重複投稿しません）:
+本番投稿（同一週は1回まで。再実行しても重複投稿しません）:
 ```bash
 curl -H "Authorization: Bearer your-secret-token-here" \
-  https://mi-business-online.onrender.com/api/cron/seo-daily
+  https://mi-business-online.onrender.com/api/cron/seo-weekly
 ```
 
-### cron-job.org 設定（毎朝）
+旧エンドポイント `/api/cron/seo-daily` は **410 Gone** を返します（移行後は cron-job.org のジョブを無効化してください）。
+
+### cron-job.org 設定（毎週月曜）
 
 1. [cron-job.org](https://cron-job.org/) で「Create cronjob」
 2. 以下を入力:
-   - **Title**: `Daily KPI Bot`
-   - **URL**: `https://mi-business-online.onrender.com/api/cron/seo-daily`
-   - **Schedule**: `Daily` → `09:00`（Time zone: `Asia/Tokyo`）
+   - **Title**: `Weekly KPI Bot`
+   - **URL**: `https://mi-business-online.onrender.com/api/cron/seo-weekly`
+   - **Schedule**: `Weekly` → `Monday` → `08:00`（Time zone: `Asia/Tokyo`）
    - **Request Method**: `GET`
    - **ADVANCED → Headers**: Key `Authorization` / Value `Bearer your-secret-token-here`
 3. 「Create cronjob」をクリック
+4. 旧 `Daily KPI Bot`（`/api/cron/seo-daily`）ジョブは削除または無効化
 
 ## ライセンス
 
