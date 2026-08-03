@@ -213,6 +213,13 @@ export function formatSeoMonthlyParentMessage(report: MonthlySeoReport): SlackMe
   return toPayload(buildHeaderText(report))
 }
 
+/** グラフのみ投稿時の親メッセージ */
+export function formatSeoMonthlyChartsParentMessage(report: MonthlySeoReport): SlackMessagePayload {
+  return toPayload(
+    `:chart_with_upwards_trend: Monthly KPI Bot — ${formatMonthLabel(report.monthKey)} 13ヶ月推移グラフ`
+  )
+}
+
 export function formatSeoMonthlyThreadMessages(report: MonthlySeoReport): SlackMessagePayload[] {
   return [
     toPayload(buildSiteSummaryThreadText(report)),

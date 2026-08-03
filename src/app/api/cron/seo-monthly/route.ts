@@ -14,6 +14,7 @@ import {
 } from '@/lib/seoMonthlyDedupe'
 import {
   formatSeoMonthlyMessage,
+  formatSeoMonthlyChartsParentMessage,
   formatSeoMonthlyParentMessage,
   formatSeoMonthlyThreadMessages,
   getMonthlyTrendChartCaptions,
@@ -24,6 +25,10 @@ export const maxDuration = 300
 
 function isDryRun(req: NextRequest): boolean {
   return req.nextUrl.searchParams.get('dryRun') === '1'
+}
+
+function isChartsOnly(req: NextRequest): boolean {
+  return req.nextUrl.searchParams.get('chartsOnly') === '1'
 }
 
 function verifyCronAuth(req: NextRequest): NextResponse | null {
@@ -76,6 +81,7 @@ export async function GET(req: NextRequest) {
   try {
     const report = await buildMonthlySeoReport()
     const dryRun = isDryRun(req)
+    const chartsOnly = isChartsOnly(req)
     const textThreadCount = isSlackBotConfigured()
       ? formatSeoMonthlyThreadMessages(report).length
       : 1
@@ -87,18 +93,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         dryRun: true,
+        chartsOnly,
         message: 'Report built without posting to Slack',
         monthKey: report.monthKey,
         monthStart: report.monthStart,
         monthEnd: report.monthEnd,
         threaded: isSlackBotConfigured(),
-        threadCount: textThreadCount,
+        threadCount: chartsOnly ? 0 : textThreadCount,
         chartCount,
         trendMonths,
       })
     }
 
-    if (shouldSkipDuplicatePost(report.monthKey)) {
+    if (!chartsOnly && shouldSkipDuplicatePost(report.monthKey)) {
       return NextResponse.json({
         success: true,
         skipped: true,
@@ -121,6 +128,24 @@ export async function GET(req: NextRequest) {
     }
 
     if (isSlackBotConfigured()) {
+      if (chartsOnly) {
+        const parentTs = await postSlackMessage(formatSeoMonthlyChartsParentMessage(report))
+        const chartsPosted = await postMonthlyTrendCharts(report, parentTs)
+
+        return NextResponse.json({
+          success: true,
+          message: 'SEO monthly trend charts posted to Slack',
+          chartsOnly: true,
+          monthKey: report.monthKey,
+          monthStart: report.monthStart,
+          monthEnd: report.monthEnd,
+          threaded: true,
+          threadCount: 0,
+          chartCount: chartsPosted,
+          trendMonths,
+        })
+      }
+
       const parentTs = await postSlackMessage(formatSeoMonthlyParentMessage(report))
       const threads = formatSeoMonthlyThreadMessages(report)
       for (const thread of threads) {

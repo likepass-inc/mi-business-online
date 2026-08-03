@@ -11,11 +11,15 @@ set -e
 API_URL="https://mi-business-online.onrender.com/api/cron/seo-monthly"
 TOKEN=""
 DRY_RUN=false
+CHARTS_ONLY=false
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run)
       DRY_RUN=true
+      ;;
+    --charts-only)
+      CHARTS_ONLY=true
       ;;
     *)
       if [ -z "$TOKEN" ]; then
@@ -41,6 +45,8 @@ fi
 
 if [ "$DRY_RUN" = true ]; then
   API_URL="${API_URL}?dryRun=1"
+elif [ "$CHARTS_ONLY" = true ]; then
+  API_URL="${API_URL}?chartsOnly=1"
 fi
 
 echo "=========================================="
@@ -49,6 +55,7 @@ echo "=========================================="
 echo "API URL: $API_URL"
 echo "CRON_SECRET: ${CRON_SECRET:0:10}...（最初の10文字のみ表示）"
 echo "Dry run: $DRY_RUN"
+echo "Charts only: $CHARTS_ONLY"
 echo ""
 
 echo "1. Monthly KPI Bot APIを呼び出し中..."
