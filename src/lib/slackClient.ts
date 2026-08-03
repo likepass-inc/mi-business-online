@@ -88,8 +88,30 @@ interface PostSlackFileOptions {
   initialComment?: string
 }
 
+async function slackApiCall<T extends { ok: boolean; error?: string }>(
+  token: string,
+  method: string,
+  body: Record<string, unknown>
+): Promise<T> {
+  const response = await fetch(`https://slack.com/api/${method}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+
+  const data = (await response.json().catch(() => null)) as T | null
+  if (!response.ok || !data || !data.ok) {
+    const reason = data?.error || `${response.status} ${response.statusText}`
+    throw new Error(`Slack ${method} failed: ${reason}`)
+  }
+  return data
+}
+
 /**
- * Bot Token (files.upload) で画像を投稿。
+ * Bot Token で画像を投稿（files.getUploadURLExternal → upload → completeUploadExternal）。
  * threadTs を渡すとスレッド返信になる。files:write スコープが必要。
  */
 export async function postSlackFile(
@@ -107,31 +129,40 @@ export async function postSlackFile(
     throw new Error('SLACK_CHANNEL_ID must be set')
   }
 
-  const form = new FormData()
-  form.append('file', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), filename)
-  form.append('channels', channel)
-  form.append('filename', filename)
-  if (options?.threadTs) {
-    form.append('thread_ts', options.threadTs)
-  }
-  if (options?.initialComment) {
-    form.append('initial_comment', options.initialComment)
-  }
-
-  const response = await fetch('https://slack.com/api/files.upload', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: form,
+  const urlResponse = await slackApiCall<{
+    ok: boolean
+    upload_url: string
+    file_id: string
+    error?: string
+  }>(token, 'files.getUploadURLExternal', {
+    filename,
+    length: buffer.length,
   })
 
-  const data = (await response.json().catch(() => null)) as
-    | { ok: boolean; error?: string }
-    | null
+  const uploadResponse = await fetch(urlResponse.upload_url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'image/png',
+    },
+    body: new Uint8Array(buffer),
+  })
 
-  if (!response.ok || !data || !data.ok) {
-    const reason = data?.error || `${response.status} ${response.statusText}`
-    throw new Error(`Slack files.upload failed: ${reason}`)
+  if (!uploadResponse.ok) {
+    throw new Error(
+      `Slack file upload to external URL failed: ${uploadResponse.status} ${uploadResponse.statusText}`
+    )
   }
+
+  const completeBody: Record<string, unknown> = {
+    channel_id: channel,
+    files: [{ id: urlResponse.file_id, title: filename }],
+  }
+  if (options?.threadTs) {
+    completeBody.thread_ts = options.threadTs
+  }
+  if (options?.initialComment) {
+    completeBody.initial_comment = options.initialComment
+  }
+
+  await slackApiCall(token, 'files.completeUploadExternal', completeBody)
 }
