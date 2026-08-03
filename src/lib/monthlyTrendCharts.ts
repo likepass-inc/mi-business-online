@@ -1,5 +1,37 @@
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import sharp from 'sharp'
 import type { MonthlyTrendPoint } from '@/lib/buildMonthlyTrendSeries'
+
+const CHART_FONT_FAMILY = 'Noto Sans JP'
+let chartFontBase64: string | null = null
+
+function getChartFontBase64(): string {
+  if (chartFontBase64 === null) {
+    const packageJsonPath = require.resolve('@fontsource/noto-sans-jp/package.json')
+    const fontPath = join(packageJsonPath, '../files/noto-sans-jp-japanese-400-normal.woff')
+    chartFontBase64 = readFileSync(fontPath).toString('base64')
+  }
+  return chartFontBase64
+}
+
+function chartFontDefs(): string {
+  const base64 = getChartFontBase64()
+  return `<defs>
+  <style>
+    @font-face {
+      font-family: '${CHART_FONT_FAMILY}';
+      src: url('data:font/woff;base64,${base64}') format('woff');
+      font-weight: 400;
+      font-style: normal;
+    }
+  </style>
+</defs>`
+}
+
+function textAttrs(extra = ''): string {
+  return `font-family="${CHART_FONT_FAMILY}" ${extra}`.trim()
+}
 
 export type MonthlyTrendMetricId =
   | 'gsc_clicks'
@@ -150,14 +182,14 @@ function buildLineChartSvg(
     .map((c, i) => {
       if (points.length > 8 && i % 2 !== 0 && i !== points.length - 1) return ''
       const anchor = i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'
-      return `<text x="${c.x.toFixed(1)}" y="${CHART_HEIGHT - 18}" text-anchor="${anchor}" font-size="11" fill="#64748b">${escapeXml(c.point.label)}</text>`
+      return `<text x="${c.x.toFixed(1)}" y="${CHART_HEIGHT - 18}" text-anchor="${anchor}" ${textAttrs('font-size="11" fill="#64748b"')}>${escapeXml(c.point.label)}</text>`
     })
     .join('')
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
     const value = metric.invertY ? min + (max - min) * t : max - (max - min) * t
     const y = PADDING.top + t * plotH
-    return `<text x="${PADDING.left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="#64748b">${escapeXml(metric.formatValue(value))}</text>
+    return `<text x="${PADDING.left - 8}" y="${(y + 4).toFixed(1)}" text-anchor="end" ${textAttrs('font-size="11" fill="#64748b"')}>${escapeXml(metric.formatValue(value))}</text>
 <line x1="${PADDING.left}" y1="${y.toFixed(1)}" x2="${CHART_WIDTH - PADDING.right}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`
   })
 
@@ -171,13 +203,14 @@ function buildLineChartSvg(
     .join('')
 
   const invertNote = metric.invertY
-    ? `<text x="${PADDING.left}" y="${CHART_HEIGHT - 4}" font-size="10" fill="#94a3b8">※数値が小さいほど上位</text>`
+    ? `<text x="${PADDING.left}" y="${CHART_HEIGHT - 4}" ${textAttrs('font-size="10" fill="#94a3b8"')}>※数値が小さいほど上位</text>`
     : ''
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${CHART_WIDTH}" height="${CHART_HEIGHT}" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}">
+  ${chartFontDefs()}
   <rect width="100%" height="100%" fill="#ffffff"/>
-  <text x="${PADDING.left}" y="28" font-size="18" font-weight="600" fill="#0f172a">${escapeXml(metric.title)} — 13ヶ月推移</text>
+  <text x="${PADDING.left}" y="28" ${textAttrs('font-size="18" font-weight="600" fill="#0f172a"')}>${escapeXml(metric.title)} — 13ヶ月推移</text>
   ${yTicks.join('')}
   <polyline points="${polyline}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
   ${dots}
