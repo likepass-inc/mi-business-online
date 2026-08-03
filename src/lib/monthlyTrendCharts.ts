@@ -37,21 +37,21 @@ function formatCompactCurrency(n: number): string {
 export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   {
     id: 'gsc_clicks',
-    title: 'GSC Clicks',
+    title: 'GSC クリック',
     group: 'gsc',
     getValue: (p) => p.gsc.clicks,
     formatValue: formatNumber,
   },
   {
     id: 'gsc_impressions',
-    title: 'GSC Impressions',
+    title: 'GSC インプレッション',
     group: 'gsc',
     getValue: (p) => p.gsc.impressions,
     formatValue: formatNumber,
   },
   {
     id: 'gsc_average_ctr',
-    title: 'GSC Avg CTR',
+    title: 'GSC 平均CTR',
     group: 'gsc',
     suffix: '%',
     getValue: (p) => p.gsc.averageCtr,
@@ -59,7 +59,7 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   },
   {
     id: 'gsc_average_position',
-    title: 'GSC Avg Position',
+    title: 'GSC 平均掲載順位',
     group: 'gsc',
     invertY: true,
     getValue: (p) => p.gsc.averagePosition,
@@ -67,37 +67,37 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   },
   {
     id: 'ga4_sessions',
-    title: 'GA4 Sessions',
+    title: 'GA4 セッション',
     group: 'ga4',
     getValue: (p) => p.ga4.sessions,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_users',
-    title: 'GA4 Users',
+    title: 'GA4 ユーザー',
     group: 'ga4',
     getValue: (p) => p.ga4.users,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_page_views',
-    title: 'GA4 Page Views',
+    title: 'GA4 PV',
     group: 'ga4',
     getValue: (p) => p.ga4.pageViews,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_transactions',
-    title: 'GA4 Transactions',
+    title: 'GA4 購入完了',
     group: 'ga4',
     getValue: (p) => p.ga4.transactions,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_revenue',
-    title: 'GA4 Revenue',
+    title: 'GA4 売上',
     group: 'ga4',
-    suffix: 'JPY',
+    suffix: '円',
     getValue: (p) => p.ga4.revenue,
     formatValue: formatCompactCurrency,
   },
@@ -113,7 +113,7 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
 
 const CHART_WIDTH = 900
 const CHART_HEIGHT = 420
-const PADDING = { top: 48, right: 24, bottom: 56, left: 72 }
+const PADDING = { top: 24, right: 24, bottom: 56, left: 72 }
 
 function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -205,11 +205,6 @@ function buildLineChartSvg(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${CHART_WIDTH}" height="${CHART_HEIGHT}" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}">
   <rect width="100%" height="100%" fill="#ffffff"/>
-  ${svgText(`${metric.title} — 13-month trend`, PADDING.left, 28, {
-    fontSize: 18,
-    fill: '#0f172a',
-    fontWeight: '600',
-  })}
   ${yTicks.join('')}
   <polyline points="${polyline}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
   ${dots}
