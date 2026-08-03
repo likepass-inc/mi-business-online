@@ -81,6 +81,20 @@ export async function fetchGSCData(request: GSCRequest): Promise<GSCResponse> {
     requestBody.dimensions = dimensions
   }
 
+  if (request.pageContains) {
+    requestBody.dimensionFilterGroups = [
+      {
+        filters: [
+          {
+            dimension: 'page',
+            operator: 'contains',
+            expression: request.pageContains,
+          },
+        ],
+      },
+    ]
+  }
+
   const response = await searchconsole.searchanalytics.query({
     auth,
     siteUrl,

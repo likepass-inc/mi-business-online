@@ -1,0 +1,71 @@
+name: SEO Monthly KPI Bot
+
+on:
+  schedule:
+    # 毎月第1月曜 08:00 JST = その週の日曜 23:00 UTC（1〜7日）
+    - cron: '0 23 1-7 * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Slack に投稿せず dryRun=1 で実行'
+        type: boolean
+        default: false
+
+jobs:
+  trigger-monthly-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Call Render seo-monthly endpoint
+        env:
+          RENDER_APP_URL: https://mi-business-online.onrender.com
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "Error: CRON_SECRET is not set in GitHub Actions secrets"
+            exit 1
+          fi
+
+          URL="${RENDER_APP_URL}/api/cron/seo-monthly"
+          if [ "${DRY_RUN}" = "true" ]; then
+            URL="${URL}?dryRun=1"
+          fi
+
+          attempt=1
+          max_attempts=3
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            echo "Attempt ${attempt}/${max_attempts}: GET ${URL}"
+
+            HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "${URL}")
+
+            echo "HTTP Status: ${HTTP_STATUS}"
+            cat response.json
+            echo ""
+
+            if [ "${HTTP_STATUS}" = "200" ]; then
+              SUCCESS=$(python3 -c "import json; print(json.load(open('response.json')).get('success', False))")
+              if [ "${SUCCESS}" = "True" ]; then
+                echo "Monthly KPI Bot triggered successfully"
+                exit 0
+              fi
+              echo "Error: response success is not true"
+              exit 1
+            fi
+
+            if [ "${HTTP_STATUS}" = "502" ] || [ "${HTTP_STATUS}" = "503" ]; then
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Render may be waking up; retrying in 30s..."
+                sleep 30
+                attempt=$((attempt + 1))
+                continue
+              fi
+            fi
+
+            echo "Error: request failed with HTTP ${HTTP_STATUS}"
+            exit 1
+          done

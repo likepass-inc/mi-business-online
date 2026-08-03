@@ -142,3 +142,52 @@ export function getWeeklySeoPeriod(referenceDate?: string): WeeklySeoPeriod {
     yoyWeekEnd: shiftDate(weekEnd, -364),
   }
 }
+
+export interface MonthlySeoPeriod {
+  monthStart: string
+  monthEnd: string
+  monthKey: string
+  yoyMonthStart: string
+  yoyMonthEnd: string
+}
+
+/** 暦月の末日（calendarMonth は 1〜12） */
+export function getLastDayOfCalendarMonth(year: number, calendarMonth: number): number {
+  return new Date(Date.UTC(year, calendarMonth, 0)).getUTCDate()
+}
+
+/**
+ * 直前の暦月（1日〜末日）を JST 基準で返す。
+ * 例: 2026-08-03 実行 → 2026-07-01 〜 2026-07-31
+ */
+export function getMonthlySeoPeriod(referenceDate?: string): MonthlySeoPeriod {
+  const today = referenceDate ?? getTodayJst()
+  const [yearStr, monthStr] = today.split('-')
+  let year = parseInt(yearStr, 10)
+  let month = parseInt(monthStr, 10)
+
+  month -= 1
+  if (month === 0) {
+    month = 12
+    year -= 1
+  }
+
+  const monthPadded = String(month).padStart(2, '0')
+  const monthStart = `${year}-${monthPadded}-01`
+  const lastDay = getLastDayOfCalendarMonth(year, month)
+  const monthEnd = `${year}-${monthPadded}-${String(lastDay).padStart(2, '0')}`
+  const monthKey = `${year}-${monthPadded}`
+
+  const { startDate: yoyMonthStart, endDate: yoyMonthEnd } = getYearOverYearPeriod(
+    monthStart,
+    monthEnd
+  )
+
+  return {
+    monthStart,
+    monthEnd,
+    monthKey,
+    yoyMonthStart,
+    yoyMonthEnd,
+  }
+}

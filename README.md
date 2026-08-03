@@ -9,6 +9,7 @@ GA4 と GSC のデータをリアルタイムで取得し、LLM（OpenAI）を�
 - **AI アナリスト**: 自然言語で質問すると、データを分析してインサイトと改善提案を生成
 - **ダッシュボード**: KPI カードとトラフィック推移グラフを表示
 - **Weekly KPI Bot**: GSC キーワード TOP10（週間）、GA4 セグメント比較（トータル/マガジンLP/その他）、ランディングページ TOP5、トータル KPI の前年同週比を Slack スレッドで毎週月曜 8:00 に通知（`/api/cron/seo-weekly`）
+- **Monthly KPI Bot**: 前月暦月の包括レポート要約（サイト/マガジン前年同月比、GSC クエリハイライト、チャネル/デバイス、季節/通年ポートフォリオ）を Slack スレッドで毎月第1月曜 8:00 に通知（`/api/cron/seo-monthly`）
 
 ## 技術スタック
 
@@ -59,6 +60,10 @@ SLACK_CHANNEL_ID=C0XXXXXXX
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 SEO_WEEKLY_MAGAZINE_PREFIX=/magazine/
 SEO_WEEKLY_POSTING_ENABLED=true
+
+# Monthly KPI Bot（SLACK_* / CRON_SECRET は Weekly と共通で可）
+SEO_MONTHLY_MAGAZINE_PREFIX=/magazine/
+SEO_MONTHLY_POSTING_ENABLED=true
 CRON_SECRET=your-secret-token-here
 ```
 
@@ -468,6 +473,55 @@ curl -H "Authorization: Bearer your-secret-token-here" \
 ```bash
 curl -H "Authorization: Bearer your-secret-token-here" \
   "https://mi-business-online.onrender.com/api/cron/seo-weekly?dryRun=1"
+```
+
+## Monthly KPI Bot
+
+前月の暦月（例: 8月第1月曜実行 → 7/1〜7/31）について、サイト全体・マガジンの GSC/GA4 前年同月比、GSC クエリハイライト（TOP10・伸長/減少）、チャネル/デバイス、季節/通年クエリポートフォリオを Slack に投稿します。データ層は [`buildComprehensiveReport`](src/lib/buildComprehensiveReport.ts) を再利用した要約版です。
+
+**投稿形式**（Bot Token 設定時）:
+1. 親メッセージ: タイトル + 対象月
+2. スレッド1: サイト全体 GSC + GA4 前年同月比
+3. スレッド2: マガジン GSC + GA4 前年同月比
+4. スレッド3: GSC クエリ（クリック TOP10・伸長 TOP5・減少 TOP5）
+5. スレッド4: GA4 チャネル TOP5・デバイス
+6. スレッド5: クエリポートフォリオ（季節/通年）+ 自動考察
+
+### セットアップ
+
+Weekly KPI Bot と同じ Slack App・チャンネル設定を流用できます。追加の環境変数:
+
+- `SEO_MONTHLY_MAGAZINE_PREFIX`: 任意（未設定時は Weekly のプレフィックス → `/magazine/`）
+- `SEO_MONTHLY_POSTING_ENABLED`: 任意（デフォルト有効）。`false` で Slack 投稿のみ停止
+
+### ローカルテスト
+
+```bash
+npm run seo:monthly
+```
+
+### Cron エンドポイント
+
+- `GET /api/cron/seo-monthly`: レポート生成 → Slack 投稿
+- 認証: `Authorization: Bearer {CRON_SECRET}`
+
+**手動実行例**（Slack に投稿せず確認）:
+```bash
+curl -H "Authorization: Bearer your-secret-token-here" \
+  "https://mi-business-online.onrender.com/api/cron/seo-monthly?dryRun=1"
+```
+
+### GitHub Actions 設定（毎月第1月曜 8:00 JST）
+
+スケジュール実行は [`.github/workflows/seo-monthly.yml`](.github/workflows/seo-monthly.yml) が担当します。
+
+1. `CRON_SECRET` は Weekly と同一の GitHub Actions Secret を使用
+2. 手動テスト: **Actions** → **SEO Monthly KPI Bot** → **Run workflow**（`dry_run: true` 推奨）
+3. スケジュール: 毎月第1月曜 08:00 JST（workflow 内 cron: `0 23 1-7 * 0` UTC）
+
+**ローカルテスト**（dryRun）:
+```bash
+./scripts/test-seo-monthly.sh your-secret-token --dry-run
 ```
 
 ## ライセンス

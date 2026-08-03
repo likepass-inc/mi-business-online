@@ -10,6 +10,8 @@
     "worker": "node scripts/run-worker-from-root.cjs",
     "lint": "next lint",
     "seo:weekly": "npx tsx scripts/send-seo-weekly.ts",
+    "seo:monthly": "npx tsx scripts/send-seo-monthly.ts",
+    "test:date-utils": "npx tsx src/lib/dateUtils.test.ts",
     "postinstall": "npx playwright install chromium || echo 'Playwright install failed, continuing...'"
   },
   "keywords": [],

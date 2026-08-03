@@ -25,6 +25,8 @@ export interface GSCRequest {
   endDate: string
   dimensions?: string[]
   rowLimit?: number
+  /** GSC page 次元の contains フィルタ（例: /magazine/） */
+  pageContains?: string
 }
 
 export interface GSCRow {
