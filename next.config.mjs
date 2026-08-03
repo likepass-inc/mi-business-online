@@ -1,7 +1,4 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  serverExternalPackages: ['fontkit', 'sharp'],
-};
+const nextConfig = {};
 
 export default nextConfig;
-

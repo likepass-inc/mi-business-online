@@ -1,5 +1,4 @@
 import sharp from 'sharp'
-import { chartTextPath } from '@/lib/chartFontText'
 import type { MonthlyTrendPoint } from '@/lib/buildMonthlyTrendSeries'
 
 export type MonthlyTrendMetricId =
@@ -25,33 +24,34 @@ export interface MonthlyTrendMetricDef {
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString('ja-JP')
+  return n.toLocaleString('en-US')
 }
 
-function formatCompact(n: number): string {
-  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}億`
-  if (n >= 10_000) return `${(n / 10_000).toFixed(0)}万`
-  return formatNumber(Math.round(n))
+function formatCompactCurrency(n: number): string {
+  if (n >= 1_000_000_000) return `¥${(n / 1_000_000_000).toFixed(1)}B`
+  if (n >= 1_000_000) return `¥${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `¥${(n / 1_000).toFixed(0)}K`
+  return `¥${formatNumber(Math.round(n))}`
 }
 
 export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   {
     id: 'gsc_clicks',
-    title: 'GSC クリック',
+    title: 'GSC Clicks',
     group: 'gsc',
     getValue: (p) => p.gsc.clicks,
     formatValue: formatNumber,
   },
   {
     id: 'gsc_impressions',
-    title: 'GSC インプレッション',
+    title: 'GSC Impressions',
     group: 'gsc',
     getValue: (p) => p.gsc.impressions,
     formatValue: formatNumber,
   },
   {
     id: 'gsc_average_ctr',
-    title: 'GSC 平均CTR',
+    title: 'GSC Avg CTR',
     group: 'gsc',
     suffix: '%',
     getValue: (p) => p.gsc.averageCtr,
@@ -59,7 +59,7 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   },
   {
     id: 'gsc_average_position',
-    title: 'GSC 平均掲載順位',
+    title: 'GSC Avg Position',
     group: 'gsc',
     invertY: true,
     getValue: (p) => p.gsc.averagePosition,
@@ -67,39 +67,39 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
   },
   {
     id: 'ga4_sessions',
-    title: 'GA4 セッション',
+    title: 'GA4 Sessions',
     group: 'ga4',
     getValue: (p) => p.ga4.sessions,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_users',
-    title: 'GA4 ユーザー',
+    title: 'GA4 Users',
     group: 'ga4',
     getValue: (p) => p.ga4.users,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_page_views',
-    title: 'GA4 PV',
+    title: 'GA4 Page Views',
     group: 'ga4',
     getValue: (p) => p.ga4.pageViews,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_transactions',
-    title: 'GA4 購入完了',
+    title: 'GA4 Transactions',
     group: 'ga4',
     getValue: (p) => p.ga4.transactions,
     formatValue: formatNumber,
   },
   {
     id: 'ga4_revenue',
-    title: 'GA4 売上',
+    title: 'GA4 Revenue',
     group: 'ga4',
-    suffix: '円',
+    suffix: 'JPY',
     getValue: (p) => p.ga4.revenue,
-    formatValue: (v) => `¥${formatCompact(v)}`,
+    formatValue: formatCompactCurrency,
   },
   {
     id: 'ga4_conversion_rate',
@@ -114,6 +114,26 @@ export const MONTHLY_TREND_METRICS: MonthlyTrendMetricDef[] = [
 const CHART_WIDTH = 900
 const CHART_HEIGHT = 420
 const PADDING = { top: 48, right: 24, bottom: 56, left: 72 }
+
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function svgText(
+  text: string,
+  x: number,
+  y: number,
+  options: {
+    fontSize: number
+    fill: string
+    anchor?: 'start' | 'middle' | 'end'
+    fontWeight?: string
+  }
+): string {
+  const anchor = options.anchor ?? 'start'
+  const weight = options.fontWeight ? ` font-weight="${options.fontWeight}"` : ''
+  return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor}" font-family="sans-serif" font-size="${options.fontSize}" fill="${options.fill}"${weight}>${escapeXml(text)}</text>`
+}
 
 function buildLineChartSvg(
   metric: MonthlyTrendMetricDef,
@@ -147,14 +167,22 @@ function buildLineChartSvg(
     .map((c, i) => {
       if (points.length > 8 && i % 2 !== 0 && i !== points.length - 1) return ''
       const anchor = i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'
-      return chartTextPath(c.point.label, c.x, CHART_HEIGHT - 18, 11, '#64748b', anchor)
+      return svgText(c.point.label, c.x, CHART_HEIGHT - 18, {
+        fontSize: 11,
+        fill: '#64748b',
+        anchor,
+      })
     })
     .join('')
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => {
     const value = metric.invertY ? min + (max - min) * t : max - (max - min) * t
     const y = PADDING.top + t * plotH
-    return `${chartTextPath(metric.formatValue(value), PADDING.left - 8, y + 4, 11, '#64748b', 'end')}
+    return `${svgText(metric.formatValue(value), PADDING.left - 8, y + 4, {
+      fontSize: 11,
+      fill: '#64748b',
+      anchor: 'end',
+    })}
 <line x1="${PADDING.left}" y1="${y.toFixed(1)}" x2="${CHART_WIDTH - PADDING.right}" y2="${y.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`
   })
 
@@ -168,13 +196,20 @@ function buildLineChartSvg(
     .join('')
 
   const invertNote = metric.invertY
-    ? chartTextPath('※数値が小さいほど上位', PADDING.left, CHART_HEIGHT - 4, 10, '#94a3b8')
+    ? svgText('* Lower is better', PADDING.left, CHART_HEIGHT - 4, {
+        fontSize: 10,
+        fill: '#94a3b8',
+      })
     : ''
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${CHART_WIDTH}" height="${CHART_HEIGHT}" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}">
   <rect width="100%" height="100%" fill="#ffffff"/>
-  ${chartTextPath(`${metric.title} — 13ヶ月推移`, PADDING.left, 28, 18, '#0f172a')}
+  ${svgText(`${metric.title} — 13-month trend`, PADDING.left, 28, {
+    fontSize: 18,
+    fill: '#0f172a',
+    fontWeight: '600',
+  })}
   ${yTicks.join('')}
   <polyline points="${polyline}" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
   ${dots}
