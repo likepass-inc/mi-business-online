@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildMonthlySeoReport } from '@/lib/buildMonthlySeoReport'
-import { isSlackBotConfigured, postSlackMessage, postToSlack } from '@/lib/slackClient'
+import { renderAllMonthlyTrendCharts } from '@/lib/monthlyTrendCharts'
+import {
+  isSlackBotConfigured,
+  postSlackFile,
+  postSlackMessage,
+  postToSlack,
+} from '@/lib/slackClient'
 import {
   saveLastPostRecord,
   shouldSkipDuplicatePost,
@@ -10,7 +16,11 @@ import {
   formatSeoMonthlyMessage,
   formatSeoMonthlyParentMessage,
   formatSeoMonthlyThreadMessages,
+  getMonthlyTrendChartCaptions,
+  getMonthlyTrendChartCount,
 } from '@/lib/slackMonthlyMessage'
+
+export const maxDuration = 300
 
 function isDryRun(req: NextRequest): boolean {
   return req.nextUrl.searchParams.get('dryRun') === '1'
@@ -34,6 +44,25 @@ function verifyCronAuth(req: NextRequest): NextResponse | null {
   return null
 }
 
+async function postMonthlyTrendCharts(
+  report: Awaited<ReturnType<typeof buildMonthlySeoReport>>,
+  parentTs: string
+): Promise<number> {
+  const charts = await renderAllMonthlyTrendCharts(report.monthlyTrend, report.monthKey)
+  const captions = getMonthlyTrendChartCaptions(report)
+  const captionById = new Map(captions.map((c) => [c.metricId, c]))
+
+  for (const { metric, png } of charts) {
+    const meta = captionById.get(metric.id)
+    await postSlackFile(png, meta?.filename ?? `monthly-trend-${metric.id}.png`, {
+      threadTs: parentTs,
+      initialComment: meta?.caption ?? metric.title,
+    })
+  }
+
+  return charts.length
+}
+
 /**
  * 月次 SEO / KPI モニタリングを Slack に投稿
  * GitHub Actions 等から毎月第1月曜 8:00 JST に呼び出し
@@ -47,8 +76,14 @@ export async function GET(req: NextRequest) {
   try {
     const report = await buildMonthlySeoReport()
     const dryRun = isDryRun(req)
+    const textThreadCount = isSlackBotConfigured()
+      ? formatSeoMonthlyThreadMessages(report).length
+      : 1
+    const chartCount = getMonthlyTrendChartCount()
+    const trendMonths = report.monthlyTrend.map((p) => p.monthKey)
 
     if (dryRun) {
+      await renderAllMonthlyTrendCharts(report.monthlyTrend, report.monthKey)
       return NextResponse.json({
         success: true,
         dryRun: true,
@@ -57,7 +92,9 @@ export async function GET(req: NextRequest) {
         monthStart: report.monthStart,
         monthEnd: report.monthEnd,
         threaded: isSlackBotConfigured(),
-        threadCount: isSlackBotConfigured() ? formatSeoMonthlyThreadMessages(report).length : 1,
+        threadCount: textThreadCount,
+        chartCount,
+        trendMonths,
       })
     }
 
@@ -89,6 +126,7 @@ export async function GET(req: NextRequest) {
       for (const thread of threads) {
         await postSlackMessage(thread, { threadTs: parentTs })
       }
+      const chartsPosted = await postMonthlyTrendCharts(report, parentTs)
       saveLastPostRecord(report.monthKey)
 
       return NextResponse.json({
@@ -98,7 +136,9 @@ export async function GET(req: NextRequest) {
         monthStart: report.monthStart,
         monthEnd: report.monthEnd,
         threaded: true,
-        threadCount: threads.length,
+        threadCount: textThreadCount,
+        chartCount: chartsPosted,
+        trendMonths,
       })
     }
 
@@ -107,12 +147,14 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'SEO monthly report posted to Slack',
+      message: 'SEO monthly report posted to Slack (charts skipped: Bot Token not configured)',
       monthKey: report.monthKey,
       monthStart: report.monthStart,
       monthEnd: report.monthEnd,
       threaded: false,
       threadCount: 1,
+      chartCount: 0,
+      trendMonths,
     })
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : 'Failed to post SEO monthly report'

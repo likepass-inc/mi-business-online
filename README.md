@@ -486,10 +486,13 @@ curl -H "Authorization: Bearer your-secret-token-here" \
 4. スレッド3: GSC クエリ（クリック TOP10・伸長 TOP5・減少 TOP5）
 5. スレッド4: GA4 チャネル TOP5・デバイス
 6. スレッド5: クエリポートフォリオ（季節/通年）+ 自動考察
+7. スレッド6〜15: サイト全体 KPI の **13ヶ月推移グラフ**（GSC 4種 + GA4 6種、1指標1スレッド）
 
 ### セットアップ
 
-Weekly KPI Bot と同じ Slack App・チャンネル設定を流用できます。追加の環境変数:
+Weekly KPI Bot と同じ Slack App・チャンネル設定を流用できます。グラフ投稿には Bot Token に **`files:write`** スコープを追加し、ワークスペースに再インストールしてください。
+
+追加の環境変数:
 
 - `SEO_MONTHLY_MAGAZINE_PREFIX`: 任意（未設定時は Weekly のプレフィックス → `/magazine/`）
 - `SEO_MONTHLY_POSTING_ENABLED`: 任意（デフォルト有効）。`false` で Slack 投稿のみ停止

@@ -191,3 +191,38 @@ export function getMonthlySeoPeriod(referenceDate?: string): MonthlySeoPeriod {
     yoyMonthEnd,
   }
 }
+
+export interface MonthlyCalendarPeriod {
+  monthKey: string
+  monthStart: string
+  monthEnd: string
+}
+
+/**
+ * endMonthKey を終端とする直近 count ヶ月の暦月リスト（古い順）。
+ * 例: endMonthKey="2026-07", count=13 → 2025-07 〜 2026-07
+ */
+export function getMonthlyCalendarPeriods(
+  endMonthKey: string,
+  count = 13
+): MonthlyCalendarPeriod[] {
+  const [endYearStr, endMonthStr] = endMonthKey.split('-')
+  let year = parseInt(endYearStr, 10)
+  let month = parseInt(endMonthStr, 10)
+
+  const periods: MonthlyCalendarPeriod[] = []
+  for (let i = count - 1; i >= 0; i--) {
+    let y = year
+    let m = month - i
+    while (m <= 0) {
+      m += 12
+      y -= 1
+    }
+    const padded = String(m).padStart(2, '0')
+    const monthStart = `${y}-${padded}-01`
+    const lastDay = getLastDayOfCalendarMonth(y, m)
+    const monthEnd = `${y}-${padded}-${String(lastDay).padStart(2, '0')}`
+    periods.push({ monthKey: `${y}-${padded}`, monthStart, monthEnd })
+  }
+  return periods
+}

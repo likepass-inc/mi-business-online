@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   getLastDayOfCalendarMonth,
+  getMonthlyCalendarPeriods,
   getMonthlySeoPeriod,
 } from './dateUtils'
 
@@ -47,6 +48,23 @@ test('getMonthlySeoPeriod handles March reference after leap February', () => {
   assert.equal(period.monthStart, '2024-02-01')
   assert.equal(period.monthEnd, '2024-02-29')
   assert.equal(period.monthKey, '2024-02')
+})
+
+test('getMonthlyCalendarPeriods returns 13 months ending at endMonthKey', () => {
+  const periods = getMonthlyCalendarPeriods('2026-07', 13)
+  assert.equal(periods.length, 13)
+  assert.equal(periods[0].monthKey, '2025-07')
+  assert.equal(periods[12].monthKey, '2026-07')
+  assert.equal(periods[0].monthStart, '2025-07-01')
+  assert.equal(periods[12].monthEnd, '2026-07-31')
+})
+
+test('getMonthlyCalendarPeriods handles year boundary', () => {
+  const periods = getMonthlyCalendarPeriods('2026-02', 3)
+  assert.deepEqual(
+    periods.map((p) => p.monthKey),
+    ['2025-12', '2026-01', '2026-02']
+  )
 })
 
 console.log('\nAll dateUtils tests passed.')

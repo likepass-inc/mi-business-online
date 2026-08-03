@@ -14,7 +14,7 @@ on:
 jobs:
   trigger-monthly-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Call Render seo-monthly endpoint
         env:

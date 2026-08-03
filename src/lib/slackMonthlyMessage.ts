@@ -9,6 +9,10 @@ import {
 } from '@/lib/comprehensiveReportInsights'
 import type { SlackMessagePayload } from '@/lib/slackClient'
 import type { DeclinedRow, GrowthRow, QueryYoYRow } from '@/lib/gscDimensionYoY'
+import {
+  MONTHLY_TREND_METRICS,
+  type MonthlyTrendMetricId,
+} from '@/lib/monthlyTrendCharts'
 
 function formatNumber(n: number): string {
   return n.toLocaleString('ja-JP')
@@ -229,4 +233,72 @@ export function formatSeoMonthlyMessage(report: MonthlySeoReport): SlackMessageP
     buildPortfolioThreadText(report),
   ]
   return toPayload(parts.join('\n\n---\n\n'))
+}
+
+const METRIC_YOY_MAP: Record<
+  MonthlyTrendMetricId,
+  { getDelta: (report: MonthlySeoReport) => NumericDelta; suffix?: string }
+> = {
+  gsc_clicks: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.gsc.totalClicks,
+  },
+  gsc_impressions: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.gsc.totalImpressions,
+  },
+  gsc_average_ctr: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.gsc.averageCtr,
+    suffix: '%',
+  },
+  gsc_average_position: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.gsc.averagePosition,
+  },
+  ga4_sessions: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.sessions,
+  },
+  ga4_users: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.users,
+  },
+  ga4_page_views: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.pageViews,
+  },
+  ga4_transactions: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.transactions,
+  },
+  ga4_revenue: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.revenue,
+    suffix: '円',
+  },
+  ga4_conversion_rate: {
+    getDelta: (r) => r.comprehensive.siteWide.yearOverYear.ga4.conversionRate,
+    suffix: '%',
+  },
+}
+
+function formatCaptionDeltaLine(label: string, d: NumericDelta, options?: { suffix?: string }): string {
+  const suf = options?.suffix ?? ''
+  const pct = formatPct(d.percentChange)
+  const abs = `${d.absoluteChange >= 0 ? '+' : ''}${formatNumber(d.absoluteChange)}${suf}`
+  return `${label}: *${formatNumber(d.current)}${suf}*（前年 ${formatNumber(d.previous)}${suf} / ${abs} / ${pct}）`
+}
+
+/** グラフ投稿用キャプション（指標名 + 当月前年同月比） */
+export function getMonthlyTrendChartCaptions(report: MonthlySeoReport): Array<{
+  metricId: MonthlyTrendMetricId
+  caption: string
+  filename: string
+}> {
+  return MONTHLY_TREND_METRICS.map((metric) => {
+    const yoy = METRIC_YOY_MAP[metric.id]
+    const delta = yoy.getDelta(report)
+    const caption = formatCaptionDeltaLine(metric.title, delta, { suffix: yoy.suffix ?? metric.suffix })
+    return {
+      metricId: metric.id,
+      caption,
+      filename: `monthly-trend-${metric.id}.png`,
+    }
+  })
+}
+
+export function getMonthlyTrendChartCount(): number {
+  return MONTHLY_TREND_METRICS.length
 }

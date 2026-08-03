@@ -82,3 +82,56 @@ export async function postSlackMessage(
 export function isSlackBotConfigured(): boolean {
   return Boolean(process.env.SLACK_BOT_TOKEN && process.env.SLACK_CHANNEL_ID)
 }
+
+interface PostSlackFileOptions {
+  threadTs?: string
+  initialComment?: string
+}
+
+/**
+ * Bot Token (files.upload) で画像を投稿。
+ * threadTs を渡すとスレッド返信になる。files:write スコープが必要。
+ */
+export async function postSlackFile(
+  buffer: Buffer,
+  filename: string,
+  options?: PostSlackFileOptions
+): Promise<void> {
+  const token = process.env.SLACK_BOT_TOKEN
+  const channel = process.env.SLACK_CHANNEL_ID
+
+  if (!token) {
+    throw new Error('SLACK_BOT_TOKEN must be set')
+  }
+  if (!channel) {
+    throw new Error('SLACK_CHANNEL_ID must be set')
+  }
+
+  const form = new FormData()
+  form.append('file', new Blob([new Uint8Array(buffer)], { type: 'image/png' }), filename)
+  form.append('channels', channel)
+  form.append('filename', filename)
+  if (options?.threadTs) {
+    form.append('thread_ts', options.threadTs)
+  }
+  if (options?.initialComment) {
+    form.append('initial_comment', options.initialComment)
+  }
+
+  const response = await fetch('https://slack.com/api/files.upload', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: form,
+  })
+
+  const data = (await response.json().catch(() => null)) as
+    | { ok: boolean; error?: string }
+    | null
+
+  if (!response.ok || !data || !data.ok) {
+    const reason = data?.error || `${response.status} ${response.statusText}`
+    throw new Error(`Slack files.upload failed: ${reason}`)
+  }
+}

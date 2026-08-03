@@ -2,6 +2,7 @@ import {
   buildComprehensiveReport,
   type ComprehensiveReportResponse,
 } from '@/lib/buildComprehensiveReport'
+import { buildMonthlyTrendSeries, type MonthlyTrendSeries } from '@/lib/buildMonthlyTrendSeries'
 import { getMonthlySeoPeriod } from '@/lib/dateUtils'
 import {
   findDeclinedQueries,
@@ -26,6 +27,7 @@ export interface MonthlySeoReport {
   growingQueries: GrowthRow[]
   declinedQueries: DeclinedRow[]
   queryPortfolio: PortfolioSeasonSummary
+  monthlyTrend: MonthlyTrendSeries
 }
 
 function getMagazinePrefix(): string {
@@ -64,6 +66,8 @@ export async function buildMonthlySeoReport(): Promise<MonthlySeoReport> {
   })
   const queryPortfolio = summarizeQueryPortfolioBySeason(currentQueries)
 
+  const monthlyTrend = await buildMonthlyTrendSeries(monthKey)
+
   return {
     siteUrl,
     monthStart,
@@ -77,5 +81,6 @@ export async function buildMonthlySeoReport(): Promise<MonthlySeoReport> {
     growingQueries,
     declinedQueries,
     queryPortfolio,
+    monthlyTrend,
   }
 }
