@@ -24,5 +24,6 @@ declare module 'fontkit' {
     layout(text: string): FontLayout
   }
 
+  export function create(buffer: Buffer): Font
   export function openSync(path: string): Font
 }

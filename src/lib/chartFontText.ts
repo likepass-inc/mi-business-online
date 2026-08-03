@@ -1,4 +1,4 @@
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import * as fontkit from 'fontkit'
 
@@ -8,23 +8,13 @@ type TextAnchor = 'start' | 'middle' | 'end'
 let chartFont: FontInstance | null = null
 
 function getChartFontPath(): string {
-  const candidates: string[] = [
+  const candidates = [
+    join(process.cwd(), 'assets/fonts/noto-sans-jp-japanese-400-normal.woff'),
     join(
       process.cwd(),
       'node_modules/@fontsource/noto-sans-jp/files/noto-sans-jp-japanese-400-normal.woff'
     ),
   ]
-
-  try {
-    candidates.unshift(
-      join(
-        require.resolve('@fontsource/noto-sans-jp/package.json'),
-        '../files/noto-sans-jp-japanese-400-normal.woff'
-      )
-    )
-  } catch {
-    // @fontsource may not resolve in some bundled contexts; fall back to cwd path.
-  }
 
   const fontPath = candidates.find((candidate) => existsSync(candidate))
   if (!fontPath) {
@@ -35,7 +25,8 @@ function getChartFontPath(): string {
 
 function loadChartFont(): FontInstance {
   if (chartFont === null) {
-    chartFont = fontkit.openSync(getChartFontPath())
+    const fontBuffer = readFileSync(getChartFontPath())
+    chartFont = fontkit.create(fontBuffer)
   }
   return chartFont
 }
