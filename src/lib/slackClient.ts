@@ -102,10 +102,39 @@ async function slackApiCall<T extends { ok: boolean; error?: string }>(
     body: JSON.stringify(body),
   })
 
-  const data = (await response.json().catch(() => null)) as T | null
+  const data = (await response.json().catch(() => null)) as (T & { response_metadata?: { messages?: string[] } }) | null
   if (!response.ok || !data || !data.ok) {
+    const detail = data?.response_metadata?.messages?.join('; ')
     const reason = data?.error || `${response.status} ${response.statusText}`
-    throw new Error(`Slack ${method} failed: ${reason}`)
+    throw new Error(
+      `Slack ${method} failed: ${reason}${detail ? ` (${detail})` : ''}`
+    )
+  }
+  return data
+}
+
+async function slackFormApiCall<T extends { ok: boolean; error?: string }>(
+  token: string,
+  method: string,
+  fields: Record<string, string>
+): Promise<T> {
+  const body = new URLSearchParams(fields)
+  const response = await fetch(`https://slack.com/api/${method}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${token}`,
+    },
+    body: body.toString(),
+  })
+
+  const data = (await response.json().catch(() => null)) as (T & { response_metadata?: { messages?: string[] } }) | null
+  if (!response.ok || !data || !data.ok) {
+    const detail = data?.response_metadata?.messages?.join('; ')
+    const reason = data?.error || `${response.status} ${response.statusText}`
+    throw new Error(
+      `Slack ${method} failed: ${reason}${detail ? ` (${detail})` : ''}`
+    )
   }
   return data
 }
@@ -129,14 +158,14 @@ export async function postSlackFile(
     throw new Error('SLACK_CHANNEL_ID must be set')
   }
 
-  const urlResponse = await slackApiCall<{
+  const urlResponse = await slackFormApiCall<{
     ok: boolean
     upload_url: string
     file_id: string
     error?: string
   }>(token, 'files.getUploadURLExternal', {
     filename,
-    length: buffer.length,
+    length: String(buffer.length),
   })
 
   const uploadResponse = await fetch(urlResponse.upload_url, {
