@@ -1,0 +1,151 @@
+/* business.mistore.jp マガジンのトーン＆マナーを踏まえたモックアップ用スタイル */
+
+.mockup-root {
+  font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  color: #333;
+  background: #fff;
+  line-height: 1.7;
+}
+
+/* ブランドカラー（三越伊勢丹の落ち着いたトーン） */
+.mockup-root {
+  --mistore-text: #333;
+  --mistore-text-light: #666;
+  --mistore-text-muted: #999;
+  --mistore-border: #e0dcd5;
+  --mistore-bg: #f9f8f6;
+  --mistore-accent: #5c4a3a;
+  --mistore-link: #0066a2;
+  --mistore-link-hover: #004d7a;
+}
+
+.mockup-root a {
+  color: var(--mistore-link);
+}
+
+.mockup-root a:hover {
+  color: var(--mistore-link-hover);
+  text-decoration: underline;
+}
+
+/* ヘッダー - 実サイトに近い余白と区切り */
+.mockup-header {
+  border-bottom: 1px solid var(--mistore-border);
+  background: #fff;
+}
+
+/* カテゴリナビ - 横並び、実サイトの構造に合わせる */
+.mockup-nav-categories {
+  border-bottom: 1px solid var(--mistore-border);
+  font-size: 14px;
+}
+
+.mockup-nav-categories a {
+  color: var(--mistore-text);
+}
+
+.mockup-nav-categories a:hover {
+  color: var(--mistore-accent);
+}
+
+/* 記事カード - 余白を広めに、上品な枠線 */
+.mockup-article-card {
+  border: 1px solid var(--mistore-border);
+  background: #fff;
+  transition: box-shadow 0.2s ease;
+}
+
+.mockup-article-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* カテゴリタグ - 小さいラベル */
+.mockup-category-tag {
+  font-size: 12px;
+  color: var(--mistore-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* 日付 */
+.mockup-date {
+  font-size: 12px;
+  color: var(--mistore-text-muted);
+}
+
+/* 記事タイトル - 適度なウェイト */
+.mockup-article-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--mistore-text);
+  line-height: 1.5;
+}
+
+/* CTAボタン - ベースは #FFFFFF */
+.mockup-btn-primary {
+  background: #fff;
+  color: var(--mistore-accent);
+  border: 1px solid var(--mistore-accent);
+  padding: 12px 24px;
+  font-size: 14px;
+}
+
+.mockup-btn-primary:hover {
+  background: #f9f8f6;
+  color: var(--mistore-accent);
+}
+
+/* パンくず - 細めのフォント */
+.mockup-breadcrumb {
+  font-size: 12px;
+  color: var(--mistore-text-light);
+  background: var(--mistore-bg);
+}
+
+/* 記事本文 - 読みやすい行間 */
+.mockup-article-body {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--mistore-text);
+}
+
+/* 見出し */
+.mockup-heading {
+  font-weight: 600;
+  color: var(--mistore-text);
+}
+
+/* RECOMMEND セクション */
+.mockup-recommend {
+  border-top: 1px solid var(--mistore-border);
+  padding-top: 24px;
+}
+
+.mockup-recommend-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mistore-text);
+  margin-bottom: 16px;
+  letter-spacing: 0.05em;
+}
+
+/* フッター */
+.mockup-footer {
+  background: var(--mistore-bg);
+  border-top: 1px solid var(--mistore-border);
+  font-size: 12px;
+  color: var(--mistore-text-muted);
+}
+
+/* FAQ アコーディオン */
+.mockup-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.mockup-faq summary {
+  list-style: none;
+}
+
+.mockup-faq-icon {
+  font-size: 10px;
+  transform-origin: center;
+}
