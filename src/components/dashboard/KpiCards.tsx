@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
 import { getYearOverYearPeriod } from '@/lib/dateUtils'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import { Stat, StatGrid } from '@/components/ui/StatGrid'
 
 interface KpiCardsProps {
   dateRange: DateRange
@@ -58,17 +60,17 @@ function calculateComparison(current: number, previous: number): { diff: number;
 function ComparisonDisplay({ current, previous, isLowerBetter = false }: { current: number; previous: number; isLowerBetter?: boolean }) {
   const { diff, percent } = calculateComparison(current, previous)
   if (previous === 0) {
-    return <p className="text-xs text-gray-500 mt-1">-</p>
+    return <p className="m-0 text-xs text-muted">-</p>
   }
   
   // 平均ポジションの場合は、数値が小さい方が良いので色分けを逆にする
   const isPositive = isLowerBetter ? diff < 0 : diff > 0
   const isNegative = isLowerBetter ? diff > 0 : diff < 0
-  const colorClass = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-500'
+  const colorClass = isPositive ? 'text-green-600' : isNegative ? 'text-danger' : 'text-muted'
   const sign = diff > 0 ? '+' : ''
   
   return (
-    <p className={`text-xs ${colorClass} mt-1`}>
+    <p className={`m-0 text-xs ${colorClass}`}>
       {sign}{diff.toLocaleString()} ({percent !== null ? `${sign}${percent.toFixed(2)}%` : '-'})
     </p>
   )
@@ -280,22 +282,20 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <StatGrid>
         {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <div key={i} className="bg-white p-6 rounded-lg shadow animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-            <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+          <div key={i} className="grid gap-2 py-5 animate-pulse">
+            <div className="h-3 bg-line w-1/2"></div>
+            <div className="h-7 bg-line w-3/4"></div>
           </div>
         ))}
-      </div>
+      </StatGrid>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-        エラー: {error}
-      </div>
+      <p className="m-0 text-danger text-sm">エラー: {error}</p>
     )
   }
 
@@ -304,92 +304,60 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
   }
 
   return (
-    <div>
-      {/* 比較モード切り替えボタン */}
-      <div className="mb-4 flex justify-end">
-        <div className="inline-flex rounded-md shadow-sm" role="group">
-          <button
-            type="button"
-            onClick={() => setComparisonMode('year-over-year')}
-            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
-              comparisonMode === 'year-over-year'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前年同時期対比
-          </button>
-          <button
-            type="button"
-            onClick={() => setComparisonMode('previous-period')}
-            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
-              comparisonMode === 'previous-period'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前期間対比
-          </button>
-        </div>
+    <div className="grid gap-4">
+      <div className="flex justify-end">
+        <SegmentedControl
+          ariaLabel="比較対象"
+          value={comparisonMode}
+          onChange={setComparisonMode}
+          options={[
+            { value: 'year-over-year', label: '前年同時期対比' },
+            { value: 'previous-period', label: '前期間対比' },
+          ]}
+        />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">セッション</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.sessions.toLocaleString()}
-        </p>
-        <ComparisonDisplay current={kpiData.sessions} previous={kpiData.prevSessions} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">トランザクション</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.transactions.toLocaleString()}
-        </p>
-        <ComparisonDisplay current={kpiData.transactions} previous={kpiData.prevTransactions} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">CVR</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.cvr.toFixed(2)}%
-        </p>
-        <ComparisonDisplay current={kpiData.cvr} previous={kpiData.prevCvr} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">自然検索セッション</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.organicSessions.toLocaleString()}
-        </p>
-        <ComparisonDisplay current={kpiData.organicSessions} previous={kpiData.prevOrganicSessions} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC クリック数</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.gscClicks.toLocaleString()}
-        </p>
-        <ComparisonDisplay current={kpiData.gscClicks} previous={kpiData.prevGscClicks} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC インプレッション数</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.gscImpressions.toLocaleString()}
-        </p>
-        <ComparisonDisplay current={kpiData.gscImpressions} previous={kpiData.prevGscImpressions} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC CTR</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.gscCtr.toFixed(2)}%
-        </p>
-        <ComparisonDisplay current={kpiData.gscCtr} previous={kpiData.prevGscCtr} />
-      </div>
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">GSC 平均ポジション</h3>
-        <p className="text-3xl font-bold text-gray-900">
-          {kpiData.gscPosition.toFixed(1)}
-        </p>
-        <ComparisonDisplay current={kpiData.gscPosition} previous={kpiData.prevGscPosition} isLowerBetter={true} />
-      </div>
-      </div>
+      <StatGrid>
+        <Stat
+          label="セッション"
+          value={kpiData.sessions.toLocaleString()}
+          meta={<ComparisonDisplay current={kpiData.sessions} previous={kpiData.prevSessions} />}
+        />
+        <Stat
+          label="トランザクション"
+          value={kpiData.transactions.toLocaleString()}
+          meta={<ComparisonDisplay current={kpiData.transactions} previous={kpiData.prevTransactions} />}
+        />
+        <Stat
+          label="CVR"
+          value={`${kpiData.cvr.toFixed(2)}%`}
+          meta={<ComparisonDisplay current={kpiData.cvr} previous={kpiData.prevCvr} />}
+        />
+        <Stat
+          label="自然検索セッション"
+          value={kpiData.organicSessions.toLocaleString()}
+          meta={<ComparisonDisplay current={kpiData.organicSessions} previous={kpiData.prevOrganicSessions} />}
+        />
+        <Stat
+          label="GSC クリック数"
+          value={kpiData.gscClicks.toLocaleString()}
+          meta={<ComparisonDisplay current={kpiData.gscClicks} previous={kpiData.prevGscClicks} />}
+        />
+        <Stat
+          label="GSC インプレッション数"
+          value={kpiData.gscImpressions.toLocaleString()}
+          meta={<ComparisonDisplay current={kpiData.gscImpressions} previous={kpiData.prevGscImpressions} />}
+        />
+        <Stat
+          label="GSC CTR"
+          value={`${kpiData.gscCtr.toFixed(2)}%`}
+          meta={<ComparisonDisplay current={kpiData.gscCtr} previous={kpiData.prevGscCtr} />}
+        />
+        <Stat
+          label="GSC 平均ポジション"
+          value={kpiData.gscPosition.toFixed(1)}
+          meta={<ComparisonDisplay current={kpiData.gscPosition} previous={kpiData.prevGscPosition} isLowerBetter={true} />}
+        />
+      </StatGrid>
     </div>
   )
 }

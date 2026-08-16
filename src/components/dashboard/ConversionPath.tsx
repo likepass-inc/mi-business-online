@@ -60,11 +60,10 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold mb-4">コンバージョン経路</h2>
+      <div className="border-y border-line py-6">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+          <div className="h-4 bg-line w-3/4 mb-4"></div>
+          <div className="h-4 bg-line w-1/2"></div>
         </div>
       </div>
     )
@@ -72,40 +71,32 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold mb-4">コンバージョン経路</h2>
-        <p className="text-red-600">エラー: {error}</p>
-      </div>
+      <p className="m-0 text-danger text-sm">エラー: {error}</p>
     )
   }
 
   if (!pathData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold mb-4">コンバージョン経路</h2>
-        <p className="text-gray-500">データがありません</p>
-      </div>
+      <p className="m-0 text-muted text-sm">データがありません</p>
     )
   }
 
   const maxUsers = Math.max(...pathData.steps.map(step => step.users))
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-bold mb-4">コンバージョン経路</h2>
-      
-      <div className="mb-4">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">総コンバージョン数</span>
-          <span className="text-lg font-bold">{pathData.totalConversions.toLocaleString()}</span>
+    <div className="grid gap-6">
+      <div className="grid gap-2 border-y border-line py-5">
+        <div className="flex justify-between items-center">
+          <span className="text-[13px] text-muted">総コンバージョン数</span>
+          <span className="text-[22px] font-semibold">{pathData.totalConversions.toLocaleString()}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">全体コンバージョン率</span>
-          <span className="text-lg font-bold">{pathData.overallConversionRate.toFixed(2)}%</span>
+          <span className="text-[13px] text-muted">全体コンバージョン率</span>
+          <span className="text-[22px] font-semibold">{pathData.overallConversionRate.toFixed(2)}%</span>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid gap-4">
         {pathData.steps.map((step, index) => {
           const widthPercent = (step.users / maxUsers) * 100
           const isLastStep = index === pathData.steps.length - 1
@@ -115,11 +106,11 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-medium">{step.step}</span>
                 <div className="flex gap-4 text-xs">
-                  <span className="text-gray-600">
+                  <span className="text-muted">
                     ユーザー: {step.users.toLocaleString()}
                   </span>
                   {!isLastStep && (
-                    <span className="text-red-600">
+                    <span className="text-danger">
                       離脱率: {step.dropoffRate.toFixed(2)}%
                     </span>
                   )}
@@ -130,10 +121,10 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
                   )}
                 </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-6">
+              <div className="w-full bg-[#f5f5f5] h-6">
                 <div
-                  className={`h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                    isLastStep ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'
+                  className={`h-6 flex items-center justify-center text-xs font-medium ${
+                    isLastStep ? 'bg-ink text-white' : 'bg-accent text-white'
                   }`}
                   style={{ width: `${widthPercent}%` }}
                 >
@@ -143,7 +134,7 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
               {!isLastStep && (
                 <div className="flex justify-center mt-2">
                   <svg
-                    className="w-6 h-6 text-gray-400"
+                    className="w-6 h-6 text-[#ccc]"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -162,14 +153,14 @@ export default function ConversionPath({ dateRange }: ConversionPathProps) {
         })}
       </div>
 
-      <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
-        <h3 className="text-sm font-bold mb-2">改善提案</h3>
-        <ul className="text-sm text-gray-700 space-y-1">
+      <div className="border-t border-line pt-4">
+        <h3 className="text-[15px] font-semibold mb-2">改善提案</h3>
+        <ul className="text-sm text-muted space-y-1">
           {pathData.steps
             .filter(step => step.dropoffRate > 50)
             .map(step => (
               <li key={step.step}>
-                • {step.step}の離脱率が{step.dropoffRate.toFixed(2)}%と高いため、改善が必要です
+                {step.step}の離脱率が{step.dropoffRate.toFixed(2)}%と高いため、改善が必要です
               </li>
             ))}
         </ul>

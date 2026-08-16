@@ -3,7 +3,10 @@
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
-import Link from 'next/link'
+import PageHeader from '@/components/ui/PageHeader'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import Button from '@/components/ui/Button'
+import { linkClass, tableClass, tdClass, thClass } from '@/components/ui/styles'
 import type { Product } from '@/lib/types'
 
 const PAGE_SIZE = 20
@@ -77,127 +80,112 @@ function ProductsPageContent() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">商品動向</h1>
-          <Link href="/" className="text-blue-600 hover:text-blue-800 text-sm">
-            ダッシュボードに戻る
-          </Link>
-        </div>
-
-        <div className="mb-4 flex flex-wrap gap-4 items-center">
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            <button
-              onClick={() => { setTab('new'); setPage(0) }}
-              className={`px-4 py-2 text-sm font-medium ${tab === 'new' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              新規登録商品
-            </button>
-            <button
-              onClick={() => { setTab('discontinued'); setPage(0) }}
-              className={`px-4 py-2 text-sm font-medium ${tab === 'discontinued' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            >
-              販売終了商品
-            </button>
+      <div className="grid gap-6">
+        <PageHeader
+          title="商品動向"
+          description={
+            tab === 'new'
+              ? `直近${days}日以内に当システムに登録された商品です。サイトで新規掲載された商品をクロールで取得したものを含みます。`
+              : '商品ページ内の在庫表示（販売終了に関連するテキスト）に基づいて表示しています。'
+          }
+        >
+          <div className="flex flex-wrap gap-4 items-center">
+            <SegmentedControl
+              ariaLabel="商品の種類"
+              value={tab}
+              onChange={(next) => { setTab(next); setPage(0) }}
+              options={[
+                { value: 'new', label: '新規登録商品' },
+                { value: 'discontinued', label: '販売終了商品' },
+              ]}
+            />
+            {tab === 'new' && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted">直近</span>
+                <SegmentedControl
+                  ariaLabel="対象日数"
+                  value={String(days) as '7' | '14' | '30'}
+                  onChange={(next) => { setDays(Number(next)); setPage(0) }}
+                  options={DAYS_OPTIONS.map((d) => ({ value: String(d) as '7' | '14' | '30', label: `${d}日` }))}
+                />
+              </div>
+            )}
           </div>
-          {tab === 'new' && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">直近</span>
-              {DAYS_OPTIONS.map(d => (
-                <button
-                  key={d}
-                  onClick={() => { setDays(d); setPage(0) }}
-                  className={`px-3 py-1 text-sm rounded ${days === d ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                >
-                  {d}日
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <p className="text-sm text-gray-500 mb-6">
-          {tab === 'new'
-            ? `直近${days}日以内に当システムに登録された商品です。サイトで新規掲載された商品をクロールで取得したものを含みます。`
-            : '商品ページ内の在庫表示（販売終了に関連するテキスト）に基づいて表示しています。'}
-        </p>
+        </PageHeader>
 
         {error && (
-          <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg">{error}</div>
+          <p className="m-0 text-danger text-sm">{error}</p>
         )}
 
         {loading ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
-            読み込み中...
-          </div>
+          <p className="m-0 text-muted text-sm">読み込み中...</p>
         ) : (
           <>
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+            <div className="overflow-x-auto">
+              <table className={tableClass}>
+                <thead>
+                  <tr>
+                    <th className={thClass}>商品名</th>
+                    <th className={thClass}>商品コード</th>
+                    <th className={thClass}>
+                      {tab === 'new' ? '登録日' : '更新日'}
+                    </th>
+                    <th className={thClass}>リンク</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.length === 0 ? (
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品名</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品コード</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        {tab === 'new' ? '登録日' : '更新日'}
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">リンク</th>
+                      <td colSpan={4} className={`${tdClass} text-center text-muted`}>
+                        該当する商品はありません
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {products.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
-                          該当する商品はありません
+                  ) : (
+                    products.map(p => (
+                      <tr key={p.product_code} className="hover:bg-[#fafafa]">
+                        <td className={`${tdClass} max-w-xs truncate`} title={p.product_name}>
+                          {p.product_name}
+                        </td>
+                        <td className={`${tdClass} text-muted`}>{p.product_code}</td>
+                        <td className={`${tdClass} text-muted`}>
+                          {formatDate(tab === 'new' ? p.created_at : p.updated_at)}
+                        </td>
+                        <td className={tdClass}>
+                          <a
+                            href={p.product_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${linkClass} text-sm`}
+                          >
+                            開く
+                          </a>
                         </td>
                       </tr>
-                    ) : (
-                      products.map(p => (
-                        <tr key={p.product_code} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate" title={p.product_name}>
-                            {p.product_name}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500">{p.product_code}</td>
-                          <td className="px-4 py-3 text-sm text-gray-500">
-                            {formatDate(tab === 'new' ? p.created_at : p.updated_at)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <a
-                              href={p.product_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline text-sm"
-                            >
-                              開く
-                            </a>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
 
             {totalPages > 1 && (
-              <div className="mt-4 flex justify-center gap-2">
-                <button
+              <div className="flex justify-center items-center gap-3">
+                <Button
+                  variant="secondary"
                   onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="px-4 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   前へ
-                </button>
-                <span className="px-4 py-2 text-sm text-gray-600">
+                </Button>
+                <span className="text-sm text-muted">
                   {page + 1} / {totalPages}（全 {total} 件）
                 </span>
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="px-4 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                 >
                   次へ
-                </button>
+                </Button>
               </div>
             )}
           </>
@@ -211,9 +199,7 @@ export default function ProductsPage() {
   return (
     <Suspense fallback={
       <AppLayout>
-        <div className="container mx-auto px-4 py-8">
-          <p className="text-gray-500">読み込み中...</p>
-        </div>
+        <p className="m-0 text-muted text-sm">読み込み中...</p>
       </AppLayout>
     }>
       <ProductsPageContent />

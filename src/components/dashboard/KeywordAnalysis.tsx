@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
 import { getYearOverYearPeriod } from '@/lib/dateUtils'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import { linkClass, tableClass, tdClass, thClass } from '@/components/ui/styles'
 
 interface KeywordAnalysisProps {
   dateRange: DateRange
@@ -367,64 +369,43 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
 
   if (loading) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="h-64 flex items-center justify-center">
-          <div className="text-gray-500">読み込み中...</div>
-        </div>
+      <div className="h-64 flex items-center justify-center border-y border-line">
+        <p className="m-0 text-muted">読み込み中...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="h-64 flex items-center justify-center text-red-600">
-          エラー: {error}
-        </div>
+      <div className="h-64 flex items-center justify-center border-y border-line">
+        <p className="m-0 text-danger">エラー: {error}</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* 比較モード切り替えボタン */}
+    <div className="grid gap-8">
       <div className="flex justify-end">
-        <div className="inline-flex rounded-md shadow-sm" role="group">
-          <button
-            type="button"
-            onClick={() => setComparisonMode('year-over-year')}
-            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
-              comparisonMode === 'year-over-year'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前年同時期対比
-          </button>
-          <button
-            type="button"
-            onClick={() => setComparisonMode('previous-period')}
-            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
-              comparisonMode === 'previous-period'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前期間対比
-          </button>
-        </div>
+        <SegmentedControl
+          ariaLabel="比較対象"
+          value={comparisonMode}
+          onChange={setComparisonMode}
+          options={[
+            { value: 'year-over-year', label: '前年同時期対比' },
+            { value: 'previous-period', label: '前期間対比' },
+          ]}
+        />
       </div>
-      {/* 推奨キーワード */}
       {recommendedKeywords.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-bold mb-4 text-blue-600">
+        <div>
+          <h3 className="m-0 mb-3 text-[15px] font-semibold text-accent">
             今月の推奨キーワード（季節性 + パフォーマンス）
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {recommendedKeywords.map((keyword, index) => (
-              <div key={index} className="border border-gray-200 rounded p-4">
-                <div className="font-semibold text-gray-900 mb-2">{keyword.query}</div>
-                <div className="text-sm text-gray-600 space-y-1">
+              <div key={index} className="border-t border-line pt-3">
+                <div className="font-semibold text-ink mb-2">{keyword.query}</div>
+                <div className="text-sm text-muted space-y-1">
                   <div>クリック: {keyword.clicks.toLocaleString()}</div>
                   <div>インプレッション: {keyword.impressions.toLocaleString()}</div>
                   <div>CTR: {keyword.ctr.toFixed(2)}%</div>
@@ -465,31 +446,31 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
             }
 
             return (
-              <div key={index} className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-bold mb-2">{titles[insight.type]}</h3>
-                <p className="text-sm text-gray-600 mb-4">{descriptions[insight.type]}</p>
+              <div key={index} className="border-t border-line pt-4">
+                <h3 className="m-0 mb-2 text-[15px] font-semibold">{titles[insight.type]}</h3>
+                <p className="text-sm text-muted mb-4">{descriptions[insight.type]}</p>
                 <div className="space-y-4">
                   {insight.keywords.map((keyword, idx) => (
-                    <div key={idx} className="border-l-4 border-blue-500 pl-3">
-                      <div className="font-semibold text-gray-900 mb-1">{keyword.query}</div>
-                      <div className="text-xs text-gray-600 mb-2">
+                    <div key={idx} className="border-l-2 border-accent pl-3">
+                      <div className="font-semibold text-ink mb-1">{keyword.query}</div>
+                      <div className="text-xs text-muted mb-2">
                         クリック: {keyword.clicks} | インプレ: {keyword.impressions.toLocaleString()} | 
                         ポジション: {keyword.position.toFixed(1)} | CTR: {keyword.ctr.toFixed(2)}%
                       </div>
                       {keyword.pages && keyword.pages.length > 0 && (
                         <div className="mt-2 space-y-1">
-                          <div className="text-xs font-medium text-gray-700">対象ページ:</div>
+                          <div className="text-xs font-medium text-ink">対象ページ:</div>
                           {keyword.pages.map((page, pageIdx) => (
                             <div key={pageIdx} className="text-xs ml-2">
                               <a
                                 href={page.page}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline"
+                                className={linkClass}
                               >
                                 {shortenUrl(page.page)}
                               </a>
-                              <span className="text-gray-500 ml-2">
+                              <span className="text-muted ml-2">
                                 (クリック: {page.clicks.toLocaleString()}, インプレ: {page.impressions.toLocaleString()})
                               </span>
                             </div>
@@ -506,61 +487,45 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
       )}
 
       {/* キーワードテーブル */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-bold mb-4">キーワードランキング（上位30件）</h3>
+      <div>
+        <h3 className="m-0 mb-3 text-[15px] font-semibold">キーワードランキング（上位30件）</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className={tableClass}>
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  順位
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  キーワード
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  クリック
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  インプレッション
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CTR
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ポジション
-                </th>
+                <th className={thClass}>順位</th>
+                <th className={thClass}>キーワード</th>
+                <th className={`${thClass} text-right`}>クリック</th>
+                <th className={`${thClass} text-right`}>インプレッション</th>
+                <th className={`${thClass} text-right`}>CTR</th>
+                <th className={`${thClass} text-right`}>ポジション</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {keywords.map((keyword, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {index + 1}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {keyword.query}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                <tr key={index} className="hover:bg-[#fafafa]">
+                  <td className={`${tdClass} whitespace-nowrap`}>{index + 1}</td>
+                  <td className={`${tdClass} whitespace-nowrap`}>{keyword.query}</td>
+                  <td className={`${tdClass} whitespace-nowrap text-right`}>
                     <ComparisonCell 
                       current={keyword.clicks} 
                       previous={keyword.prevClicks} 
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                  <td className={`${tdClass} whitespace-nowrap text-right`}>
                     <ComparisonCell 
                       current={keyword.impressions} 
                       previous={keyword.prevImpressions} 
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                  <td className={`${tdClass} whitespace-nowrap text-right`}>
                     <ComparisonCell 
                       current={keyword.ctr} 
                       previous={keyword.prevCtr}
                       isPercentage={true}
                     />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
+                  <td className={`${tdClass} whitespace-nowrap text-right`}>
                     <ComparisonCell 
                       current={keyword.position} 
                       previous={keyword.prevPosition} 

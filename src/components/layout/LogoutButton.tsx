@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Button from '@/components/ui/Button'
 
 export default function LogoutButton() {
   const router = useRouter()
@@ -30,13 +31,8 @@ export default function LogoutButton() {
   }
 
   return (
-    <button
-      onClick={handleLogout}
-      disabled={isLoading}
-      className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
-    >
+    <Button onClick={handleLogout} disabled={isLoading}>
       {isLoading ? 'ログアウト中...' : 'ログアウト'}
-    </button>
+    </Button>
   )
 }
-

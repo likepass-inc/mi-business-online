@@ -52,10 +52,10 @@ export default function ChatWindow() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow flex flex-col" style={{ minHeight: '500px', maxHeight: '800px', height: '600px' }}>
-      <div className="border-b p-3 space-y-2 bg-gray-50 flex-shrink-0">
+    <div className="bg-white border-y border-line flex flex-col" style={{ minHeight: '500px', maxHeight: '800px', height: '600px' }}>
+      <div className="border-b border-line p-3 space-y-2 flex-shrink-0">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-[13px] text-[#333] mb-1.5">
             分析対象キーワード（オプション）
           </label>
           <input
@@ -64,11 +64,11 @@ export default function ChatWindow() {
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="例: お中元 法人ギフト"
             disabled={isLoading}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+            className="w-full px-3 py-2 border border-[#ccc] rounded-admin bg-white text-sm focus:outline-none focus:border-accent disabled:bg-[#f5f5f5]"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
+          <label className="block text-[13px] text-[#333] mb-1.5">
             分析対象ランディングページ（オプション）
           </label>
           <input
@@ -77,7 +77,7 @@ export default function ChatWindow() {
             onChange={(e) => setLandingPage(e.target.value)}
             placeholder="例: https://business.mistore.jp/gift/ochugen/"
             disabled={isLoading}
-            className="w-full px-2 py-1.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 text-sm"
+            className="w-full px-3 py-2 border border-[#ccc] rounded-admin bg-white text-sm focus:outline-none focus:border-accent disabled:bg-[#f5f5f5]"
           />
         </div>
       </div>
@@ -85,7 +85,7 @@ export default function ChatWindow() {
       <MessageList messages={messages} />
       </div>
       {isLoading && (
-        <div className="px-4 py-2 text-sm text-gray-500 flex-shrink-0">分析中...</div>
+        <div className="px-4 py-2 text-sm text-muted flex-shrink-0">分析中...</div>
       )}
       <div className="flex-shrink-0">
       <MessageInput onSend={handleSend} disabled={isLoading} />

@@ -16,7 +16,7 @@ export default function MessageList({ messages }: MessageListProps) {
   return (
     <div className="p-4 space-y-4">
       {messages.length === 0 ? (
-        <div className="text-center text-gray-500 mt-8">
+        <div className="text-center text-muted mt-8">
           メッセージを入力してAIアナリストに質問してください
         </div>
       ) : (
@@ -28,10 +28,10 @@ export default function MessageList({ messages }: MessageListProps) {
             }`}
           >
             <div
-              className={`max-w-[80%] rounded-lg p-4 ${
+              className={`max-w-[80%] rounded-admin p-4 ${
                 message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  ? 'bg-accent text-white'
+                  : 'bg-[#f5f5f5] text-ink'
               }`}
             >
               {message.role === 'assistant' ? (
@@ -95,7 +95,7 @@ export default function MessageList({ messages }: MessageListProps) {
                       ),
                       a: ({ node, ...props }: any) => (
                         <a
-                          className="text-blue-600 hover:text-blue-800 underline"
+                          className="text-accent hover:underline"
                           target="_blank"
                           rel="noopener noreferrer"
                           {...props}

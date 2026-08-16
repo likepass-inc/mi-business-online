@@ -9,91 +9,100 @@ import ContentPopularityAnalysis from '@/components/dashboard/ContentPopularityA
 import ConversionPath from '@/components/dashboard/ConversionPath'
 import ProductChanges from '@/components/dashboard/ProductChanges'
 import ChatWindow from '@/components/chat/ChatWindow'
+import PageHeader from '@/components/ui/PageHeader'
+import SectionHeader from '@/components/ui/SectionHeader'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+
+type PeriodKey = '7' | '30' | '90'
+
+function periodToRange(key: PeriodKey) {
+  const days = Number(key)
+  const end = new Date().toISOString().split('T')[0]
+  const start = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  return { startDate: start, endDate: end }
+}
 
 export default function Home() {
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
-  })
+  const [period, setPeriod] = useState<PeriodKey>('30')
+  const [dateRange, setDateRange] = useState(() => periodToRange('30'))
 
-  const handleDateRangeChange = (startDate: string, endDate: string) => {
-    setDateRange({ startDate, endDate })
+  const handlePeriodChange = (key: PeriodKey) => {
+    setPeriod(key)
+    setDateRange(periodToRange(key))
   }
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-4">MI Business Online Analytics</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const end = new Date().toISOString().split('T')[0]
-                const start = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                handleDateRangeChange(start, end)
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              直近7日
-            </button>
-            <button
-              onClick={() => {
-                const end = new Date().toISOString().split('T')[0]
-                const start = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                handleDateRangeChange(start, end)
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              直近30日
-            </button>
-            <button
-              onClick={() => {
-                const end = new Date().toISOString().split('T')[0]
-                const start = new Date(Date.now() - 89 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                handleDateRangeChange(start, end)
-              }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              直近90日
-            </button>
-          </div>
-          <div className="mt-4 text-sm text-gray-600">
+      <div className="grid gap-10">
+        <PageHeader
+          title="ダッシュボード"
+          description="GA4 と Search Console の主要指標です。"
+        >
+          <SegmentedControl
+            ariaLabel="集計期間"
+            value={period}
+            onChange={handlePeriodChange}
+            options={[
+              { value: '7', label: '直近7日' },
+              { value: '30', label: '直近30日' },
+              { value: '90', label: '直近90日' },
+            ]}
+          />
+          <p className="m-0 text-sm text-muted">
             期間: {dateRange.startDate} 〜 {dateRange.endDate}
-          </div>
-        </div>
+          </p>
+        </PageHeader>
 
-        <div className="mb-8">
-          <KpiCards dateRange={dateRange} />
-        </div>
+        <KpiCards dateRange={dateRange} />
 
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-2xl font-bold mb-4">トラフィック推移</h2>
-            <TrafficChart dateRange={dateRange} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-4">キーワード分析</h2>
-            <KeywordAnalysis dateRange={dateRange} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-4">コンテンツ人気分析</h2>
-            <ContentPopularityAnalysis dateRange={dateRange} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-4">コンバージョン経路</h2>
-            <ConversionPath dateRange={dateRange} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-4">新商品・販売終了商品</h2>
-            <ProductChanges newLimit={10} newDays={30} discontinuedLimit={10} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold mb-4">AI アナリスト</h2>
-            <ChatWindow />
-          </div>
-        </div>
+        <section className="grid gap-5">
+          <SectionHeader
+            title="トラフィック推移"
+            description="セッションとトランザクションの日次推移です。"
+          />
+          <TrafficChart dateRange={dateRange} />
+        </section>
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="キーワード分析"
+            description="Search Console のクエリとランディングページです。"
+          />
+          <KeywordAnalysis dateRange={dateRange} />
+        </section>
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="コンテンツ人気分析"
+            description="記事・商品・一覧ページのクリックと表示回数です。"
+          />
+          <ContentPopularityAnalysis dateRange={dateRange} />
+        </section>
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="コンバージョン経路"
+            description="流入から購入までのステップと離脱です。"
+          />
+          <ConversionPath dateRange={dateRange} />
+        </section>
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="新商品・販売終了商品"
+            description="直近の登録商品と、販売終了として検出した商品です。"
+          />
+          <ProductChanges newLimit={10} newDays={30} discontinuedLimit={10} />
+        </section>
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="AI アナリスト"
+            description="期間中の数値について質問できます。"
+          />
+          <ChatWindow />
+        </section>
       </div>
     </AppLayout>
   )
 }
-

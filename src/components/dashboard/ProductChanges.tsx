@@ -70,92 +70,86 @@ export default function ProductChanges({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-gray-500">読み込み中...</p>
-      </div>
+      <p className="m-0 text-muted text-sm">読み込み中...</p>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <p className="text-red-600">{error}</p>
-      </div>
+      <p className="m-0 text-danger text-sm">{error}</p>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* 新商品 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">新規登録商品（直近{newDays}日以内に当システムに登録）</h3>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div>
+        <div className="flex justify-between items-baseline gap-3 mb-2">
+          <h3 className="m-0 text-[15px] font-semibold">新規登録商品（直近{newDays}日以内に当システムに登録）</h3>
           <Link
             href={`/products?tab=new&days=${newDays}`}
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-[13px] text-accent hover:underline shrink-0"
           >
             もっと見る
           </Link>
         </div>
-        <p className="text-xs text-gray-500 mb-3">サイトで新規掲載された商品をクロールで取得したものを含みます。</p>
+        <p className="text-xs text-muted mb-3">サイトで新規掲載された商品をクロールで取得したものを含みます。</p>
         {newProducts.length === 0 ? (
-          <p className="text-gray-500 text-sm">該当なし</p>
+          <p className="text-muted text-sm">該当なし</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="m-0 p-0 list-none">
             {newProducts.map(p => (
-              <li key={p.product_code} className="flex flex-wrap items-center gap-2 text-sm border-b border-gray-100 pb-2 last:border-0">
+              <li key={p.product_code} className="flex flex-wrap items-center gap-2 text-sm border-t border-line py-3">
                 <a
                   href={p.product_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline font-medium truncate max-w-[60%]"
+                  className="text-accent hover:underline font-medium truncate max-w-[60%]"
                 >
                   {p.product_name}
                 </a>
-                <span className="text-gray-500">{p.product_code}</span>
-                <span className="text-gray-400">{formatDate(p.created_at)}</span>
+                <span className="text-muted">{p.product_code}</span>
+                <span className="text-muted">{formatDate(p.created_at)}</span>
               </li>
             ))}
           </ul>
         )}
-        <p className="text-xs text-gray-400 mt-2">計 {newTotal} 件</p>
+        <p className="text-xs text-muted mt-2">計 {newTotal} 件</p>
       </div>
 
-      {/* 販売終了 */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">販売終了商品（在庫状況が「販売終了」のもの）</h3>
+      <div>
+        <div className="flex justify-between items-baseline gap-3 mb-2">
+          <h3 className="m-0 text-[15px] font-semibold">販売終了商品（在庫状況が「販売終了」のもの）</h3>
           <Link
             href="/products?tab=discontinued"
-            className="text-sm text-blue-600 hover:text-blue-800"
+            className="text-[13px] text-accent hover:underline shrink-0"
           >
             もっと見る
           </Link>
         </div>
-        <p className="text-xs text-gray-500 mb-3">商品ページ内の在庫表示に基づきます。</p>
+        <p className="text-xs text-muted mb-3">商品ページ内の在庫表示に基づきます。</p>
         {discontinuedProducts.length === 0 ? (
-          <p className="text-gray-500 text-sm">該当なし</p>
+          <p className="text-muted text-sm">該当なし</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="m-0 p-0 list-none">
             {discontinuedProducts.map(p => (
-              <li key={p.product_code} className="flex flex-wrap items-center gap-2 text-sm border-b border-gray-100 pb-2 last:border-0">
+              <li key={p.product_code} className="flex flex-wrap items-center gap-2 text-sm border-t border-line py-3">
                 <a
                   href={p.product_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline font-medium truncate max-w-[60%]"
+                  className="text-accent hover:underline font-medium truncate max-w-[60%]"
                 >
                   {p.product_name}
                 </a>
-                <span className="text-gray-500">{p.product_code}</span>
+                <span className="text-muted">{p.product_code}</span>
                 {p.updated_at && (
-                  <span className="text-gray-400">{formatDate(p.updated_at)}</span>
+                  <span className="text-muted">{formatDate(p.updated_at)}</span>
                 )}
               </li>
             ))}
           </ul>
         )}
-        <p className="text-xs text-gray-400 mt-2">計 {discontinuedTotal} 件</p>
+        <p className="text-xs text-muted mt-2">計 {discontinuedTotal} 件</p>
       </div>
     </div>
   )

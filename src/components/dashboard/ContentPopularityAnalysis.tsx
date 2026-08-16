@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
+import SegmentedControl from '@/components/ui/SegmentedControl'
+import { linkClass, tableClass, tdClass, thClass } from '@/components/ui/styles'
 
 interface ContentPopularityAnalysisProps {
   dateRange: DateRange
@@ -199,120 +201,79 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-gray-500">データを読み込み中...</div>
-      </div>
+      <p className="m-0 text-muted text-sm">データを読み込み中...</p>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-red-500">エラー: {error}</div>
-      </div>
+      <p className="m-0 text-danger text-sm">エラー: {error}</p>
     )
   }
 
   if (categories.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="text-center text-gray-500">データがありません</div>
-      </div>
+      <p className="m-0 text-muted text-sm">データがありません</p>
     )
   }
 
-  return (
-    <div className="bg-white rounded-lg shadow">
-      {/* 比較モード切り替えボタン */}
-      <div className="px-4 pt-4 pb-2 flex justify-end">
-        <div className="inline-flex rounded-md shadow-sm" role="group">
-          <button
-            type="button"
-            onClick={() => setComparisonMode('year-over-year')}
-            className={`px-4 py-2 text-sm font-medium rounded-l-lg border ${
-              comparisonMode === 'year-over-year'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前年同時期対比
-          </button>
-          <button
-            type="button"
-            onClick={() => setComparisonMode('previous-period')}
-            className={`px-4 py-2 text-sm font-medium rounded-r-lg border-t border-r border-b ${
-              comparisonMode === 'previous-period'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            前期間対比
-          </button>
-        </div>
-      </div>
-      {/* タブ */}
-      <div className="border-b border-gray-200">
-        <nav className="flex -mb-px">
-          <button
-            onClick={() => setActiveCategory('all')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 ${
-              activeCategory === 'all'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            すべて
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.category}
-              onClick={() => setActiveCategory(cat.category as CategoryType)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 ${
-                activeCategory === cat.category
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              {getCategoryName(cat.category)}
-            </button>
-          ))}
-        </nav>
-      </div>
+  const categoryOptions = [
+    { value: 'all' as const, label: 'すべて' },
+    ...categories.map((cat) => ({
+      value: cat.category as CategoryType | 'all',
+      label: getCategoryName(cat.category),
+    })),
+  ]
 
-      {/* テーブル */}
+  return (
+    <div className="grid gap-4">
+      <div className="flex justify-end">
+        <SegmentedControl
+          ariaLabel="比較対象"
+          value={comparisonMode}
+          onChange={setComparisonMode}
+          options={[
+            { value: 'year-over-year', label: '前年同時期対比' },
+            { value: 'previous-period', label: '前期間対比' },
+          ]}
+        />
+      </div>
+      <SegmentedControl
+        ariaLabel="ページ種別"
+        value={activeCategory}
+        onChange={setActiveCategory}
+        options={categoryOptions}
+      />
+
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className={tableClass}>
+          <thead>
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                順位
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ページURL
-              </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              <th className={thClass}>順位</th>
+              <th className={thClass}>ページURL</th>
+              <th
+                className={`${thClass} cursor-pointer hover:text-accent`}
                 onClick={() => handleSort('clicks')}
               >
                 クリック数
                 {sortBy === 'clicks' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              <th
+                className={`${thClass} cursor-pointer hover:text-accent`}
                 onClick={() => handleSort('impressions')}
               >
                 インプレッション
                 {sortBy === 'impressions' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              <th
+                className={`${thClass} cursor-pointer hover:text-accent`}
                 onClick={() => handleSort('ctr')}
               >
                 CTR
                 {sortBy === 'ctr' && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
               </th>
-              <th 
-                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              <th
+                className={`${thClass} cursor-pointer hover:text-accent`}
                 onClick={() => handleSort('position')}
               >
                 平均ポジション
@@ -320,29 +281,27 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody>
             {sortedPages.map((page, index) => (
-              <tr key={page.page} className="hover:bg-gray-50">
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                  {index + 1}
-                </td>
-                <td className="px-4 py-3 text-sm">
+              <tr key={page.page} className="hover:bg-[#fafafa]">
+                <td className={`${tdClass} whitespace-nowrap`}>{index + 1}</td>
+                <td className={tdClass}>
                   <a
                     href={normalizeUrl(page.page)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    className={linkClass}
                   >
                     {shortenUrl(page.page)}
                   </a>
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className={`${tdClass} whitespace-nowrap`}>
                   <ComparisonCell current={page.clicks} previous={page.prevClicks} />
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className={`${tdClass} whitespace-nowrap`}>
                   <ComparisonCell current={page.impressions} previous={page.prevImpressions} />
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className={`${tdClass} whitespace-nowrap`}>
                   <ComparisonCell 
                     current={page.ctr * 100} 
                     previous={page.prevCtr ? page.prevCtr * 100 : undefined} 
@@ -350,7 +309,7 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
                     decimalPlaces={2}
                   />
                 </td>
-                <td className="px-4 py-3 whitespace-nowrap">
+                <td className={`${tdClass} whitespace-nowrap`}>
                   <ComparisonCell 
                     current={page.position} 
                     previous={page.prevPosition} 
@@ -364,31 +323,30 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
         </table>
       </div>
 
-      {/* サマリー */}
       {activeCategory !== 'all' && activeCategoryData.length > 0 && (
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-          <div className="grid grid-cols-4 gap-4 text-sm">
+        <div className="border-t border-line pt-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div>
-              <div className="text-gray-500">総クリック数</div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-muted">総クリック数</div>
+              <div className="text-[22px] font-semibold">
                 {activeCategoryData[0].totalClicks.toLocaleString()}
               </div>
             </div>
             <div>
-              <div className="text-gray-500">総インプレッション</div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-muted">総インプレッション</div>
+              <div className="text-[22px] font-semibold">
                 {activeCategoryData[0].totalImpressions.toLocaleString()}
               </div>
             </div>
             <div>
-              <div className="text-gray-500">平均CTR</div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-muted">平均CTR</div>
+              <div className="text-[22px] font-semibold">
                 {activeCategoryData[0].avgCtr.toFixed(2)}%
               </div>
             </div>
             <div>
-              <div className="text-gray-500">平均ポジション</div>
-              <div className="text-lg font-semibold text-gray-900">
+              <div className="text-muted">平均ポジション</div>
+              <div className="text-[22px] font-semibold">
                 {activeCategoryData[0].avgPosition.toFixed(1)}位
               </div>
             </div>

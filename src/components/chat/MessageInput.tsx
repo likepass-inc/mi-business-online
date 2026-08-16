@@ -19,20 +19,20 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t p-4">
-      <div className="flex gap-2">
+    <form onSubmit={handleSubmit} className="border-t border-line p-4">
+      <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
         <input
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="質問を入力..."
           disabled={disabled}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          className="w-full px-3 py-2.5 border border-[#ccc] rounded-admin bg-white focus:outline-none focus:border-accent disabled:bg-[#f5f5f5]"
         />
         <button
           type="submit"
           disabled={disabled || !message.trim()}
-          className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="px-4 py-2.5 bg-accent text-white rounded-admin hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
         >
           送信
         </button>

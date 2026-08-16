@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
+import PageHeader from '@/components/ui/PageHeader'
 import type { BatchTrimMode, TrimMode } from '@/lib/imageResizeTypes'
 
 type JobItem = {
@@ -145,28 +146,28 @@ export default function ImageResizePage() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">画像リサイズ</h1>
-        <p className="text-gray-600 mb-6">
-          画像をアップロードすると、大（640×533）と小（262×218）の2サイズにリサイズします。比率は維持され、必要に応じて余白が付きます。
+      <div className="grid gap-6">
+        <PageHeader
+          title="画像リサイズ"
+          description="画像をアップロードすると、大（640×533）と小（262×218）の2サイズにリサイズします。比率は維持され、必要に応じて余白が付きます。"
+        />
+        <p className="m-0 text-muted">
+          <strong className="text-ink">小規模</strong>：下の枠で1枚の画像、またはZIP（最大30枚・50MBまで）をその場でリサイズできます。
+          <strong className="text-ink">大容量</strong>：ページ下部の「大容量バッチ（R2）」で、数千枚・数GB規模のZIPにも対応しています。
         </p>
-        <p className="text-gray-600 mb-6">
-          <strong>小規模</strong>：下の枠で1枚の画像、またはZIP（最大30枚・50MBまで）をその場でリサイズできます。
-          <strong>大容量</strong>：ページ下部の「大容量バッチ（R2）」で、数千枚・数GB規模のZIPにも対応しています。
-        </p>
-        <p className="text-gray-600 mb-4 text-sm">
-          処理の順序は<strong>向き補正 → 余白トリミング（任意）→ 指定サイズへ収めるリサイズ（contain）</strong>です。
-          トリム後に枠（640×533 / 262×218）へ収めるとき、<strong>左右または上下に均等な余白</strong>が付くことがあります（仕様どおり）。
-          テンプレの上下などに白い帯がある画像は、<strong>自動（Sharp）</strong>または<strong>AI（Vision）</strong>を選べます。しきい値の推奨は<strong>5〜20</strong>（大きいほど明るい領域まで「背景」とみなされ<strong>商品が欠ける</strong>恐れがあります）。
+        <p className="m-0 text-muted text-sm">
+          処理の順序は<strong className="text-ink">向き補正 → 余白トリミング（任意）→ 指定サイズへ収めるリサイズ（contain）</strong>です。
+          トリム後に枠（640×533 / 262×218）へ収めるとき、<strong className="text-ink">左右または上下に均等な余白</strong>が付くことがあります（仕様どおり）。
+          テンプレの上下などに白い帯がある画像は、<strong className="text-ink">自動（Sharp）</strong>または<strong className="text-ink">AI（Vision）</strong>を選べます。しきい値の推奨は<strong className="text-ink">5〜20</strong>（大きいほど明るい領域まで「背景」とみなされ<strong className="text-ink">商品が欠ける</strong>恐れがあります）。
         </p>
 
-        <h2 className="text-xl font-semibold mb-3 text-gray-800">小規模（1枚 or ZIP 最大30枚・50MB）</h2>
+        <h2 className="m-0 text-[22px] font-semibold text-ink">小規模（1枚 or ZIP 最大30枚・50MB）</h2>
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white'
+          className={`border border-dashed p-8 text-center transition-colors ${
+            dragActive ? 'border-accent bg-[#fff5f5]' : 'border-[#ccc] bg-white'
           }`}
         >
           <input
@@ -178,18 +179,18 @@ export default function ImageResizePage() {
           />
           <label htmlFor="file-input" className="cursor-pointer block">
             {file ? (
-              <span className="text-gray-700">
+              <span className="text-ink">
                 {file.name.toLowerCase().endsWith('.zip') ? 'ZIPを選択中: ' : '選択中: '}
                 <strong>{file.name}</strong>（{(file.size / 1024).toFixed(1)} KB）
               </span>
             ) : (
-              <span className="text-gray-500">クリックまたはドラッグ＆ドロップで画像またはZIPを選択</span>
+              <span className="text-muted">クリックまたはドラッグ＆ドロップで画像またはZIPを選択</span>
             )}
           </label>
         </div>
 
-        <div className="mt-4 space-y-3 text-sm text-gray-800">
-          <p className="font-medium text-gray-700">余白トリミング（任意）</p>
+        <div className="mt-4 space-y-3 text-sm text-ink">
+          <p className="font-medium text-ink">余白トリミング（任意）</p>
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -197,7 +198,7 @@ export default function ImageResizePage() {
                 name="trim-mode-small"
                 checked={trimMode === 'off'}
                 onChange={() => setTrimMode('off')}
-                className="text-blue-500"
+                className="accent-accent"
               />
               <span>なし</span>
             </label>
@@ -207,7 +208,7 @@ export default function ImageResizePage() {
                 name="trim-mode-small"
                 checked={trimMode === 'sharp'}
                 onChange={() => setTrimMode('sharp')}
-                className="text-blue-500"
+                className="accent-accent"
               />
               <span>自動（縁の単色を除去・Sharp）</span>
             </label>
@@ -217,7 +218,7 @@ export default function ImageResizePage() {
                 name="trim-mode-small"
                 checked={trimMode === 'vision'}
                 onChange={() => setTrimMode('vision')}
-                className="text-blue-500"
+                className="accent-accent"
               />
               <span>AI でコンテンツ領域を検出（OpenAI Vision）</span>
             </label>
@@ -225,7 +226,7 @@ export default function ImageResizePage() {
           {(trimMode === 'sharp' || trimMode === 'vision') && (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <label htmlFor="trim-threshold" className="text-gray-600">
+                <label htmlFor="trim-threshold" className="text-muted">
                   しきい値（0–255、既定 10。空欄でサーバー既定）
                 </label>
                 <input
@@ -235,11 +236,11 @@ export default function ImageResizePage() {
                   max={255}
                   value={trimThresholdInput}
                   onChange={(e) => setTrimThresholdInput(e.target.value)}
-                  className="w-24 border border-gray-300 rounded px-2 py-1"
+                  className="w-24 border border-[#ccc] rounded-admin px-2 py-1 focus:outline-none focus:border-accent"
                   placeholder="10"
                 />
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted">
                 推奨 5〜20。30 以上は注意、100 前後は商品まで欠けることがあります。
               </p>
               <label className="flex items-start gap-2 cursor-pointer max-w-xl">
@@ -247,7 +248,7 @@ export default function ImageResizePage() {
                   type="checkbox"
                   checked={trimBackgroundWhite}
                   onChange={(e) => setTrimBackgroundWhite(e.target.checked)}
-                  className="text-blue-500 mt-0.5"
+                  className="accent-accent mt-0.5"
                 />
                 <span>
                   純白（#FFFFFF）を基準にトリムする（テンプレの白帯向け。左上がロゴ等でも余白を削りやすい。OFF
@@ -257,14 +258,14 @@ export default function ImageResizePage() {
             </>
           )}
           {trimMode === 'vision' && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               失敗時は自動（Sharp）のトリミングにフォールバックします。処理に時間がかかることがあります。
             </p>
           )}
         </div>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg" role="alert">
+          <div className="mt-4 text-danger text-sm" role="alert">
             {error}
           </div>
         )}
@@ -274,14 +275,14 @@ export default function ImageResizePage() {
             type="button"
             onClick={handleSubmit}
             disabled={!file || loading}
-            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2.5 bg-accent text-white rounded-admin hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '処理中...' : 'リサイズする'}
           </button>
           <button
             type="button"
             onClick={clear}
-            className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            className="px-4 py-2.5 bg-white text-ink border border-[#ccc] rounded-admin hover:bg-[#f5f5f5]"
           >
             クリア
           </button>
@@ -290,11 +291,11 @@ export default function ImageResizePage() {
         {zipDownloadUrl && (
           <div className="mt-8 space-y-6">
             <h2 className="text-xl font-bold">結果</h2>
-            <p className="text-gray-600">リサイズが完了しました。ZIPをダウンロードしてください。</p>
+            <p className="text-muted">リサイズが完了しました。ZIPをダウンロードしてください。</p>
             <a
               href={zipDownloadUrl}
               download="resized.zip"
-              className="inline-block px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="inline-block px-4 py-2.5 bg-accent text-white rounded-admin hover:bg-accent-hover"
             >
               ZIPをダウンロード
             </a>
@@ -305,24 +306,24 @@ export default function ImageResizePage() {
           <div className="mt-8 space-y-6">
             <h2 className="text-xl font-bold">結果</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="font-medium text-gray-700 mb-2">大（640×533）</h3>
-                <img src={result.large} alt="大サイズ" className="max-w-full h-auto border border-gray-200 rounded" />
+              <div className="border-t border-line pt-4">
+                <h3 className="font-medium text-ink mb-2">大（640×533）</h3>
+                <img src={result.large} alt="大サイズ" className="max-w-full h-auto border border-line" />
                 <a
                   href={result.large}
                   download={result.largeFilename}
-                  className="mt-3 inline-block px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+                  className="mt-3 inline-block px-4 py-2 bg-white border border-[#ccc] hover:bg-[#f5f5f5] rounded-admin text-sm"
                 >
                   ダウンロード
                 </a>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="font-medium text-gray-700 mb-2">小（262×218）</h3>
-                <img src={result.small} alt="小サイズ" className="max-w-full h-auto border border-gray-200 rounded" />
+              <div className="border-t border-line pt-4">
+                <h3 className="font-medium text-ink mb-2">小（262×218）</h3>
+                <img src={result.small} alt="小サイズ" className="max-w-full h-auto border border-line" />
                 <a
                   href={result.small}
                   download={result.smallFilename}
-                  className="mt-3 inline-block px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-sm"
+                  className="mt-3 inline-block px-4 py-2 bg-white border border-[#ccc] hover:bg-[#f5f5f5] rounded-admin text-sm"
                 >
                   ダウンロード
                 </a>
@@ -331,33 +332,33 @@ export default function ImageResizePage() {
           </div>
         )}
 
-        <hr className="my-12 border-gray-200" />
+        <hr className="my-12 border-line" />
 
-        <h2 className="text-2xl font-bold mb-4">大容量バッチ（R2）</h2>
-        <p className="text-gray-600 mb-4">
+        <h2 className="text-[22px] font-semibold mb-4">大容量バッチ（R2）</h2>
+        <p className="text-muted mb-4">
           数千枚・数 GB 規模の ZIP をアップロードして一括リサイズできます。まず ZIP をアップロードし、ジョブ登録後に完了までお待ちください。完了したらリサイズ済み ZIP をダウンロードできます。
         </p>
 
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">ご利用の流れ</h3>
-        <ol className="list-decimal list-inside text-gray-600 mb-4 space-y-1">
+        <h3 className="text-[15px] font-semibold mb-2 text-ink">ご利用の流れ</h3>
+        <ol className="list-decimal list-inside text-muted mb-4 space-y-1">
           <li>ZIP を選択し「アップロードしてジョブ登録」を押す</li>
           <li>ブラウザからアップロード先へ ZIP を直接アップロード（進捗表示あり）</li>
           <li>ジョブ登録後、サーバー側でリサイズ処理が開始されます。画面を閉じても処理は続行され、再ログイン後に「履歴」からダウンロード可能です。</li>
           <li>処理完了後、このページの「履歴」またはその場に表示されるリンクからリサイズ済み ZIP をダウンロードする</li>
         </ol>
 
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">所要時間の目安</h3>
-        <ul className="text-gray-600 mb-4 list-disc list-inside space-y-1">
+        <h3 className="text-[15px] font-semibold mb-2 text-ink">所要時間の目安</h3>
+        <ul className="text-muted mb-4 list-disc list-inside space-y-1">
           <li><strong>アップロード：</strong>ZIP のサイズと回線速度により変動。数 GB の場合は十数分〜数十分かかることがあります。</li>
           <li><strong>リサイズ処理：</strong>画像枚数・解像度により変動。数百枚で数分、数千枚で十数分〜数十分が目安です。</li>
           <li><strong>ダウンロード：</strong>完了後に表示されるリンクから取得。ファイルサイズと回線速度により変動します。</li>
         </ul>
 
-        <p className="text-gray-600 mb-4">
+        <p className="text-muted mb-4">
           <strong>画面について：</strong>画面を閉じても処理は続きます。完了後は再ログインして「履歴」からダウンロードできます。
         </p>
 
-        <p className="text-gray-600 mb-4">
+        <p className="text-muted mb-4">
           <strong>限界値：</strong>1ジョブあたり <strong>最大5,000枚</strong>まで。ZIP のサイズは R2 の制限内であれば数 GB 規模まで対応しています。
         </p>
         <BatchResizeSection />
@@ -530,10 +531,10 @@ function BatchResizeSection() {
   }, [])
 
   return (
-    <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+    <div className="border-y border-line py-6">
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">余白トリミング（大容量バッチ）</p>
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-sm font-medium text-ink mb-2">余白トリミング（大容量バッチ）</p>
+        <p className="text-xs text-muted mb-2">
           大量処理のため AI トリミングは利用できません。単色の縁除去（Sharp）のみ選択できます。
         </p>
         <div className="flex gap-6 mb-4">
@@ -543,7 +544,7 @@ function BatchResizeSection() {
               name="batch-trim"
               checked={batchTrimMode === 'off'}
               onChange={() => setBatchTrimMode('off')}
-              className="text-blue-500"
+              className="accent-accent"
             />
             <span className="text-sm">なし</span>
           </label>
@@ -553,12 +554,12 @@ function BatchResizeSection() {
               name="batch-trim"
               checked={batchTrimMode === 'sharp'}
               onChange={() => setBatchTrimMode('sharp')}
-              className="text-blue-500"
+              className="accent-accent"
             />
             <span className="text-sm">自動（Sharp・縁の単色除去）</span>
           </label>
         </div>
-        <p className="text-sm font-medium text-gray-700 mb-2">リサイズするサイズ</p>
+        <p className="text-sm font-medium text-ink mb-2">リサイズするサイズ</p>
         <div className="flex gap-6">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -566,7 +567,7 @@ function BatchResizeSection() {
               name="batch-output-size"
               checked={outputSize === 'large'}
               onChange={() => setOutputSize('large')}
-              className="text-blue-500"
+              className="accent-accent"
             />
             <span className="text-sm">大（640×533）のみ</span>
           </label>
@@ -576,7 +577,7 @@ function BatchResizeSection() {
               name="batch-output-size"
               checked={outputSize === 'small'}
               onChange={() => setOutputSize('small')}
-              className="text-blue-500"
+              className="accent-accent"
             />
             <span className="text-sm">小（262×218）のみ</span>
           </label>
@@ -591,11 +592,11 @@ function BatchResizeSection() {
       />
       <label htmlFor="batch-file-input" className="cursor-pointer block mb-4">
         {batchFile ? (
-          <span className="text-gray-700">
+          <span className="text-ink">
             選択中: <strong>{batchFile.name}</strong>（{(batchFile.size / 1024 / 1024).toFixed(2)} MB）
           </span>
         ) : (
-          <span className="text-gray-500 underline">ZIP ファイルを選択（大容量用）</span>
+          <span className="text-accent underline">ZIP ファイルを選択（大容量用）</span>
         )}
       </label>
       {(step === 'idle' || step === 'error') && batchFile && (
@@ -603,20 +604,20 @@ function BatchResizeSection() {
           <button
             type="button"
             onClick={startBatch}
-            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="px-4 py-2.5 bg-accent text-white rounded-admin hover:bg-accent-hover"
           >
             アップロードしてジョブ登録
           </button>
-          <button type="button" onClick={resetBatch} className="px-6 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300">
+          <button type="button" onClick={resetBatch} className="px-4 py-2.5 bg-white text-ink border border-[#ccc] rounded-admin hover:bg-[#f5f5f5]">
             クリア
           </button>
         </div>
       )}
       {step === 'uploading' && (
-        <p className="text-gray-600 mb-2">R2 へアップロード中… {uploadProgress}%</p>
+        <p className="text-muted mb-2">R2 へアップロード中… {uploadProgress}%</p>
       )}
       {step === 'processing' && (
-        <div className="text-gray-600 mb-2 space-y-1">
+        <div className="text-muted mb-2 space-y-1">
           <p>リサイズ処理中です。完了までお待ちください（ジョブ ID: {jobId}）</p>
           <p className="text-sm">
             経過 {Math.floor(elapsedSeconds / 60)} 分 {elapsedSeconds % 60} 秒
@@ -626,18 +627,18 @@ function BatchResizeSection() {
       )}
       {step === 'done' && downloadUrl && (
         <div className="mb-4">
-          <p className="text-gray-600 mb-2">完了しました。</p>
+          <p className="text-muted mb-2">完了しました。</p>
           <a
             href={downloadUrl}
             download="resized.zip"
-            className="inline-block px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="inline-block px-4 py-2.5 bg-accent text-white rounded-admin hover:bg-accent-hover"
           >
             リサイズ済み ZIP をダウンロード
           </a>
         </div>
       )}
       {batchError && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg" role="alert">
+        <div className="mb-4 text-danger text-sm" role="alert">
           {batchError}
         </div>
       )}
@@ -784,14 +785,14 @@ function BatchHistorySection() {
   }
 
   return (
-    <div className="mt-8 border border-gray-200 rounded-lg p-6 bg-white">
+    <div className="mt-8 border-t border-line pt-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">履歴</h3>
+        <h3 className="text-[15px] font-semibold text-ink">履歴</h3>
         <button
           type="button"
           onClick={fetchJobs}
           disabled={loading}
-          className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+          className="px-3 py-1.5 text-sm bg-white text-ink border border-[#ccc] rounded-admin hover:bg-[#f5f5f5] disabled:opacity-50"
         >
           {loading ? '読み込み中…' : '再読み込み'}
         </button>
@@ -802,13 +803,13 @@ function BatchHistorySection() {
         </p>
       )}
       {!loading && jobs.length === 0 && !error && (
-        <p className="text-gray-500 text-sm">まだジョブはありません。</p>
+        <p className="text-muted text-sm">まだジョブはありません。</p>
       )}
       {!loading && jobs.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-line">
                 <th className="text-left py-2 pr-4">ジョブID</th>
                 <th className="text-left py-2 pr-4">登録日時</th>
                 <th className="text-left py-2 pr-4">完了日時</th>
@@ -821,7 +822,7 @@ function BatchHistorySection() {
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr key={job.jobId} className="border-b border-gray-100">
+                <tr key={job.jobId} className="border-b border-[#eee]">
                   <td className="py-2 pr-4">{job.jobId}</td>
                   <td className="py-2 pr-4">{formatDate(job.createdAt)}</td>
                   <td className="py-2 pr-4">
@@ -855,7 +856,7 @@ function BatchHistorySection() {
                         <button
                           type="button"
                           onClick={() => handleDownload(job.jobId)}
-                          className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                          className="px-3 py-1 bg-accent text-white text-xs rounded-admin hover:bg-accent-hover"
                         >
                           ダウンロード
                         </button>
@@ -863,7 +864,7 @@ function BatchHistorySection() {
                           type="button"
                           onClick={() => handleDelete(job.jobId)}
                           disabled={deletingJobId === job.jobId}
-                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                          className="px-3 py-1 bg-ink text-white text-xs rounded-admin hover:bg-black disabled:opacity-50"
                         >
                           {deletingJobId === job.jobId ? '削除中…' : '削除'}
                         </button>
@@ -875,7 +876,7 @@ function BatchHistorySection() {
                           type="button"
                           onClick={() => handleCancel(job.jobId)}
                           disabled={cancellingJobId === job.jobId}
-                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                          className="px-3 py-1 bg-ink text-white text-xs rounded-admin hover:bg-black disabled:opacity-50"
                         >
                           {cancellingJobId === job.jobId ? '中止中…' : '中止'}
                         </button>
@@ -883,7 +884,7 @@ function BatchHistorySection() {
                           type="button"
                           onClick={() => handleDelete(job.jobId)}
                           disabled={deletingJobId === job.jobId}
-                          className="px-3 py-1 bg-gray-400 text-white text-xs rounded hover:bg-gray-500 disabled:opacity-50"
+                          className="px-3 py-1 bg-muted text-white text-xs rounded-admin hover:bg-ink disabled:opacity-50"
                         >
                           {deletingJobId === job.jobId ? '削除中…' : '削除'}
                         </button>
@@ -900,7 +901,7 @@ function BatchHistorySection() {
                           type="button"
                           onClick={() => handleDelete(job.jobId)}
                           disabled={deletingJobId === job.jobId}
-                          className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+                          className="px-3 py-1 bg-ink text-white text-xs rounded-admin hover:bg-black disabled:opacity-50"
                         >
                           {deletingJobId === job.jobId ? '削除中…' : '削除'}
                         </button>
