@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUser } from '@/lib/auth'
 import { AdminUserError, getAdminUserStore } from '@/lib/db/adminUserStore'
+import { getAdminActivityStore, recordAdminAction, type UserActivitySummary } from '@/lib/db/adminActivityStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,25 @@ export async function GET() {
     }
 
     const rows = await getAdminUserStore().listUsers()
-    return NextResponse.json({ rows })
+    let summaries: UserActivitySummary[] = []
+    try {
+      summaries = await getAdminActivityStore().userSessionSummaries()
+    } catch (err) {
+      console.warn('[users] activity summaries', err instanceof Error ? err.message : err)
+    }
+    const byEmail = Object.fromEntries(summaries.map((row) => [row.email, row]))
+    return NextResponse.json({
+      rows: rows.map((row) => {
+        const summary = byEmail[row.email]
+        return {
+          ...row,
+          last_seen_at: summary?.last_seen_at || null,
+          sessions_7d: summary?.sessions_7d || 0,
+          last_action: summary?.last_action || null,
+          last_action_label: summary?.last_action_label || null,
+        }
+      }),
+    })
   } catch (e) {
     console.error('Users list API error:', e)
     return NextResponse.json({ error: 'ユーザー一覧の取得に失敗しました' }, { status: 500 })
@@ -38,6 +57,7 @@ export async function POST(req: NextRequest) {
       password: body.password,
       role: body.role,
     })
+    await recordAdminAction(user.email, 'user_create')
     return NextResponse.json({ user: created })
   } catch (e) {
     if (e instanceof AdminUserError) {

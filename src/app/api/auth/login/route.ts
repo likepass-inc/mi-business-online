@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateUser, setSessionCookie } from '@/lib/auth'
+import { recordAdminSessionStart } from '@/lib/db/adminActivityStore'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     await setSessionCookie(user.id)
+    await recordAdminSessionStart(user.id)
 
     return NextResponse.json({ success: true, userId: user.id, role: user.role })
   } catch (e) {

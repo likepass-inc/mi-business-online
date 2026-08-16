@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getJobStore } from '@/lib/db/imageResizeJobStore'
-import { getSessionUserId } from '@/lib/auth'
+import { getSessionUser, getSessionUserId } from '@/lib/auth'
+import { recordAdminAction } from '@/lib/db/adminActivityStore'
 import { isR2Configured } from '@/lib/r2'
 import { processNextImageResizeJob } from '@/lib/imageResizeJobProcessor'
 
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       console.error('[image-resize jobs] background process error:', e)
     })
 
+    await recordAdminAction(userId, 'image_resize')
     return NextResponse.json({ success: true, jobId })
   } catch (e) {
     console.error('[image-resize jobs] POST error:', e)
@@ -88,15 +90,23 @@ export async function GET(req: NextRequest) {
       { status: 503 }
     )
   }
+  const wantAll = req.nextUrl.searchParams.get('all') === '1'
+  if (wantAll) {
+    const user = await getSessionUser()
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: '権限がありません' }, { status: 403 })
+    }
+  }
   try {
     const store = getJobStore()
     await store.markStaleAsFailed()
-    const rows = await store.listJobsByUserId(userId)
+    const rows = wantAll ? await store.listAllJobs() : await store.listJobsByUserId(userId)
     const jobs = rows.map((r) => ({
       jobId: r.id,
       status: r.status,
       createdAt: r.created_at,
       updatedAt: r.updated_at ?? undefined,
+      userId: 'user_id' in r ? r.user_id ?? undefined : undefined,
       imageCount: r.image_count ?? undefined,
       inputSizeBytes: r.input_size_bytes ?? undefined,
       outputSizeBytes: r.output_size_bytes ?? undefined,

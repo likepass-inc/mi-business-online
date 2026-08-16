@@ -61,6 +61,24 @@ export interface ImageResizeJobStore {
       >
     >
   >
+  listAllJobs(): Promise<
+    Array<
+      Pick<
+        JobRow,
+        | 'id'
+        | 'status'
+        | 'created_at'
+        | 'updated_at'
+        | 'user_id'
+        | 'input_size_bytes'
+        | 'image_count'
+        | 'error_message'
+        | 'processed_count'
+        | 'output_size_bytes'
+        | 'output_size'
+      >
+    >
+  >
 }
 
 const STALE_HOURS = 2
@@ -180,6 +198,27 @@ function createSqliteStore(): ImageResizeJobStore {
         status: string
         created_at: string
         updated_at: string
+        input_size_bytes: number | null
+        image_count: number | null
+        error_message: string | null
+        processed_count: number | null
+        output_size_bytes: number | null
+        output_size: string
+      }>
+      return rows
+    },
+    async listAllJobs() {
+      const rows = db
+        .prepare(
+          `SELECT id, status, created_at, updated_at, user_id, input_size_bytes, image_count, error_message, processed_count, output_size_bytes, COALESCE(output_size, 'large') AS output_size
+           FROM image_resize_jobs ORDER BY created_at DESC`
+        )
+        .all() as Array<{
+        id: number
+        status: string
+        created_at: string
+        updated_at: string
+        user_id: string | null
         input_size_bytes: number | null
         image_count: number | null
         error_message: string | null
@@ -355,6 +394,14 @@ function createPgStore(connectionUrl: string): ImageResizeJobStore {
         `SELECT id, status, created_at, updated_at, input_size_bytes, image_count, error_message, processed_count, output_size_bytes, COALESCE(output_size, 'large') AS output_size
          FROM image_resize_jobs WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
         [userId]
+      )
+      return res.rows
+    },
+    async listAllJobs() {
+      await ensure()
+      const res = await pool.query(
+        `SELECT id, status, created_at, updated_at, user_id, input_size_bytes, image_count, error_message, processed_count, output_size_bytes, COALESCE(output_size, 'large') AS output_size
+         FROM image_resize_jobs ORDER BY created_at DESC`
       )
       return res.rows
     },

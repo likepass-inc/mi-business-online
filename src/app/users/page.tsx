@@ -21,6 +21,23 @@ type AdminUser = {
   role: AdminRole
   is_active: boolean
   created_at: string
+  last_seen_at?: string | null
+  sessions_7d?: number
+  last_action_label?: string | null
+}
+
+function formatSessionAt(value?: string | null) {
+  if (!value) return '未利用'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 export default function UsersPage() {
@@ -136,7 +153,10 @@ export default function UsersPage() {
   return (
     <AppLayout>
       <div className="grid gap-10">
-        <PageHeader title="ユーザー" description="管理者と編集者のアカウントを管理します。" />
+        <PageHeader
+          title="ユーザー"
+          description="管理者と編集者のアカウントを管理します。最終セッションと直近の操作で利用状況が分かります。"
+        />
 
         <section className="grid gap-3 pt-4 border-t border-line">
           <h2 className="m-0 text-[22px] font-semibold text-ink">ユーザー一覧</h2>
@@ -147,6 +167,9 @@ export default function UsersPage() {
                   <th className={thClass}>メール</th>
                   <th className={thClass}>ロール</th>
                   <th className={thClass}>状態</th>
+                  <th className={thClass}>最終セッション</th>
+                  <th className={thClass}>7日セッション</th>
+                  <th className={thClass}>直近の操作</th>
                   <th className={thClass}></th>
                 </tr>
               </thead>
@@ -166,6 +189,9 @@ export default function UsersPage() {
                       </select>
                     </td>
                     <td className={tdClass}>{user.is_active ? '有効' : '無効'}</td>
+                    <td className={`${tdClass} whitespace-nowrap`}>{formatSessionAt(user.last_seen_at)}</td>
+                    <td className={tdClass}>{user.sessions_7d ?? 0}</td>
+                    <td className={tdClass}>{user.last_action_label || '-'}</td>
                     <td className={tdClass}>
                       <Button
                         variant="secondary"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUser } from '@/lib/auth'
 import { AdminUserError, getAdminUserStore } from '@/lib/db/adminUserStore'
+import { recordAdminAction } from '@/lib/db/adminActivityStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,6 +24,7 @@ export async function PATCH(
       role: body.role,
       is_active: typeof body.is_active === 'boolean' ? body.is_active : undefined,
     })
+    await recordAdminAction(user.email, 'user_update')
     return NextResponse.json({ user: updated })
   } catch (e) {
     if (e instanceof AdminUserError) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionUser } from '@/lib/auth'
 import { AdminUserError, getAdminUserStore } from '@/lib/db/adminUserStore'
+import { recordAdminAction } from '@/lib/db/adminActivityStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     await getAdminUserStore().updatePassword(user.email, password)
+    await recordAdminAction(user.email, 'password_change')
     return NextResponse.json({ success: true })
   } catch (e) {
     if (e instanceof AdminUserError) {

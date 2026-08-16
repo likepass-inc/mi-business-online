@@ -103,7 +103,7 @@ export default function AccountPage() {
               className="grid gap-2 p-4 text-left border border-line hover:border-accent no-underline"
             >
               <span className="text-[15px] font-bold text-accent">ユーザー</span>
-              <span className="text-[13px] text-muted">管理者と編集者のアカウント管理です。</span>
+              <span className="text-[13px] text-muted">アカウント管理と、最終ログイン・利用状況の確認です。</span>
             </Link>
           </section>
         )}

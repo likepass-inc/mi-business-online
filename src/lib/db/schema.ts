@@ -142,6 +142,27 @@ function initializeSchema(db: Database.Database) {
     )
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_email TEXT NOT NULL,
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      request_count INTEGER NOT NULL DEFAULT 1
+    )
+  `)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_session_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER,
+      user_email TEXT NOT NULL,
+      action TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admin_sessions_email ON admin_sessions(user_email)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_admin_session_actions_email ON admin_session_actions(user_email)`)
+
   // updated_at を自動更新するトリガー
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS update_products_timestamp 

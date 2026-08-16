@@ -16,6 +16,7 @@ type JobItem = {
   outputSize?: 'large' | 'small'
   errorMessage?: string
   processedCount?: number
+  userId?: string
 }
 
 type Result = {
@@ -363,6 +364,7 @@ export default function ImageResizePage() {
         </p>
         <BatchResizeSection />
         <BatchHistorySection />
+        <AllHistorySection />
       </div>
     </AppLayout>
   )
@@ -907,6 +909,138 @@ function BatchHistorySection() {
                         </button>
                       </span>
                     )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AllHistorySection() {
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [jobs, setJobs] = useState<JobItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/session')
+      .then((res) => res.json())
+      .then((data: { role?: string }) => {
+        if (!cancelled) setIsAdmin(data.role === 'admin')
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/image-resize/jobs?all=1', { credentials: 'include' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || '全履歴の取得に失敗しました')
+        setJobs([])
+        return
+      }
+      setJobs(data.jobs ?? [])
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '全履歴の取得に失敗しました')
+      setJobs([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isAdmin) fetchJobs()
+  }, [isAdmin, fetchJobs])
+
+  if (!isAdmin) return null
+
+  const statusLabel: Record<string, string> = {
+    pending: '待機中',
+    processing: '処理中',
+    completed: '完了',
+    failed: '失敗',
+  }
+
+  return (
+    <div className="mt-8 border-t border-line pt-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-[15px] font-semibold text-ink">全履歴</h3>
+        <button
+          type="button"
+          onClick={fetchJobs}
+          disabled={loading}
+          className="px-3 py-1.5 text-sm bg-white text-ink border border-[#ccc] rounded-admin hover:bg-[#f5f5f5] disabled:opacity-50"
+        >
+          {loading ? '読み込み中…' : '再読み込み'}
+        </button>
+      </div>
+      <p className="m-0 mb-4 text-sm text-muted">
+        すべてのユーザーの画像リサイズジョブです。ダウンロードと削除は自分の履歴から行います。
+      </p>
+      {error && (
+        <p className="text-red-600 text-sm mb-4" role="alert">
+          {error}
+        </p>
+      )}
+      {!loading && jobs.length === 0 && !error && (
+        <p className="text-muted text-sm">まだジョブはありません。</p>
+      )}
+      {!loading && jobs.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b border-line">
+                <th className="text-left py-2 pr-4">ジョブID</th>
+                <th className="text-left py-2 pr-4">実行者</th>
+                <th className="text-left py-2 pr-4">登録日時</th>
+                <th className="text-left py-2 pr-4">完了日時</th>
+                <th className="text-left py-2 pr-4">リサイズ</th>
+                <th className="text-left py-2 pr-4">枚数</th>
+                <th className="text-left py-2 pr-4">サイズ</th>
+                <th className="text-left py-2 pr-4">ステータス</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.jobId} className="border-b border-[#eee]">
+                  <td className="py-2 pr-4">{job.jobId}</td>
+                  <td className="py-2 pr-4">{job.userId || '—'}</td>
+                  <td className="py-2 pr-4">{formatDate(job.createdAt)}</td>
+                  <td className="py-2 pr-4">
+                    {job.status === 'completed' && job.updatedAt ? formatDate(job.updatedAt) : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {job.outputSize === 'small' ? '小(262×218)' : '大(640×533)'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {job.status === 'processing' && job.processedCount != null
+                      ? `約 ${job.processedCount} 枚リサイズ済み`
+                      : job.imageCount != null
+                        ? `${job.imageCount} 枚`
+                        : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {job.status === 'completed' && job.outputSizeBytes != null
+                      ? `${formatSize(job.inputSizeBytes)} → ${formatSize(job.outputSizeBytes)}`
+                      : formatSize(job.inputSizeBytes)}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {job.status === 'failed' && job.errorMessage
+                      ? `${statusLabel[job.status] ?? job.status}（${job.errorMessage}）`
+                      : statusLabel[job.status] ?? job.status}
                   </td>
                 </tr>
               ))}
