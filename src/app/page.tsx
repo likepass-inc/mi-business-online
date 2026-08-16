@@ -6,9 +6,9 @@ import KpiCards from '@/components/dashboard/KpiCards'
 import TrafficChart from '@/components/dashboard/TrafficChart'
 import KeywordAnalysis from '@/components/dashboard/KeywordAnalysis'
 import ContentPopularityAnalysis from '@/components/dashboard/ContentPopularityAnalysis'
-import ConversionPath from '@/components/dashboard/ConversionPath'
-import ProductChanges from '@/components/dashboard/ProductChanges'
-import ChatWindow from '@/components/chat/ChatWindow'
+// import ConversionPath from '@/components/dashboard/ConversionPath'
+// import ProductChanges from '@/components/dashboard/ProductChanges'
+// import ChatWindow from '@/components/chat/ChatWindow'
 import PageHeader from '@/components/ui/PageHeader'
 import SectionHeader from '@/components/ui/SectionHeader'
 import SegmentedControl from '@/components/ui/SegmentedControl'
@@ -79,6 +79,7 @@ export default function Home() {
           <ContentPopularityAnalysis dateRange={dateRange} />
         </section>
 
+        {/*
         <section className="grid gap-5">
           <SectionHeader
             title="コンバージョン経路"
@@ -102,6 +103,7 @@ export default function Home() {
           />
           <ChatWindow />
         </section>
+        */}
       </div>
     </AppLayout>
   )

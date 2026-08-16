@@ -1,5 +1,8 @@
 'use client'
 
+import AppLayout from '@/components/layout/AppLayout'
+
+/*
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
@@ -205,4 +208,9 @@ export default function ProductsPage() {
       <ProductsPageContent />
     </Suspense>
   )
+}
+*/
+
+export default function ProductsPage() {
+  return <AppLayout>{null}</AppLayout>
 }
