@@ -7,7 +7,7 @@ import HeaderUser from './HeaderUser'
 import { wrapClass } from '@/components/ui/styles'
 
 const NAV_ITEMS = [
-  { href: '/', label: 'ダッシュボード' },
+  { href: '/', label: '数値分析' },
   // { href: '/products', label: '商品動向' },
   { href: '/image-resize', label: '画像リサイズ' },
   { href: '/guide', label: '使い方' },

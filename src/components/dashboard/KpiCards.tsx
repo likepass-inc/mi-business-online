@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
 import { getYearOverYearPeriod } from '@/lib/dateUtils'
+import { cachedJsonPost } from '@/lib/dashboardFetchCache'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { Stat, StatGrid } from '@/components/ui/StatGrid'
 
@@ -92,46 +93,24 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
           ? getYearOverYearPeriod(dateRange.startDate, dateRange.endDate)
           : getPreviousDateRange(dateRange)
 
-        // 全体のセッションとトランザクション
-        const allResponse = await fetch('/api/ga4', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dateRange,
-            metrics: ['sessions', 'transactions'],
-          }),
+        const allData = await cachedJsonPost('/api/ga4', {
+          dateRange,
+          metrics: ['sessions', 'transactions'],
         })
-
-        if (!allResponse.ok) {
-          throw new Error('Failed to fetch GA4 data')
-        }
-
-        const allData = await allResponse.json()
         const totalSessions = allData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
         const totalTransactions = allData.rows.reduce((sum: number, row: any) => sum + (row.transactions || 0), 0)
 
-        // 自然検索のセッション
-        const organicResponse = await fetch('/api/ga4', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dateRange,
-            metrics: ['sessions'],
-            filters: [
-              {
-                field: 'sessionDefaultChannelGroup',
-                operator: 'EXACT',
-                value: 'Organic Search',
-              },
-            ],
-          }),
+        const organicData = await cachedJsonPost('/api/ga4', {
+          dateRange,
+          metrics: ['sessions'],
+          filters: [
+            {
+              field: 'sessionDefaultChannelGroup',
+              operator: 'EXACT',
+              value: 'Organic Search',
+            },
+          ],
         })
-
-        if (!organicResponse.ok) {
-          throw new Error('Failed to fetch organic sessions')
-        }
-
-        const organicData = await organicResponse.json()
         const organicSessions = organicData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
 
         // 前期間のGA4データ取得
@@ -140,41 +119,25 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         let prevOrganicSessions = 0
 
         try {
-          const prevAllResponse = await fetch('/api/ga4', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              dateRange: prevDateRange,
-              metrics: ['sessions', 'transactions'],
-            }),
+          const prevAllData = await cachedJsonPost('/api/ga4', {
+            dateRange: prevDateRange,
+            metrics: ['sessions', 'transactions'],
           })
+          prevSessions = prevAllData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
+          prevTransactions = prevAllData.rows.reduce((sum: number, row: any) => sum + (row.transactions || 0), 0)
 
-          if (prevAllResponse.ok) {
-            const prevAllData = await prevAllResponse.json()
-            prevSessions = prevAllData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
-            prevTransactions = prevAllData.rows.reduce((sum: number, row: any) => sum + (row.transactions || 0), 0)
-          }
-
-          const prevOrganicResponse = await fetch('/api/ga4', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              dateRange: prevDateRange,
-              metrics: ['sessions'],
-              filters: [
-                {
-                  field: 'sessionDefaultChannelGroup',
-                  operator: 'EXACT',
-                  value: 'Organic Search',
-                },
-              ],
-            }),
+          const prevOrganicData = await cachedJsonPost('/api/ga4', {
+            dateRange: prevDateRange,
+            metrics: ['sessions'],
+            filters: [
+              {
+                field: 'sessionDefaultChannelGroup',
+                operator: 'EXACT',
+                value: 'Organic Search',
+              },
+            ],
           })
-
-          if (prevOrganicResponse.ok) {
-            const prevOrganicData = await prevOrganicResponse.json()
-            prevOrganicSessions = prevOrganicData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
-          }
+          prevOrganicSessions = prevOrganicData.rows.reduce((sum: number, row: any) => sum + (row.sessions || 0), 0)
         } catch (prevErr) {
           console.error('Previous period GA4 data fetch error:', prevErr)
         }
@@ -190,59 +153,36 @@ export default function KpiCards({ dateRange }: KpiCardsProps) {
         let prevGscPosition = 0
 
         try {
-          const gscResponse = await fetch('/api/gsc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              startDate: dateRange.startDate,
-              endDate: dateRange.endDate,
-              rowLimit: 10000,
-            }),
+          const gscData = await cachedJsonPost('/api/gsc', {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            rowLimit: 10000,
           })
-
-          if (gscResponse.ok) {
-            const gscData = await gscResponse.json()
-            if (gscData.rows && gscData.rows.length > 0) {
-              gscClicks = gscData.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
-              gscImpressions = gscData.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
-              
-              // CTRは加重平均を計算（合計clicks / 合計impressions * 100）
-              gscCtr = gscImpressions > 0 ? (gscClicks / gscImpressions) * 100 : 0
-              
-              // 平均ポジションは加重平均を計算
-              const positionSum = gscData.rows.reduce(
-                (sum: number, row: any) => sum + (row.position || 0) * (row.impressions || 0),
-                0
-              )
-              gscPosition = gscImpressions > 0 ? positionSum / gscImpressions : 0
-            }
+          if (gscData.rows && gscData.rows.length > 0) {
+            gscClicks = gscData.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
+            gscImpressions = gscData.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
+            gscCtr = gscImpressions > 0 ? (gscClicks / gscImpressions) * 100 : 0
+            const positionSum = gscData.rows.reduce(
+              (sum: number, row: any) => sum + (row.position || 0) * (row.impressions || 0),
+              0
+            )
+            gscPosition = gscImpressions > 0 ? positionSum / gscImpressions : 0
           }
 
-          // 前期間のGSCデータ取得
-          const prevGscResponse = await fetch('/api/gsc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              startDate: prevDateRange.startDate,
-              endDate: prevDateRange.endDate,
-              rowLimit: 10000,
-            }),
+          const prevGscData = await cachedJsonPost('/api/gsc', {
+            startDate: prevDateRange.startDate,
+            endDate: prevDateRange.endDate,
+            rowLimit: 10000,
           })
-
-          if (prevGscResponse.ok) {
-            const prevGscData = await prevGscResponse.json()
-            if (prevGscData.rows && prevGscData.rows.length > 0) {
-              prevGscClicks = prevGscData.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
-              prevGscImpressions = prevGscData.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
-              
-              prevGscCtr = prevGscImpressions > 0 ? (prevGscClicks / prevGscImpressions) * 100 : 0
-              
-              const prevPositionSum = prevGscData.rows.reduce(
-                (sum: number, row: any) => sum + (row.position || 0) * (row.impressions || 0),
-                0
-              )
-              prevGscPosition = prevGscImpressions > 0 ? prevPositionSum / prevGscImpressions : 0
-            }
+          if (prevGscData.rows && prevGscData.rows.length > 0) {
+            prevGscClicks = prevGscData.rows.reduce((sum: number, row: any) => sum + (row.clicks || 0), 0)
+            prevGscImpressions = prevGscData.rows.reduce((sum: number, row: any) => sum + (row.impressions || 0), 0)
+            prevGscCtr = prevGscImpressions > 0 ? (prevGscClicks / prevGscImpressions) * 100 : 0
+            const prevPositionSum = prevGscData.rows.reduce(
+              (sum: number, row: any) => sum + (row.position || 0) * (row.impressions || 0),
+              0
+            )
+            prevGscPosition = prevGscImpressions > 0 ? prevPositionSum / prevGscImpressions : 0
           }
         } catch (gscErr) {
           // GSCデータ取得エラーは無視（GA4データは表示する）

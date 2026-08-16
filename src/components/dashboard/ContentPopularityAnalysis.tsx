@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
+import { cachedJsonPost } from '@/lib/dashboardFetchCache'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { linkClass, tableClass, tdClass, thClass } from '@/components/ui/styles'
 
@@ -129,21 +130,11 @@ export default function ContentPopularityAnalysis({ dateRange }: ContentPopulari
         setLoading(true)
         setError(null)
 
-        const response = await fetch('/api/content-analysis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dateRange,
-            category: 'all',
-            comparisonMode,
-          }),
+        const data = await cachedJsonPost('/api/content-analysis', {
+          dateRange,
+          category: 'all',
+          comparisonMode,
         })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch content data')
-        }
-
-        const data = await response.json()
         setCategories(data.categories || [])
       } catch (err) {
         setError(err instanceof Error ? err.message : 'データの取得に失敗しました')

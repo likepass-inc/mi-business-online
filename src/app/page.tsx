@@ -35,7 +35,7 @@ export default function Home() {
     <AppLayout>
       <div className="grid gap-10">
         <PageHeader
-          title="ダッシュボード"
+          title="数値分析"
           description="GA4 と Search Console の主要指標です。"
         >
           <SegmentedControl

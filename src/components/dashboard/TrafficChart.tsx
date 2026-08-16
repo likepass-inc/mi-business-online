@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import type { DateRange } from '@/lib/types'
+import { cachedJsonPost } from '@/lib/dashboardFetchCache'
 
 interface TrafficChartProps {
   dateRange: DateRange
@@ -25,21 +26,11 @@ export default function TrafficChart({ dateRange }: TrafficChartProps) {
         setLoading(true)
         setError(null)
 
-        const response = await fetch('/api/ga4', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            dateRange,
-            metrics: ['sessions', 'transactions'],
-            dimensions: ['date'],
-          }),
+        const data = await cachedJsonPost('/api/ga4', {
+          dateRange,
+          metrics: ['sessions', 'transactions'],
+          dimensions: ['date'],
         })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch chart data')
-        }
-
-        const data = await response.json()
         const formatted = data.rows.map((row: any) => ({
           date: row.date || '',
           sessions: row.sessions || 0,

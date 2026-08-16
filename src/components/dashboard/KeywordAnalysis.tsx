@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { DateRange } from '@/lib/types'
 import { getYearOverYearPeriod } from '@/lib/dateUtils'
+import { cachedJsonPost } from '@/lib/dashboardFetchCache'
 import SegmentedControl from '@/components/ui/SegmentedControl'
 import { linkClass, tableClass, tdClass, thClass } from '@/components/ui/styles'
 
@@ -144,22 +145,12 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           : getPreviousDateRange(dateRange)
 
         // 現在期間のキーワードデータ取得
-        const response = await fetch('/api/gsc', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            startDate: dateRange.startDate,
-            endDate: dateRange.endDate,
-            dimensions: ['query'],
-            rowLimit: 1000,
-          }),
+        const data = await cachedJsonPost('/api/gsc', {
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
+          dimensions: ['query'],
+          rowLimit: 1000,
         })
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch keyword data')
-        }
-
-        const data = await response.json()
         const currentKeywords: KeywordData[] = (data.rows || [])
           .filter((row: any) => row.query)
           .map((row: any) => ({
@@ -175,29 +166,21 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         // 比較期間（前年同時期または前期間）のキーワードデータ取得
         let prevKeywords: KeywordData[] = []
         try {
-          const prevResponse = await fetch('/api/gsc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              startDate: prevDateRange.startDate,
-              endDate: prevDateRange.endDate,
-              dimensions: ['query'],
-              rowLimit: 1000,
-            }),
+          const prevData = await cachedJsonPost('/api/gsc', {
+            startDate: prevDateRange.startDate,
+            endDate: prevDateRange.endDate,
+            dimensions: ['query'],
+            rowLimit: 1000,
           })
-
-          if (prevResponse.ok) {
-            const prevData = await prevResponse.json()
-            prevKeywords = (prevData.rows || [])
-              .filter((row: any) => row.query)
-              .map((row: any) => ({
-                query: row.query || '',
-                clicks: row.clicks || 0,
-                impressions: row.impressions || 0,
-                ctr: row.ctr || 0,
-                position: row.position || 0,
-              }))
-          }
+          prevKeywords = (prevData.rows || [])
+            .filter((row: any) => row.query)
+            .map((row: any) => ({
+              query: row.query || '',
+              clicks: row.clicks || 0,
+              impressions: row.impressions || 0,
+              ctr: row.ctr || 0,
+              position: row.position || 0,
+            }))
         } catch (prevErr) {
           console.error('Comparison period keyword data fetch error:', prevErr)
         }
@@ -248,19 +231,13 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         const uniqueKeywords = Array.from(new Set(insightKeywords.map(k => k.query)))
 
         try {
-          const pageResponse = await fetch('/api/gsc', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              startDate: dateRange.startDate,
-              endDate: dateRange.endDate,
-              dimensions: ['query', 'page'],
-              rowLimit: 5000,
-            }),
+          const pageData = await cachedJsonPost('/api/gsc', {
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
+            dimensions: ['query', 'page'],
+            rowLimit: 5000,
           })
-
-          if (pageResponse.ok) {
-            const pageData = await pageResponse.json()
+          if (pageData) {
             const keywordPageMap = new Map<string, PageData[]>()
 
             // キーワードごとにページデータをグループ化
