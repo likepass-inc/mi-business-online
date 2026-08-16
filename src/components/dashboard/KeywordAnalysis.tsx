@@ -396,6 +396,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           ]}
         />
       </div>
+      {/*
       {recommendedKeywords.length > 0 && (
         <div>
           <h3 className="m-0 mb-3 text-[15px] font-semibold text-accent">
@@ -417,7 +418,6 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
         </div>
       )}
 
-      {/* 課題とインサイト */}
       {insights.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {insights.map((insight, index) => {
@@ -435,7 +435,6 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
               growth: 'インプレッションは多いがクリックが少ないキーワード',
             }
 
-            // URLを短縮表示する関数
             const shortenUrl = (url: string) => {
               try {
                 const urlObj = new URL(url)
@@ -485,6 +484,7 @@ export default function KeywordAnalysis({ dateRange }: KeywordAnalysisProps) {
           })}
         </div>
       )}
+      */}
 
       {/* キーワードテーブル */}
       <div>
