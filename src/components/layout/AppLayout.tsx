@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/', label: 'ダッシュボード' },
   // { href: '/products', label: '商品動向' },
   { href: '/image-resize', label: '画像リサイズ' },
+  { href: '/guide', label: '使い方' },
 ]
 
 interface AppLayoutProps {
