@@ -45,16 +45,17 @@ function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="grid gap-3">
       <label htmlFor="id" className="grid gap-1.5 text-[13px] text-[#333]">
-        ID
+        メールアドレス
         <input
           id="id"
-          type="text"
+          type="email"
+          autoComplete="username"
           value={id}
           onChange={(e) => setId(e.target.value)}
           required
           disabled={isLoading}
           className={inputClass}
-          placeholder="IDを入力"
+          placeholder="メールアドレスを入力"
         />
       </label>
       <label htmlFor="password" className="grid gap-1.5 text-[13px] text-[#333]">
@@ -62,6 +63,7 @@ function LoginForm() {
         <input
           id="password"
           type="password"
+          autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required

@@ -1,24 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { isAuthenticated, getSessionUserId } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { getSessionUser } from '@/lib/auth'
 
-// 動的レンダリングを強制（cookiesを使用するため）
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const authenticated = await isAuthenticated()
-    const userId = await getSessionUserId()
+    const user = await getSessionUser()
 
     return NextResponse.json({
-      authenticated,
-      userId: authenticated ? userId : null,
+      authenticated: Boolean(user),
+      userId: user ? user.email : null,
+      role: user ? user.role : null,
     })
   } catch (e) {
     console.error('Session API error:', e)
     return NextResponse.json(
-      { authenticated: false, userId: null },
+      { authenticated: false, userId: null, role: null },
       { status: 500 }
     )
   }
 }
-

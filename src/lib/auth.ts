@@ -1,30 +1,24 @@
 import { cookies } from 'next/headers'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { authenticateAdmin, getAdminUserStore, type AdminRole, type AdminUser } from '@/lib/db/adminUserStore'
 
-// ユーザー情報（将来はDBに移行可能）
+export type { AdminRole, AdminUser }
+
 export interface User {
   id: string
-  password: string // 本番環境ではハッシュ化推奨
+  role: AdminRole
 }
 
-// 現在のユーザー（将来はDBから取得）
-const USERS: User[] = [
-  {
-    id: 'tk',
-    password: 'nakamura', // 本番環境では環境変数から取得し、ハッシュ化推奨
-  },
-]
-
-// セッションキー
 const SESSION_COOKIE_NAME = 'auth_session'
 const SESSION_MAX_AGE = 24 * 60 * 60 // 24時間（秒）
 
 /**
- * ユーザー認証
+ * ユーザー認証（メールアドレス + パスワードを DB 照合）
  */
-export function authenticateUser(id: string, password: string): User | null {
-  const user = USERS.find((u) => u.id === id && u.password === password)
-  return user || null
+export async function authenticateUser(id: string, password: string): Promise<User | null> {
+  const user = await authenticateAdmin(id, password)
+  if (!user) return null
+  return { id: user.email, role: user.role }
 }
 
 /**
@@ -50,7 +44,7 @@ export async function deleteSessionCookie(): Promise<void> {
 }
 
 /**
- * セッションからユーザーIDを取得
+ * セッションからユーザーID（メール）を取得
  */
 export async function getSessionUserId(): Promise<string | null> {
   const cookieStore = await cookies()
@@ -59,30 +53,27 @@ export async function getSessionUserId(): Promise<string | null> {
 }
 
 /**
- * 認証状態を確認
+ * セッションの有効なユーザーを取得
  */
-export async function isAuthenticated(): Promise<boolean> {
+export async function getSessionUser(): Promise<AdminUser | null> {
   const userId = await getSessionUserId()
-  if (!userId) {
-    return false
-  }
-  // ユーザーが存在するか確認
-  return USERS.some((u) => u.id === userId)
+  if (!userId) return null
+  return getAdminUserStore().findActiveByEmail(userId)
 }
 
 /**
- * 認証が必要なAPIリクエストのチェック
+ * 認証状態を確認
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getSessionUser()
+  return Boolean(user)
+}
+
+/**
+ * 認証が必要なAPIリクエストのチェック（Cookie の有無）
  */
 export function checkAuth(request: NextRequest): { authenticated: boolean; userId: string | null } {
   const session = request.cookies.get(SESSION_COOKIE_NAME)
   const userId = session?.value || null
-  
-  if (!userId) {
-    return { authenticated: false, userId: null }
-  }
-  
-  // ユーザーが存在するか確認
-  const userExists = USERS.some((u) => u.id === userId)
-  return { authenticated: userExists, userId: userExists ? userId : null }
+  return { authenticated: Boolean(userId), userId }
 }
-

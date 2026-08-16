@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import LogoutButton from './LogoutButton'
+import HeaderUser from './HeaderUser'
 import { wrapClass } from '@/components/ui/styles'
 
 const NAV_ITEMS = [
@@ -36,9 +36,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </span>
           </p>
           {!isLogin && (
-            <div className="flex items-center gap-3">
-              <LogoutButton />
-            </div>
+            <HeaderUser />
           )}
         </div>
       </header>

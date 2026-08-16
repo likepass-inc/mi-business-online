@@ -132,6 +132,16 @@ function initializeSchema(db: Database.Database) {
     }
   }
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      email TEXT PRIMARY KEY,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'editor',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
   // updated_at を自動更新するトリガー
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS update_products_timestamp 

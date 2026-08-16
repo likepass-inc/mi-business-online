@@ -3,6 +3,8 @@ export const wrapClass = 'w-[min(1120px,calc(100%-48px))] mx-auto'
 export const inputClass =
   'w-full px-3 py-2.5 border border-[#ccc] rounded-admin bg-white text-ink focus:outline-none focus:border-accent disabled:bg-[#f5f5f5] disabled:cursor-not-allowed'
 
+export const selectClass = inputClass
+
 export const linkClass = 'text-accent hover:underline'
 
 export const errorBoxClass = 'text-danger text-sm'
