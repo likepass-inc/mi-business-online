@@ -60,7 +60,16 @@ function initializeSchema(db: Database.Database) {
       sub_category TEXT,
       product_url TEXT NOT NULL,
       image_urls TEXT, -- JSON配列として保存
-      availability TEXT, -- 在庫状況
+      availability TEXT, -- 在庫状況（表示文言）
+      brand_name TEXT,
+      in_stock INTEGER,
+      stock_kind TEXT,
+      stock_label TEXT,
+      noshi_available INTEGER DEFAULT 0,
+      wrapping_paper_available INTEGER DEFAULT 0,
+      handbag_available INTEGER DEFAULT 0,
+      shelf_life INTEGER,
+      shipping_free INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       last_crawled_at DATETIME
@@ -73,6 +82,24 @@ function initializeSchema(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_category ON products(category);
     CREATE INDEX IF NOT EXISTS idx_last_crawled ON products(last_crawled_at);
   `)
+
+  for (const col of [
+    'ALTER TABLE products ADD COLUMN brand_name TEXT',
+    'ALTER TABLE products ADD COLUMN in_stock INTEGER',
+    'ALTER TABLE products ADD COLUMN stock_kind TEXT',
+    'ALTER TABLE products ADD COLUMN stock_label TEXT',
+    'ALTER TABLE products ADD COLUMN noshi_available INTEGER DEFAULT 0',
+    'ALTER TABLE products ADD COLUMN wrapping_paper_available INTEGER DEFAULT 0',
+    'ALTER TABLE products ADD COLUMN handbag_available INTEGER DEFAULT 0',
+    'ALTER TABLE products ADD COLUMN shelf_life INTEGER',
+    'ALTER TABLE products ADD COLUMN shipping_free INTEGER',
+  ]) {
+    try {
+      db.exec(col)
+    } catch {
+      // 既存DBでカラム追加済みなら無視
+    }
+  }
 
   // crawl_logs テーブル
   db.exec(`

@@ -1,5 +1,6 @@
 import { getDatabase } from './schema'
 import type { Product } from '../types'
+import { expandProductCodeVariants } from '../giftAncillary'
 
 /** 本番では無効。開発時または DEBUG_AGENT_LOG=1 のときのみ ingest 送信する */
 const isDebugAgentLogEnabled =
@@ -8,6 +9,7 @@ const isDebugAgentLogEnabled =
 export interface ProductData {
   product_code: string
   product_name: string
+  brand_name?: string
   price_incl_tax?: number
   price_excl_tax?: number
   description?: string
@@ -16,6 +18,14 @@ export interface ProductData {
   product_url: string
   image_urls?: string[]
   availability?: string
+  in_stock?: boolean
+  stock_kind?: Product['stock_kind']
+  stock_label?: string
+  noshi_available?: boolean
+  wrapping_paper_available?: boolean
+  handbag_available?: boolean
+  shelf_life?: number
+  shipping_free?: boolean | null
 }
 
 export interface ProductQuery {
@@ -79,10 +89,10 @@ function mapRowToProduct(row: any): Product {
     }
   }
 
-  const result = {
+  const result: Product = {
     product_code: row.product_code,
     product_name: row.product_name,
-    brand_name: '',
+    brand_name: row.brand_name || '',
     category: row.category || '',
     sub_category: row.sub_category || '',
     price_excl_tax: row.price_excl_tax || 0,
@@ -92,7 +102,15 @@ function mapRowToProduct(row: any): Product {
     image_url: imageUrls.length > 0 ? imageUrls[0] : undefined,
     image_urls: imageUrls.length > 0 ? imageUrls : undefined,
     tags: [],
-    availability: row.availability || undefined,
+    availability: row.availability || row.stock_label || undefined,
+    in_stock: row.in_stock == null ? undefined : Boolean(row.in_stock),
+    stock_kind: row.stock_kind || undefined,
+    stock_label: row.stock_label || row.availability || undefined,
+    noshi_available: Boolean(row.noshi_available),
+    wrapping_paper_available: Boolean(row.wrapping_paper_available),
+    handbag_available: Boolean(row.handbag_available),
+    shelf_life: row.shelf_life != null ? Number(row.shelf_life) : undefined,
+    shipping_free: row.shipping_free == null ? null : Boolean(row.shipping_free),
     created_at: row.created_at || undefined,
     updated_at: row.updated_at || undefined,
   }
@@ -150,13 +168,16 @@ export function saveProduct(productData: ProductData): void {
 
   const stmt = db.prepare(`
     INSERT INTO products (
-      product_code, product_name, price_incl_tax, price_excl_tax,
+      product_code, product_name, brand_name, price_incl_tax, price_excl_tax,
       description, category, sub_category, product_url,
-      image_urls, availability, last_crawled_at
+      image_urls, availability, in_stock, stock_kind, stock_label,
+      noshi_available, wrapping_paper_available, handbag_available,
+      shelf_life, shipping_free, last_crawled_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(product_code) DO UPDATE SET
       product_name = excluded.product_name,
+      brand_name = excluded.brand_name,
       price_incl_tax = excluded.price_incl_tax,
       price_excl_tax = excluded.price_excl_tax,
       description = excluded.description,
@@ -165,12 +186,29 @@ export function saveProduct(productData: ProductData): void {
       product_url = excluded.product_url,
       image_urls = excluded.image_urls,
       availability = excluded.availability,
+      in_stock = excluded.in_stock,
+      stock_kind = excluded.stock_kind,
+      stock_label = excluded.stock_label,
+      noshi_available = excluded.noshi_available,
+      wrapping_paper_available = excluded.wrapping_paper_available,
+      handbag_available = excluded.handbag_available,
+      shelf_life = excluded.shelf_life,
+      shipping_free = excluded.shipping_free,
       last_crawled_at = CURRENT_TIMESTAMP
   `)
+
+  const toInt = (v: boolean | undefined) => (v ? 1 : 0)
+  const shipping =
+    productData.shipping_free === null || productData.shipping_free === undefined
+      ? null
+      : productData.shipping_free
+        ? 1
+        : 0
 
   stmt.run(
     productData.product_code,
     productData.product_name,
+    productData.brand_name || null,
     productData.price_incl_tax || null,
     productData.price_excl_tax || null,
     productData.description || null,
@@ -178,7 +216,15 @@ export function saveProduct(productData: ProductData): void {
     productData.sub_category || null,
     productData.product_url,
     imageUrlsJson,
-    productData.availability || null
+    productData.availability || productData.stock_label || null,
+    productData.in_stock == null ? null : toInt(productData.in_stock),
+    productData.stock_kind || null,
+    productData.stock_label || productData.availability || null,
+    toInt(productData.noshi_available),
+    toInt(productData.wrapping_paper_available),
+    toInt(productData.handbag_available),
+    productData.shelf_life ?? null,
+    shipping
   )
 
   if (isDebugAgentLogEnabled) {
@@ -218,10 +264,13 @@ export function batchSaveProducts(products: ProductData[]): void {
 
 export function getProductByCode(productCode: string): Product | null {
   const db = getDatabase()
-  
+  const variants = expandProductCodeVariants(productCode)
+  if (variants.length === 0) return null
+
+  const placeholders = variants.map(() => '?').join(',')
   const row = db.prepare(`
-    SELECT * FROM products WHERE product_code = ?
-  `).get(productCode) as any
+    SELECT * FROM products WHERE product_code IN (${placeholders}) LIMIT 1
+  `).get(...variants) as any
 
   if (!row) {
     return null
@@ -232,35 +281,49 @@ export function getProductByCode(productCode: string): Product | null {
 
 export function getProductsByCodes(productCodes: string[]): Product[] {
   const db = getDatabase()
-  
-  // 空配列の場合は空配列を返す
+
   if (productCodes.length === 0) {
     return []
   }
-  
-  // 重複を除去
-  const uniqueCodes = Array.from(new Set(productCodes))
-  
-  // SQLのIN句用にプレースホルダーを生成
-  const placeholders = uniqueCodes.map(() => '?').join(',')
-  
+
+  const uniqueCodes = Array.from(new Set(productCodes.map((c) => c.trim()).filter(Boolean)))
+  const variants = Array.from(new Set(uniqueCodes.flatMap(expandProductCodeVariants)))
+
+  const placeholders = variants.map(() => '?').join(',')
+
   const stmt = db.prepare(`
     SELECT * FROM products
     WHERE product_code IN (${placeholders})
   `)
-  
-  const rows = stmt.all(...uniqueCodes) as any[]
-  
-  // 存在しない商品コードをログに記録
-  const foundCodes = new Set(rows.map(row => row.product_code))
-  const notFoundCodes = uniqueCodes.filter(code => !foundCodes.has(code))
+
+  const rows = stmt.all(...variants) as any[]
+
+  const byNormalized = new Map<string, any>()
+  for (const row of rows) {
+    for (const v of expandProductCodeVariants(row.product_code)) {
+      byNormalized.set(v, row)
+    }
+  }
+
+  const products: Product[] = []
+  const seen = new Set<string>()
+  for (const code of uniqueCodes) {
+    const row = expandProductCodeVariants(code)
+      .map((v) => byNormalized.get(v))
+      .find(Boolean)
+    if (row && !seen.has(row.product_code)) {
+      seen.add(row.product_code)
+      products.push(mapRowToProduct(row))
+    }
+  }
+
+  const notFoundCodes = uniqueCodes.filter(
+    (code) => !expandProductCodeVariants(code).some((v) => byNormalized.has(v))
+  )
   if (notFoundCodes.length > 0) {
     console.log(`[ProductRepository] Products not found: ${notFoundCodes.join(', ')}`)
   }
-  
-  // Product型に変換
-  const products: Product[] = rows.map(row => mapRowToProduct(row))
-  
+
   return products
 }
 
@@ -333,19 +396,19 @@ export function searchProducts(keyword: string, limit = 100, offset = 0): {
   // 総数を取得
   const countStmt = db.prepare(`
     SELECT COUNT(*) as count FROM products
-    WHERE product_name LIKE ? OR description LIKE ?
+    WHERE product_name LIKE ? OR description LIKE ? OR brand_name LIKE ? OR product_code LIKE ?
   `)
-  const total = (countStmt.get(searchTerm, searchTerm) as any).count
+  const total = (countStmt.get(searchTerm, searchTerm, searchTerm, searchTerm) as any).count
   
   // 商品を取得
   const stmt = db.prepare(`
     SELECT * FROM products
-    WHERE product_name LIKE ? OR description LIKE ?
+    WHERE product_name LIKE ? OR description LIKE ? OR brand_name LIKE ? OR product_code LIKE ?
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
   `)
-  
-  const rows = stmt.all(searchTerm, searchTerm, limit, offset) as any[]
+
+  const rows = stmt.all(searchTerm, searchTerm, searchTerm, searchTerm, limit, offset) as any[]
   
   const products: Product[] = rows.map(row => mapRowToProduct(row))
   
