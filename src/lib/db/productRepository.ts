@@ -156,15 +156,36 @@ export function saveProduct(productData: ProductData): void {
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(product_code) DO UPDATE SET
-      product_name = excluded.product_name,
-      price_incl_tax = excluded.price_incl_tax,
-      price_excl_tax = excluded.price_excl_tax,
-      description = excluded.description,
-      category = excluded.category,
-      sub_category = excluded.sub_category,
+      product_name = CASE
+        WHEN excluded.product_name IS NULL OR excluded.product_name = '' THEN products.product_name
+        ELSE excluded.product_name
+      END,
+      price_incl_tax = CASE
+        WHEN excluded.price_incl_tax IS NULL OR excluded.price_incl_tax = 0 THEN products.price_incl_tax
+        ELSE excluded.price_incl_tax
+      END,
+      price_excl_tax = CASE
+        WHEN excluded.price_excl_tax IS NULL OR excluded.price_excl_tax = 0 THEN products.price_excl_tax
+        ELSE excluded.price_excl_tax
+      END,
+      description = CASE
+        WHEN excluded.description IS NULL OR excluded.description = '' THEN products.description
+        ELSE excluded.description
+      END,
+      category = CASE
+        WHEN excluded.category IS NULL OR excluded.category = '' THEN products.category
+        ELSE excluded.category
+      END,
+      sub_category = CASE
+        WHEN excluded.sub_category IS NULL OR excluded.sub_category = '' THEN products.sub_category
+        ELSE excluded.sub_category
+      END,
       product_url = excluded.product_url,
-      image_urls = excluded.image_urls,
-      availability = excluded.availability,
+      image_urls = CASE
+        WHEN excluded.image_urls IS NULL OR excluded.image_urls = '' OR excluded.image_urls = '[]' THEN products.image_urls
+        ELSE excluded.image_urls
+      END,
+      availability = COALESCE(excluded.availability, products.availability),
       last_crawled_at = CURRENT_TIMESTAMP
   `)
 

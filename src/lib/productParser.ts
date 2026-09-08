@@ -14,6 +14,25 @@ export interface ParsedProductData extends ProductData {
   availability?: string
 }
 
+export function isSiteChromeProductName(name: string): boolean {
+  const n = (name || '').trim()
+  if (!n) {
+    return false
+  }
+  const stripped = n
+    .replace(/\s*[|｜]\s*三越伊勢丹法人オンライン\s*[|｜]\s*請求書払い\s*$/u, '')
+    .replace(/\s*[|｜]\s*請求書払い\s*$/u, '')
+    .replace(/^三越伊勢丹法人オンライン\s*/u, '')
+    .replace(/[|｜]/g, ' ')
+    .trim()
+  return stripped === ''
+}
+
+export function isDiscontinuedStubPage($: ReturnType<typeof cheerio.load>): boolean {
+  const text = $('body').text()
+  return /お取扱いできない商品/.test(text) || /販売終了か[、,].*お取扱いできない/.test(text)
+}
+
 /**
  * 商品ページのHTMLから商品情報を抽出
  */
@@ -30,7 +49,21 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
 
   // 基本情報を抽出
   const basicInfo = extractProductBasicInfo($, url)
-  if (!basicInfo.product_code || !basicInfo.product_name) {
+  if (!basicInfo.product_code) {
+    return null
+  }
+
+  const availability = extractProductAvailability($)
+  if (isDiscontinuedStubPage($) || isSiteChromeProductName(basicInfo.product_name)) {
+    return {
+      product_code: basicInfo.product_code,
+      product_name: '',
+      product_url: url,
+      availability: availability || '販売終了',
+    }
+  }
+
+  if (!basicInfo.product_name) {
     return null
   }
 
@@ -42,9 +75,6 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
 
   // 価格情報を抽出
   const priceInfo = extractProductPrice($)
-
-  // 在庫状況を抽出
-  const availability = extractProductAvailability($)
   // #region agent log
   fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:44',message:'Extracted availability',data:{productCode:basicInfo.product_code,availability:availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
   // #endregion
