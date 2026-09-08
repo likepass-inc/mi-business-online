@@ -81,14 +81,6 @@ export interface Product {
   match_score?: number
   tags: string[]
   availability?: string
-  in_stock?: boolean
-  stock_kind?: 'in_stock' | 'temp_out' | 'not_available' | 'unknown'
-  stock_label?: string
-  noshi_available?: boolean
-  wrapping_paper_available?: boolean
-  handbag_available?: boolean
-  shelf_life?: number
-  shipping_free?: boolean | null
   created_at?: string
   updated_at?: string
 }

@@ -1,14 +1,5 @@
 import * as cheerio from 'cheerio'
 import type { ProductData } from './db/productRepository'
-import {
-  parseBrandName,
-  parseEcStock,
-  parseHandbagAvailable,
-  parseNoshiAvailable,
-  parseShelfLifeDays,
-  parseShippingFree,
-  parseWrappingAvailable,
-} from './giftAncillary'
 
 export interface ParsedProductData extends ProductData {
   product_code: string
@@ -43,10 +34,20 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
     return null
   }
 
+  // 画像を抽出
   const imageUrls = extractProductImages($, baseUrl)
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:38',message:'Extracted image URLs',data:{productCode:basicInfo.product_code,imageUrlsCount:imageUrls.length,imageUrls:imageUrls.slice(0,3)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+
+  // 価格情報を抽出
   const priceInfo = extractProductPrice($)
+
+  // 在庫状況を抽出
   const availability = extractProductAvailability($)
-  const stock = parseEcStock($, availability)
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:44',message:'Extracted availability',data:{productCode:basicInfo.product_code,availability:availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // カテゴリ情報を抽出
   const categoryInfo = extractProductCategory($, url)
@@ -72,10 +73,9 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
     }
   }
 
-  return {
+  const result = {
     product_code: basicInfo.product_code,
     product_name: basicInfo.product_name,
-    brand_name: parseBrandName($),
     price_incl_tax: priceInfo.price_incl_tax,
     price_excl_tax: priceInfo.price_excl_tax,
     description: description || undefined,
@@ -83,16 +83,12 @@ export function parseProductPage(html: string, url: string): ParsedProductData |
     sub_category: categoryInfo.sub_category || undefined,
     product_url: url,
     image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-    availability: stock.stock_label || availability || undefined,
-    in_stock: stock.in_stock,
-    stock_kind: stock.stock_kind,
-    stock_label: stock.stock_label || undefined,
-    noshi_available: parseNoshiAvailable($),
-    wrapping_paper_available: parseWrappingAvailable($),
-    handbag_available: parseHandbagAvailable($),
-    shelf_life: parseShelfLifeDays($) ?? undefined,
-    shipping_free: parseShippingFree($),
+    availability: availability || undefined
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:70',message:'parseProductPage result',data:{productCode:result.product_code,hasImageUrls:!!result.image_urls,imageUrlsCount:result.image_urls?.length||0,availability:result.availability},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  return result
 }
 
 /**
@@ -278,7 +274,11 @@ function extractProductImages($: ReturnType<typeof cheerio.load>, baseUrl: URL):
     }
   })
 
-  return imageUrls.slice(0, 10)
+  const result = imageUrls.slice(0, 10) // 最大10枚まで
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/1be90cd4-4da8-4d6f-8e86-bafd75a39a77',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'productParser.ts:174',message:'extractProductImages result',data:{foundImages:result.length,fromSelectors:imageUrls.length,fromOG:!!ogImage,resultImages:result.slice(0,2)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  return result
 }
 
 /**
@@ -412,9 +412,7 @@ function extractProductAvailability($: ReturnType<typeof cheerio.load>): string 
       if (json.offers && json.offers.availability) {
         const avail = json.offers.availability
         if (typeof avail === 'string') {
-          if (avail.includes('Discontinued')) {
-            availability = '販売を終了いたしました'
-          } else if (avail.includes('InStock')) {
+          if (avail.includes('InStock')) {
             availability = '在庫あり'
           } else if (avail.includes('OutOfStock')) {
             availability = '在庫なし'
@@ -428,7 +426,29 @@ function extractProductAvailability($: ReturnType<typeof cheerio.load>): string 
     }
   })
 
-  return availability
+  if (availability) {
+    return availability
+  }
+
+  // 優先度5: 一般的なテキストパターンマッチング（フォールバック）
+  const availabilityPatterns = [
+    /在庫あり/i,
+    /在庫なし/i,
+    /入荷待ち/i,
+    /予約受付中/i,
+    /販売終了/i,
+    /売り切れ/i
+  ]
+
+  const bodyText = $('body').text()
+  for (const pattern of availabilityPatterns) {
+    const match = bodyText.match(pattern)
+    if (match) {
+      return match[0]
+    }
+  }
+
+  return null
 }
 
 /**
