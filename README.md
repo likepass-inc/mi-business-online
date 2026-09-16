@@ -310,6 +310,8 @@ business.mistore.jpの商品ページを定期的にクロールし、商品デ�
 - `GET /api/products/[productCode]`: 商品詳細取得
 - `GET /api/products/search?q=キーワード`: 商品検索
 
+2026-09-18 10:00 JST 以降、26SS コード（例: `R600-303S26`）は 26FW に解決されます。複数コード取得では照合用に要求コードを `product_code` に残し、`canonical_product_code` と FW の `product_url` を返します。詳細は [docs/SEASON_MAP_26SS_26FW.md](./docs/SEASON_MAP_26SS_26FW.md) を参照してください。
+
 **複数商品ID一括取得の例**:
 ```
 GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI789
@@ -344,6 +346,10 @@ GET /api/products?product_code[]=ABC123&product_code[]=DEF456&product_code[]=GHI
   - 認証: `Authorization: Bearer {CRON_SECRET}` ヘッダーが必要
   - 外部cronサービス（cron-job.org等）から呼び出し可能
   - 差分クロールを実行（更新が必要な商品のみ）
+- `GET/POST /api/cron/crawl-season-map`: 26SS→26FW 相対表の FW 商品をシード／クロール
+  - 認証: 同上
+  - `?seed_only=1` で相対表の名前・URLだけ先行投入
+  - 詳細: [docs/SEASON_MAP_26SS_26FW.md](./docs/SEASON_MAP_26SS_26FW.md)
 
 **詳細な設定手順**: [CRON_SETUP_GUIDE.md](./CRON_SETUP_GUIDE.md) を参照してください。
 

@@ -83,6 +83,8 @@ export interface Product {
   availability?: string
   created_at?: string
   updated_at?: string
+  requested_product_code?: string
+  canonical_product_code?: string
 }
 
 export interface RelatedProductsRequest {

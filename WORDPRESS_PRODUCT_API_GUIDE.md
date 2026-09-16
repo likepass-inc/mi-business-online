@@ -37,6 +37,10 @@ https://mi-business-online.onrender.com/api/products
 - **image_url**: メイン画像URL
 - **image_urls**: 画像URLの配列（複数画像がある場合）
 - **availability**: 在庫状況（詳細は後述）
+- **requested_product_code**: 問い合わせた商品コード（エイリアス解決時）
+- **canonical_product_code**: 正規の商品コード（2026-09-18 10:00 JST 以降、26SS は 26FW に解決）
+
+26SS→26FW の切替手順は [docs/SEASON_MAP_26SS_26FW.md](./docs/SEASON_MAP_26SS_26FW.md) を参照してください。
 
 ---
 

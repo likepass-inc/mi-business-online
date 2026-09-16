@@ -1,5 +1,13 @@
 import { getDatabase } from './schema'
 import type { Product } from '../types'
+import type { SeasonMapEntry } from '../seasonMap'
+import {
+  getSeasonMapEntries,
+  normalizeProductCode,
+  resolveSeasonSuccessor,
+  shopProductCode,
+  supersededNormalizedCodes,
+} from '../seasonMap'
 
 /** 本番では無効。開発時または DEBUG_AGENT_LOG=1 のときのみ ingest 送信する */
 const isDebugAgentLogEnabled =
@@ -122,6 +130,134 @@ function mapRowToProduct(row: any): Product {
   return result
 }
 
+function isUsableProductName(name: string | undefined): boolean {
+  const n = (name || '').trim()
+  if (!n || n === '商品名不明' || n === '商品') {
+    return false
+  }
+  return !n.includes('三越伊勢丹法人オンライン')
+}
+
+function isDiscontinuedAvailability(availability: string | undefined): boolean {
+  const value = availability || ''
+  return value.includes('販売終了') || value.includes('販売を終了')
+}
+
+export function findRawProductByCode(productCode: string): Product | null {
+  const key = normalizeProductCode(productCode)
+  if (!key) {
+    return null
+  }
+  const db = getDatabase()
+  const row = db.prepare(`
+    SELECT * FROM products
+    WHERE lower(ltrim(product_code, 'gG')) = ?
+    LIMIT 1
+  `).get(key) as any
+  if (!row) {
+    return null
+  }
+  return mapRowToProduct(row)
+}
+
+function syntheticSeasonProduct(
+  entry: SeasonMapEntry,
+  requestedCode: string,
+  mode: 'by-code' | 'canonical'
+): Product {
+  const canonicalCode = shopProductCode(entry.to)
+  return {
+    product_code: mode === 'by-code' ? requestedCode : canonicalCode,
+    product_name: entry.to_name,
+    brand_name: '',
+    category: '',
+    sub_category: '',
+    price_excl_tax: 0,
+    price_incl_tax: 0,
+    description: '',
+    product_url: entry.to_url,
+    tags: [],
+    requested_product_code: requestedCode,
+    canonical_product_code: canonicalCode,
+  }
+}
+
+function overlaySeasonProduct(
+  base: Product,
+  requestedCode: string,
+  entry: SeasonMapEntry,
+  mode: 'by-code' | 'canonical'
+): Product {
+  const canonicalCode = shopProductCode(entry.to)
+  const fromSsSnapshot = normalizeProductCode(base.product_code) === normalizeProductCode(entry.from)
+  const name = fromSsSnapshot || !isUsableProductName(base.product_name)
+    ? entry.to_name
+    : base.product_name
+  return {
+    ...base,
+    product_code: mode === 'by-code' ? requestedCode : canonicalCode,
+    product_name: name,
+    product_url: entry.to_url,
+    availability: fromSsSnapshot && isDiscontinuedAvailability(base.availability)
+      ? undefined
+      : base.availability,
+    requested_product_code: requestedCode,
+    canonical_product_code: canonicalCode,
+  }
+}
+
+export function resolveProductByCode(
+  productCode: string,
+  mode: 'by-code' | 'canonical' = 'canonical'
+): Product | null {
+  const requestedCode = String(productCode || '').trim()
+  if (!requestedCode) {
+    return null
+  }
+
+  const successor = resolveSeasonSuccessor(requestedCode)
+  if (successor) {
+    const fw = findRawProductByCode(successor.to)
+    if (fw) {
+      return overlaySeasonProduct(fw, requestedCode, successor, mode)
+    }
+    const ss = findRawProductByCode(successor.from)
+    if (ss) {
+      return overlaySeasonProduct(ss, requestedCode, successor, mode)
+    }
+    return syntheticSeasonProduct(successor, requestedCode, mode)
+  }
+
+  const raw = findRawProductByCode(requestedCode)
+  if (!raw) {
+    return null
+  }
+  return {
+    ...raw,
+    product_code: mode === 'by-code' ? requestedCode : raw.product_code,
+    requested_product_code: requestedCode,
+    canonical_product_code: raw.product_code,
+  }
+}
+
+export function seedSeasonMapProducts(): { inserted: number; skipped: number } {
+  let inserted = 0
+  let skipped = 0
+  for (const entry of getSeasonMapEntries()) {
+    if (findRawProductByCode(entry.to)) {
+      skipped += 1
+      continue
+    }
+    saveProduct({
+      product_code: shopProductCode(entry.to),
+      product_name: entry.to_name,
+      product_url: entry.to_url,
+    })
+    inserted += 1
+  }
+  return { inserted, skipped }
+}
+
 export function saveProduct(productData: ProductData): void {
   const db = getDatabase()
   const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null
@@ -238,50 +374,37 @@ export function batchSaveProducts(products: ProductData[]): void {
 }
 
 export function getProductByCode(productCode: string): Product | null {
-  const db = getDatabase()
-  
-  const row = db.prepare(`
-    SELECT * FROM products WHERE product_code = ?
-  `).get(productCode) as any
-
-  if (!row) {
-    return null
-  }
-
-  return mapRowToProduct(row)
+  return resolveProductByCode(productCode, 'canonical')
 }
 
 export function getProductsByCodes(productCodes: string[]): Product[] {
-  const db = getDatabase()
-  
-  // 空配列の場合は空配列を返す
-  if (productCodes.length === 0) {
+  const uniqueCodes = Array.from(
+    new Set(
+      productCodes
+        .map((code) => String(code || '').trim())
+        .filter((code) => code !== '')
+    )
+  )
+
+  if (uniqueCodes.length === 0) {
     return []
   }
-  
-  // 重複を除去
-  const uniqueCodes = Array.from(new Set(productCodes))
-  
-  // SQLのIN句用にプレースホルダーを生成
-  const placeholders = uniqueCodes.map(() => '?').join(',')
-  
-  const stmt = db.prepare(`
-    SELECT * FROM products
-    WHERE product_code IN (${placeholders})
-  `)
-  
-  const rows = stmt.all(...uniqueCodes) as any[]
-  
-  // 存在しない商品コードをログに記録
-  const foundCodes = new Set(rows.map(row => row.product_code))
-  const notFoundCodes = uniqueCodes.filter(code => !foundCodes.has(code))
+
+  const products: Product[] = []
+  const notFoundCodes: string[] = []
+  for (const code of uniqueCodes) {
+    const product = resolveProductByCode(code, 'by-code')
+    if (product) {
+      products.push(product)
+    } else {
+      notFoundCodes.push(code)
+    }
+  }
+
   if (notFoundCodes.length > 0) {
     console.log(`[ProductRepository] Products not found: ${notFoundCodes.join(', ')}`)
   }
-  
-  // Product型に変換
-  const products: Product[] = rows.map(row => mapRowToProduct(row))
-  
+
   return products
 }
 
@@ -348,28 +471,42 @@ export function searchProducts(keyword: string, limit = 100, offset = 0): {
   total: number
 } {
   const db = getDatabase()
-  
   const searchTerm = `%${keyword}%`
-  
-  // 総数を取得
-  const countStmt = db.prepare(`
-    SELECT COUNT(*) as count FROM products
-    WHERE product_name LIKE ? OR description LIKE ?
-  `)
-  const total = (countStmt.get(searchTerm, searchTerm) as any).count
-  
-  // 商品を取得
-  const stmt = db.prepare(`
+  const superseded = supersededNormalizedCodes()
+  const excludeSql = superseded.length > 0
+    ? `AND lower(ltrim(product_code, 'gG')) NOT IN (${superseded.map(() => '?').join(',')})`
+    : ''
+  const whereClause = `
+    WHERE (product_name LIKE ? OR ifnull(description, '') LIKE ? OR product_code LIKE ?)
+    ${excludeSql}
+  `
+  const params: Array<string> = [searchTerm, searchTerm, searchTerm, ...superseded]
+
+  const totalRow = db.prepare(`SELECT COUNT(*) as count FROM products ${whereClause}`).get(...params) as { count: number }
+  let total = totalRow.count
+
+  const rows = db.prepare(`
     SELECT * FROM products
-    WHERE product_name LIKE ? OR description LIKE ?
+    ${whereClause}
     ORDER BY updated_at DESC
     LIMIT ? OFFSET ?
-  `)
-  
-  const rows = stmt.all(searchTerm, searchTerm, limit, offset) as any[]
-  
-  const products: Product[] = rows.map(row => mapRowToProduct(row))
-  
+  `).all(...params, limit, offset) as any[]
+
+  let products: Product[] = rows.map((row) => mapRowToProduct(row))
+
+  const successor = resolveSeasonSuccessor(String(keyword || '').trim())
+  if (successor && offset === 0) {
+    const fw = resolveProductByCode(successor.to, 'canonical')
+    if (fw) {
+      const fwKey = normalizeProductCode(fw.canonical_product_code || fw.product_code)
+      products = [fw, ...products.filter((product) => normalizeProductCode(product.product_code) !== fwKey)]
+      if (products.length > limit) {
+        products = products.slice(0, limit)
+      }
+      total = Math.max(total, 1)
+    }
+  }
+
   return { products, total }
 }
 
@@ -459,7 +596,7 @@ export function getDiscontinuedProducts(
 // クロールログ関連
 export interface CrawlLog {
   id: number
-  crawl_type: 'full' | 'incremental'
+  crawl_type: 'full' | 'incremental' | 'season-map'
   started_at: string
   completed_at: string | null
   total_urls: number
@@ -469,7 +606,7 @@ export interface CrawlLog {
   error_message: string | null
 }
 
-export function createCrawlLog(crawlType: 'full' | 'incremental'): number {
+export function createCrawlLog(crawlType: 'full' | 'incremental' | 'season-map'): number {
   const db = getDatabase()
   
   const stmt = db.prepare(`
