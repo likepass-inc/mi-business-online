@@ -9,7 +9,7 @@ on:
 jobs:
   recrawl-fw:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Recrawl 26FW mapped products
         env:
@@ -56,7 +56,7 @@ jobs:
             exit 1
           done
 
-          for i in 1 2 3 4 5 6 7 8 9 10; do
+          for i in $(seq 1 24); do
             sleep 15
             curl -sS "${RENDER_APP_URL}/api/crawl/products/status" -o status.json
             STATUS=$(python3 -c "import json; log=json.load(open('status.json')).get('log') or {}; print(log.get('status') or '')")
@@ -64,12 +64,89 @@ jobs:
             python3 -c "import json; log=json.load(open('status.json')).get('log') or {}; print('success=%s errors=%s' % (log.get('success_count'), log.get('error_count')))"
             if [ "${CRAWL_TYPE}" = "season-map" ] && [ "${STATUS}" = "completed" ]; then
               echo "Season map crawl completed"
-              exit 0
+              break
             fi
             if [ "${STATUS}" = "failed" ]; then
               echo "Season map crawl failed"
               exit 1
             fi
+            if [ "${i}" = "24" ]; then
+              echo "Timed out waiting for season-map crawl to finish"
+              exit 1
+            fi
           done
-          echo "Timed out waiting for season-map crawl to finish"
-          exit 1
+
+      - name: Verify mapped product API
+        env:
+          RENDER_APP_URL: https://mi-business-online.onrender.com
+        run: |
+          python3 <<'PY'
+          import json
+          import urllib.parse
+          import urllib.request
+          from datetime import datetime, timezone
+
+          base = "https://mi-business-online.onrender.com/api/products"
+          cutover = datetime(2026, 9, 18, 1, 0, tzinfo=timezone.utc)
+          now = datetime.now(timezone.utc)
+
+          def fetch(codes):
+              query = "&".join("product_code[]=" + urllib.parse.quote(code) for code in codes)
+              with urllib.request.urlopen(base + "?" + query) as response:
+                  payload = json.load(response)
+              by_requested = {}
+              for item in payload.get("data") or []:
+                  key = item.get("requested_product_code") or item.get("product_code")
+                  by_requested[key] = item
+              return by_requested
+
+          def availability(item):
+              return str((item or {}).get("availability") or "")
+
+          def fail(message):
+              raise SystemExit(message)
+
+          fw_codes = [
+              "gR600-303F26",
+              "gR674-413F26",
+              "gR679-173F26",
+              "gR679-293F26",
+          ]
+          fw = fetch(fw_codes)
+          for code in fw_codes:
+              item = fw.get(code)
+              if not item:
+                  fail(f"{code} is missing from the product API")
+              if not (item.get("product_name") or "").strip():
+                  fail(f"{code} has an empty name")
+              if "F26" not in (item.get("product_url") or ""):
+                  fail(f"{code} URL is not FW: {item.get('product_url')}")
+              if "販売終了" in availability(item) or "販売を終了" in availability(item):
+                  fail(f"{code} is still marked discontinued: {availability(item)}")
+              print(f"OK FW {code} name={item.get('product_name')} avail={availability(item)!r} url={item.get('product_url')}")
+
+          if now < cutover:
+              print(f"Cutover is at {cutover.isoformat()}; skipping SS alias checks at {now.isoformat()}")
+              raise SystemExit(0)
+
+          aliases = {
+              "gR600-303S26": "F26",
+              "gR672-503S26": "R672-503F26",
+              "gR665-783S26": "R665-783F26",
+              "M674-413S26": "R674-413F26",
+              "M679-173S26": "R679-173F26",
+              "M679-293S26": "R679-293F26",
+          }
+          ss = fetch(list(aliases))
+          for code, needle in aliases.items():
+              item = ss.get(code)
+              if not item:
+                  fail(f"{code} did not resolve after cutover")
+              url = item.get("product_url") or ""
+              canonical = item.get("canonical_product_code") or item.get("product_code") or ""
+              if needle not in url and needle.lower() not in canonical.lower():
+                  fail(f"{code} did not alias to {needle}: url={url} canonical={canonical}")
+              if "販売終了" in availability(item) or "販売を終了" in availability(item):
+                  fail(f"{code} aliased row is discontinued: {availability(item)}")
+              print(f"OK alias {code} -> {url} canonical={canonical} price={item.get('price_incl_tax')}")
+          PY

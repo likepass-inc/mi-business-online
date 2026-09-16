@@ -50,7 +50,7 @@ FW ページがまだカタログ化されていない（サイト名だけの�
 
 ## 切替当日 10:00
 
-マップは時刻で自動的に有効になる。GitHub Actions `26SS to 26FW season map recrawl` が 01:00 UTC（JST 10:00）に再クロールを叩く。失敗したら手動で同じエンドポイントを叩く。
+マップは時刻で自動的に有効になる。GitHub Actions `26SS to 26FW season map recrawl` が 01:00 UTC（JST 10:00）に再クロールを叩き、FW 行と SS エイリアス（例外 3 件含む）を API で確認する。失敗したら手動で同じエンドポイントを叩く。
 
 ```bash
 curl -X POST "https://mi-business-online.onrender.com/api/cron/crawl-season-map" \
