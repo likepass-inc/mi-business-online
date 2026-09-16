@@ -46,24 +46,32 @@ curl "https://mi-business-online.onrender.com/api/products?product_code[]=gR600-
 curl "https://mi-business-online.onrender.com/api/products?product_code[]=gR600-303S26"
 ```
 
+FW ページがまだカタログ化されていない（サイト名だけのスタブ）場合、名前と URL だけ残し `販売終了` にはしない。価格・画像はショップが本番ページになったあとの再クロールで入る。
+
 ## 切替当日 10:00
 
-1. マップは時刻で自動的に有効になる。
-2. FW を再クロールして価格・在庫を更新する（上記 `crawl-season-map`）。
-3. 雑誌 WordPress の商品キャッシュを消す（未対応でも URL 書き換えが入っていれば表示は継続し、最大約 10 分で自然失効する）。
+マップは時刻で自動的に有効になる。GitHub Actions `26SS to 26FW season map recrawl` が 01:00 UTC（JST 10:00）に再クロールを叩く。失敗したら手動で同じエンドポイントを叩く。
 
 ```bash
-wp eval 'echo mi_magazine_flush_product_cache();'
-# またはログイン済み管理者で
-# POST /wp-json/mi-magazine/v1/flush-products
+curl -X POST "https://mi-business-online.onrender.com/api/cron/crawl-season-map" \
+  -H "Authorization: Bearer $CRON_SECRET"
+curl -sS "https://mi-business-online.onrender.com/api/crawl/products/status"
 ```
 
-4. 例外 3 件をブラウザで確認する。
-   - `M674-413S26` → `R674-413F26`
-   - `M679-173S26` → `R679-173F26`
-   - `M679-293S26` → `R679-293F26`
+確認:
 
-## テスト
+- SS: `gR600-303S26` → FW の URL・価格
+- 例外: `M674-413S26` → `R674-413F26`
+
+雑誌 WordPress の商品キャッシュは最大約 10 分で自然失効する。URL 書き換えはプラグイン側でも入っている。急ぎなら管理者で `POST /wp-json/mi-magazine/v1/flush-products`。
+
+ブラウザで記事カードを数件と例外 3 件を確認する。
+
+- `M674-413S26` → `R674-413F26`
+- `M679-173S26` → `R679-173F26`
+- `M679-293S26` → `R679-293F26`
+
+ショップ側の FW ページが 10:00 時点でもスタブのままだと、再クロールしても価格は入らない。その場合はショップ公開を待って同じクロールをもう一度。
 
 ```bash
 npm run test:season-map

@@ -4,6 +4,7 @@ import {
   updateCrawlLog,
   batchSaveProducts,
   seedSeasonMapProducts,
+  clearSeasonMapPlaceholderAvailability,
   type ProductData,
 } from './db/productRepository'
 import {
@@ -47,18 +48,25 @@ async function fetchProductHtml(url: string): Promise<string> {
   return new TextDecoder(charset, { fatal: false }).decode(buffer)
 }
 
-function applyMapNameFallback(product: ProductData, url: string): ProductData {
+export function isSeasonMapStubProduct(product: ProductData): boolean {
+  const name = (product.product_name || '').trim()
+  const availability = product.availability || ''
+  const discontinued = availability.includes('販売終了') || availability.includes('販売を終了')
+  const hasCatalog =
+    (product.price_incl_tax || 0) > 0 || (product.image_urls && product.image_urls.length > 0)
+  return !name || isSiteChromeProductName(name) || (discontinued && !hasCatalog)
+}
+
+export function prepareSeasonMapProduct(product: ProductData, url: string): ProductData {
   const entry = getSeasonMapEntryForCode(product.product_code) || getSeasonMapEntryForUrl(url)
   if (!entry) {
     return product
   }
-  const name = (product.product_name || '').trim()
-  if (!name || isSiteChromeProductName(name)) {
+  if (isSeasonMapStubProduct(product)) {
     return {
-      ...product,
       product_code: shopProductCode(entry.to),
       product_name: entry.to_name,
-      product_url: entry.to_url || product.product_url,
+      product_url: entry.to_url || product.product_url || url,
     }
   }
   return {
@@ -73,9 +81,13 @@ export async function runSeasonMapCrawl(
   options: { seedOnly?: boolean } = {}
 ): Promise<{ inserted: number; skipped: number; success_count: number; error_count: number }> {
   const seeded = seedSeasonMapProducts()
-  console.log(`${LOG_PREFIX} Seeded FW products: inserted=${seeded.inserted} skipped=${seeded.skipped}`)
+  const cleared = clearSeasonMapPlaceholderAvailability()
+  console.log(
+    `${LOG_PREFIX} Seeded FW products: inserted=${seeded.inserted} skipped=${seeded.skipped} cleared_placeholders=${cleared}`
+  )
 
   if (options.seedOnly) {
+    const clearedOnly = clearSeasonMapPlaceholderAvailability()
     updateCrawlLog(logId, {
       status: 'completed',
       completed_at: new Date(),
@@ -83,6 +95,7 @@ export async function runSeasonMapCrawl(
       success_count: seeded.inserted,
       error_count: 0,
     })
+    console.log(`${LOG_PREFIX} seed_only cleared_placeholders=${clearedOnly}`)
     return { ...seeded, success_count: 0, error_count: 0 }
   }
 
@@ -108,7 +121,7 @@ export async function runSeasonMapCrawl(
             if (!parsed) {
               throw new Error('Failed to parse product data')
             }
-            return applyMapNameFallback(parsed, url)
+            return prepareSeasonMapProduct(parsed, url)
           } catch (error) {
             lastError = error instanceof Error ? error : new Error(String(error))
           }
@@ -136,6 +149,7 @@ export async function runSeasonMapCrawl(
 
   if (products.length > 0) {
     batchSaveProducts(products)
+    clearSeasonMapPlaceholderAvailability()
   }
 
   updateCrawlLog(logId, {

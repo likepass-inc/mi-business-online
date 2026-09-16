@@ -12,7 +12,7 @@
     "seo:weekly": "npx tsx scripts/send-seo-weekly.ts",
     "seo:monthly": "npx tsx scripts/send-seo-monthly.ts",
     "test:date-utils": "npx tsx src/lib/dateUtils.test.ts",
-    "test:season-map": "npx tsx src/lib/seasonMap.test.ts && npx tsx src/lib/db/productRepository.season.test.ts && npx tsx src/lib/productRepository.stub.test.ts",
+    "test:season-map": "npx tsx src/lib/seasonMap.test.ts && npx tsx src/lib/seasonCrawl.test.ts && npx tsx src/lib/db/productRepository.season.test.ts && npx tsx src/lib/productRepository.stub.test.ts",
     "crawl:season-map": "npx tsx scripts/crawl-season-map.ts",
     "postinstall": "npx playwright install chromium || echo 'Playwright install failed, continuing...'"
   },

@@ -258,6 +258,25 @@ export function seedSeasonMapProducts(): { inserted: number; skipped: number } {
   return { inserted, skipped }
 }
 
+export function clearSeasonMapPlaceholderAvailability(): number {
+  const db = getDatabase()
+  const fwCodes = getSeasonMapEntries().map((entry) => shopProductCode(entry.to)).filter(Boolean)
+  if (fwCodes.length === 0) {
+    return 0
+  }
+  const placeholders = fwCodes.map(() => '?').join(',')
+  const stmt = db.prepare(`
+    UPDATE products
+    SET availability = NULL
+    WHERE product_code IN (${placeholders})
+      AND availability IS NOT NULL
+      AND (availability LIKE '%販売終了%' OR availability LIKE '%販売を終了%')
+      AND (price_incl_tax IS NULL OR price_incl_tax = 0)
+      AND (image_urls IS NULL OR image_urls = '' OR image_urls = '[]')
+  `)
+  return Number(stmt.run(...fwCodes).changes)
+}
+
 export function saveProduct(productData: ProductData): void {
   const db = getDatabase()
   const imageUrlsJson = productData.image_urls ? JSON.stringify(productData.image_urls) : null

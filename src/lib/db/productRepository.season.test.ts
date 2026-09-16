@@ -15,6 +15,7 @@ async function main() {
     getProductsByCodes,
     searchProducts,
     seedSeasonMapProducts,
+    clearSeasonMapPlaceholderAvailability,
   } = await import('./productRepository')
   const { closeDatabase } = await import('./schema')
 
@@ -121,6 +122,20 @@ async function main() {
     assert.ok(result.inserted > 400)
     const seeded = getProductByCode('gR698-573F26')
     assert.equal(seeded?.product_name, 'ＨＡＲＵＫＡ バスタオルセット')
+  })
+
+  test('placeholder FW rows do not keep stub discontinued flags', () => {
+    saveProduct({
+      product_code: 'gR698-113F26',
+      product_name: 'タオルセット',
+      product_url: 'https://business.mistore.jp/shop/g/gR698-113F26',
+      availability: '販売終了',
+    })
+    const cleared = clearSeasonMapPlaceholderAvailability()
+    assert.ok(cleared >= 1)
+    const product = getProductByCode('gR698-113F26')
+    assert.equal(product?.product_name, 'タオルセット')
+    assert.equal(product?.availability, undefined)
   })
 
   closeDatabase()
