@@ -35,14 +35,29 @@ export default function HeaderUser() {
 
   return (
     <div className="flex items-center gap-3 text-[13px] text-muted">
-      <a
-        href="https://ai-chatbot-mi-business.onrender.com/site-search-admin/index.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center justify-center px-4 py-2.5 text-sm whitespace-nowrap rounded-admin bg-white text-ink border border-[#ccc] no-underline hover:bg-[#f5f5f5] hover:text-ink"
-      >
-        AIサイト内検索
-      </a>
+      <details className="relative shrink-0 group">
+        <summary className="list-none cursor-pointer select-none whitespace-nowrap text-[13px] text-muted hover:text-ink group-open:text-ink [&::-webkit-details-marker]:hidden after:ml-1 after:text-[10px] after:content-['▾']">
+          関連ツール
+        </summary>
+        <div className="absolute right-0 top-[calc(100%+8px)] z-[60] min-w-[160px] border border-line bg-white py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+          <a
+            href="https://ai-chatbot-mi-business.onrender.com/site-search-admin/index.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block whitespace-nowrap px-3.5 py-2 text-[13px] text-ink no-underline hover:bg-[#f5f5f5]"
+          >
+            AIサイト内検索
+          </a>
+          <a
+            href="https://mi-business-magazine-contents-studio.onrender.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block whitespace-nowrap px-3.5 py-2 text-[13px] text-ink no-underline hover:bg-[#f5f5f5]"
+          >
+            Contents Studio
+          </a>
+        </div>
+      </details>
       {email && (
         <Link
           href="/account"
