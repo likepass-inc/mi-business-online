@@ -6,6 +6,7 @@ import {
   getNewProducts,
   getDiscontinuedProducts
 } from '@/lib/db/productRepository'
+import { productsIncludingShopIndex } from '@/lib/crawlSingleProduct'
 
 /**
  * 商品一覧取得API
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
     
     // 複数商品コードが指定された場合
     if (productCodes.length > 0) {
-      const products = getProductsByCodes(productCodes)
+      const products = await productsIncludingShopIndex(productCodes)
 
       // WordPress/STORK19用のレスポンス形式
       return NextResponse.json({
