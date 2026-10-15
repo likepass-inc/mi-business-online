@@ -1,4 +1,4 @@
-import { parseProductPage } from '@/lib/productParser'
+import { isSiteChromeProductName, parseProductPage } from '@/lib/productParser'
 import { getProductsByCodes, saveProduct, type ProductData } from '@/lib/db/productRepository'
 import { normalizeProductCode } from '@/lib/seasonMap'
 import type { Product } from '@/lib/types'
@@ -138,44 +138,54 @@ export async function crawlAndSaveProduct(input: {
   return { status: 'saved', product: productData }
 }
 
-function indexedCodeKeys(products: Product[]): Set<string> {
-  const keys = new Set<string>()
-  for (const product of products) {
-    for (const code of [product.product_code, product.requested_product_code, product.canonical_product_code]) {
-      const key = normalizeProductCode(code || '')
-      if (key) {
-        keys.add(key)
-      }
-    }
+export function indexedProductNeedsShopRefresh(product: Product): boolean {
+  const name = (product.product_name || '').trim()
+  if (!name || name === '商品' || name === '商品名不明') {
+    return true
   }
-  return keys
+  return isSiteChromeProductName(name)
+}
+
+function productMatchesCode(product: Product, key: string): boolean {
+  return [product.product_code, product.requested_product_code, product.canonical_product_code].some(
+    (value) => normalizeProductCode(value || '') === key
+  )
 }
 
 /**
- * 索引にある商品コードはそのまま返し、無いコードだけショップから取得して同じ応答に含める。
- * ショップにページが無いコードは結果に含めない。
+ * 索引にある商品コードはそのまま返し、無いコードと商品名が無い行だけショップから取り直す。
+ * ショップに実在する商品は保存して返す。お取扱いできないページは販売終了のまま残す。
  */
 export async function productsIncludingShopIndex(productCodes: string[]): Promise<Product[]> {
   const products = getProductsByCodes(productCodes)
-  const found = indexedCodeKeys(products)
+  const seen = new Set<string>()
 
   for (const code of productCodes) {
     const key = normalizeProductCode(code)
-    if (!key || found.has(key)) {
+    if (!key || seen.has(key)) {
       continue
     }
-    found.add(key)
+    seen.add(key)
+    const indexed = products.find((product) => productMatchesCode(product, key))
+    if (indexed && !indexedProductNeedsShopRefresh(indexed)) {
+      continue
+    }
     try {
       const crawled = await crawlAndSaveProduct({ productCode: code })
       if (crawled.status !== 'saved') {
         continue
+      }
+      for (let index = products.length - 1; index >= 0; index -= 1) {
+        if (productMatchesCode(products[index], key)) {
+          products.splice(index, 1)
+        }
       }
       const saved = getProductsByCodes([code])
       for (const product of saved) {
         products.push(product)
         const savedKey = normalizeProductCode(product.product_code)
         if (savedKey) {
-          found.add(savedKey)
+          seen.add(savedKey)
         }
       }
     } catch (error) {
