@@ -4,7 +4,10 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import Button from '@/components/ui/Button'
+import TurnstileWidget from '@/components/TurnstileWidget'
 import { inputClass } from '@/components/ui/styles'
+
+const TURNSTILE_REQUIRED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
 
 function LoginForm() {
   const router = useRouter()
@@ -13,17 +16,29 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileReset, setTurnstileReset] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (TURNSTILE_REQUIRED && !turnstileToken) {
+      setError('ボット確認を完了してください')
+      return
+    }
+
     setIsLoading(true)
 
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, password }),
+        body: JSON.stringify({
+          id,
+          password,
+          turnstileToken: turnstileToken || undefined,
+        }),
       })
 
       const data = await response.json()
@@ -34,9 +49,13 @@ function LoginForm() {
         router.refresh()
       } else {
         setError(data.error || 'ログインに失敗しました')
+        setTurnstileToken(null)
+        setTurnstileReset((n) => n + 1)
       }
     } catch (err) {
       setError('ログインに失敗しました')
+      setTurnstileToken(null)
+      setTurnstileReset((n) => n + 1)
     } finally {
       setIsLoading(false)
     }
@@ -72,8 +91,16 @@ function LoginForm() {
           placeholder="パスワードを入力"
         />
       </label>
+      <TurnstileWidget
+        key={turnstileReset}
+        onToken={setTurnstileToken}
+        disabled={isLoading}
+      />
       {error && <p className="m-0 text-danger text-sm">{error}</p>}
-      <Button type="submit" disabled={isLoading}>
+      <Button
+        type="submit"
+        disabled={isLoading || (TURNSTILE_REQUIRED && !turnstileToken)}
+      >
         {isLoading ? 'ログイン中...' : 'ログイン'}
       </Button>
     </form>

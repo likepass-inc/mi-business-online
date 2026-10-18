@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const CANONICAL_HOST = 'mi-business.getwebshield.com'
+const RENDER_HOST = 'mi-business-online.onrender.com'
+
 // 認証が不要なパス
 const publicPaths = [
   '/login',
@@ -18,6 +21,20 @@ const publicPaths = [
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const host = (request.headers.get('host') || '').split(':')[0].toLowerCase()
+  const forwarded = (request.headers.get('x-forwarded-host') || '').split(',')[0].trim().toLowerCase()
+
+  // Seal Render direct URL → Cloudflare canonical (avoid redirect loops when CF already forwarded).
+  if (
+    process.env.NODE_ENV === 'production' &&
+    host === RENDER_HOST &&
+    forwarded !== CANONICAL_HOST
+  ) {
+    const dest = new URL(request.url)
+    dest.protocol = 'https:'
+    dest.host = CANONICAL_HOST
+    return NextResponse.redirect(dest, 308)
+  }
 
   // 公開パスの場合は認証チェックをスキップ
   if (publicPaths.some((path) => pathname.startsWith(path))) {
