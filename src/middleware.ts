@@ -32,7 +32,8 @@ export function middleware(request: NextRequest) {
   ) {
     const dest = new URL(request.url)
     dest.protocol = 'https:'
-    dest.host = CANONICAL_HOST
+    dest.hostname = CANONICAL_HOST
+    dest.port = ''
     return NextResponse.redirect(dest, 308)
   }
 
