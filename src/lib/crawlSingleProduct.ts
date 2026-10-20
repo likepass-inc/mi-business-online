@@ -1,6 +1,6 @@
 import { isSiteChromeProductName, parseProductPage } from '@/lib/productParser'
 import { getProductsByCodes, saveProduct, type ProductData } from '@/lib/db/productRepository'
-import { normalizeProductCode } from '@/lib/seasonMap'
+import { getSeasonMapEntryForCode, normalizeProductCode, shopProductCode } from '@/lib/seasonMap'
 import type { Product } from '@/lib/types'
 
 const SHOP_ORIGIN = 'https://business.mistore.jp'
@@ -138,12 +138,39 @@ export async function crawlAndSaveProduct(input: {
   return { status: 'saved', product: productData }
 }
 
+export function productLacksCatalog(product: Product): boolean {
+  const price = Number(product.price_incl_tax || 0)
+  const hasImage = Boolean(product.image_url) || Boolean(product.image_urls && product.image_urls.length)
+  return price <= 0 && !hasImage
+}
+
 export function indexedProductNeedsShopRefresh(product: Product): boolean {
   const name = (product.product_name || '').trim()
   if (!name || name === '商品' || name === '商品名不明') {
     return true
   }
-  return isSiteChromeProductName(name)
+  if (isSiteChromeProductName(name)) {
+    return true
+  }
+  if (!productLacksCatalog(product)) {
+    return false
+  }
+  const availability = String(product.availability || '')
+  if (availability.includes('販売終了') || availability.includes('販売を終了')) {
+    return false
+  }
+  return true
+}
+
+export function crawlTargetForCode(code: string): { productCode: string; productUrl?: string } {
+  const entry = getSeasonMapEntryForCode(code)
+  if (entry?.to) {
+    return {
+      productCode: shopProductCode(entry.to),
+      productUrl: entry.to_url || undefined,
+    }
+  }
+  return { productCode: code }
 }
 
 function productMatchesCode(product: Product, key: string): boolean {
@@ -153,12 +180,13 @@ function productMatchesCode(product: Product, key: string): boolean {
 }
 
 /**
- * 索引にある商品コードはそのまま返し、無いコードと商品名が無い行だけショップから取り直す。
- * ショップに実在する商品は保存して返す。お取扱いできないページは販売終了のまま残す。
+ * 索引にある商品コードはそのまま返し、無いコードとカタログ情報（画像・価格）が無い行だけショップから取り直す。
+ * 季節品番は現行（to）のショップURLを取りに行く。ショップに実在する商品は保存して返す。
  */
 export async function productsIncludingShopIndex(productCodes: string[]): Promise<Product[]> {
   const products = getProductsByCodes(productCodes)
   const seen = new Set<string>()
+  const toRefresh: string[] = []
 
   for (const code of productCodes) {
     const key = normalizeProductCode(code)
@@ -170,31 +198,40 @@ export async function productsIncludingShopIndex(productCodes: string[]): Promis
     if (indexed && !indexedProductNeedsShopRefresh(indexed)) {
       continue
     }
-    try {
-      const crawled = await crawlAndSaveProduct({ productCode: code })
-      if (crawled.status !== 'saved') {
-        continue
-      }
-      for (let index = products.length - 1; index >= 0; index -= 1) {
-        if (productMatchesCode(products[index], key)) {
-          products.splice(index, 1)
+    toRefresh.push(code)
+  }
+
+  const concurrency = 4
+  for (let i = 0; i < toRefresh.length; i += concurrency) {
+    const batch = toRefresh.slice(i, i + concurrency)
+    await Promise.all(batch.map(async (code) => {
+      const key = normalizeProductCode(code)
+      try {
+        const crawled = await crawlAndSaveProduct(crawlTargetForCode(code))
+        if (crawled.status !== 'saved') {
+          return
         }
-      }
-      const saved = getProductsByCodes([code])
-      for (const product of saved) {
-        products.push(product)
-        const savedKey = normalizeProductCode(product.product_code)
-        if (savedKey) {
-          seen.add(savedKey)
+        for (let index = products.length - 1; index >= 0; index -= 1) {
+          if (productMatchesCode(products[index], key)) {
+            products.splice(index, 1)
+          }
         }
+        const saved = getProductsByCodes([code])
+        for (const product of saved) {
+          products.push(product)
+          const savedKey = normalizeProductCode(product.product_code)
+          if (savedKey) {
+            seen.add(savedKey)
+          }
+        }
+      } catch (error) {
+        console.warn(
+          '[Products API] Index crawl failed for',
+          code,
+          error instanceof Error ? error.message : error
+        )
       }
-    } catch (error) {
-      console.warn(
-        '[Products API] Index crawl failed for',
-        code,
-        error instanceof Error ? error.message : error
-      )
-    }
+    }))
   }
 
   return products
