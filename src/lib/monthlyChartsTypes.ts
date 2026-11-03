@@ -66,7 +66,9 @@ export interface SiteSearchEffectSnapshot {
     }
     daily?: Array<{
       date: string
-      searches?: number
+      submit?: number
+      productClick?: number
+      revenue?: number
       searchRevenue?: number
     }>
   } | null

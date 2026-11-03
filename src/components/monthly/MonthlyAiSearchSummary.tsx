@@ -1,12 +1,11 @@
 'use client'
 
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Legend,
   Pie,
   PieChart,
@@ -121,7 +120,7 @@ export default function MonthlyAiSearchSummary({
 
   const daily = (current.ga4?.daily || []).map((d) => ({
     date: String(d.date || '').slice(5),
-    searches: Number(d.searches) || 0,
+    searches: Number(d.submit) || 0,
   }))
 
   return (
@@ -201,28 +200,48 @@ export default function MonthlyAiSearchSummary({
       {daily.length > 1 && (
         <div>
           <p className="m-0 mb-3 text-sm text-muted">日次検索数（当月）</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={daily}>
-              <defs>
-                <linearGradient id="ai-daily-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#111111" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#111111" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={daily} margin={{ top: 20, right: 8, left: 8, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#666' }} interval={2} />
-              <YAxis tick={{ fontSize: 11, fill: '#666' }} />
-              <Tooltip formatter={(value: number) => value.toLocaleString()} />
-              <Area
-                type="monotone"
-                dataKey="searches"
-                name="検索数"
-                stroke="#111111"
-                strokeWidth={2}
-                fill="url(#ai-daily-fill)"
-                dot={false}
+              <YAxis
+                tick={{ fontSize: 11, fill: '#666' }}
+                tickFormatter={(v) => Number(v).toLocaleString()}
+                width={40}
               />
-            </AreaChart>
+              <Tooltip formatter={(value: number) => value.toLocaleString()} />
+              <Bar dataKey="searches" name="検索数" fill="#111111">
+                <LabelList
+                  dataKey="searches"
+                  position="top"
+                  // 31日分は2日おきに件数を表示
+                  content={(props) => {
+                    const { x, y, width, value, index } = props
+                    if (
+                      x == null ||
+                      y == null ||
+                      typeof value !== 'number' ||
+                      value <= 0 ||
+                      (typeof index === 'number' && index % 2 !== 0)
+                    ) {
+                      return null
+                    }
+                    const cx = Number(x) + Number(width ?? 0) / 2
+                    return (
+                      <text
+                        x={cx}
+                        y={Number(y) - 4}
+                        textAnchor="middle"
+                        fill="#333"
+                        fontSize={9}
+                      >
+                        {value.toLocaleString()}
+                      </text>
+                    )
+                  }}
+                />
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
       )}
