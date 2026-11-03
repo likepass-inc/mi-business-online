@@ -1,0 +1,1011 @@
+{
+  "monthKey": "2026-09",
+  "yoyMonthKey": "2025-09",
+  "yoyKpis": [
+    {
+      "id": "gsc_clicks",
+      "label": "GSC クリック",
+      "current": 53033,
+      "previous": 69302,
+      "percentChange": -23.475512972208595,
+      "format": "number"
+    },
+    {
+      "id": "gsc_impressions",
+      "label": "GSC インプレッション",
+      "current": 1449313,
+      "previous": 1694903,
+      "percentChange": -14.48991476208373,
+      "format": "number"
+    },
+    {
+      "id": "sessions",
+      "label": "セッション",
+      "current": 141726,
+      "previous": 124506,
+      "percentChange": 13.830658763433087,
+      "format": "number"
+    },
+    {
+      "id": "transactions",
+      "label": "購入完了",
+      "current": 505,
+      "previous": 479,
+      "percentChange": 5.427974947807933,
+      "format": "number"
+    },
+    {
+      "id": "revenue",
+      "label": "売上",
+      "current": 21481978,
+      "previous": 13533032,
+      "percentChange": 58.73736203387385,
+      "format": "currency"
+    },
+    {
+      "id": "cvr",
+      "label": "CVR",
+      "current": 0.36,
+      "previous": 0.38,
+      "percentChange": -5.263157894736847,
+      "format": "percent"
+    }
+  ],
+  "trends": [
+    {
+      "monthKey": "2025-09",
+      "label": "2025/09",
+      "gsc": {
+        "clicks": 69302,
+        "impressions": 1694903,
+        "averageCtr": 4.09,
+        "averagePosition": 8.42
+      },
+      "ga4": {
+        "sessions": 124506,
+        "users": 106163,
+        "pageViews": 313632,
+        "transactions": 479,
+        "revenue": 13533032,
+        "conversionRate": 0.38
+      }
+    },
+    {
+      "monthKey": "2025-10",
+      "label": "2025/10",
+      "gsc": {
+        "clicks": 71181,
+        "impressions": 1744795,
+        "averageCtr": 4.08,
+        "averagePosition": 6.86
+      },
+      "ga4": {
+        "sessions": 141225,
+        "users": 116049,
+        "pageViews": 541112,
+        "transactions": 1147,
+        "revenue": 59872331,
+        "conversionRate": 0.81
+      }
+    },
+    {
+      "monthKey": "2025-11",
+      "label": "2025/11",
+      "gsc": {
+        "clicks": 77169,
+        "impressions": 2279826,
+        "averageCtr": 3.38,
+        "averagePosition": 5.36
+      },
+      "ga4": {
+        "sessions": 174522,
+        "users": 133684,
+        "pageViews": 1268756,
+        "transactions": 10424,
+        "revenue": 608788723,
+        "conversionRate": 5.97
+      }
+    },
+    {
+      "monthKey": "2025-12",
+      "label": "2025/12",
+      "gsc": {
+        "clicks": 98870,
+        "impressions": 3663892,
+        "averageCtr": 2.7,
+        "averagePosition": 5.06
+      },
+      "ga4": {
+        "sessions": 206425,
+        "users": 167885,
+        "pageViews": 895472,
+        "transactions": 5491,
+        "revenue": 226163732,
+        "conversionRate": 2.66
+      }
+    },
+    {
+      "monthKey": "2026-01",
+      "label": "2026/01",
+      "gsc": {
+        "clicks": 73885,
+        "impressions": 3198711,
+        "averageCtr": 2.31,
+        "averagePosition": 4.77
+      },
+      "ga4": {
+        "sessions": 125366,
+        "users": 104637,
+        "pageViews": 327630,
+        "transactions": 385,
+        "revenue": 13909838,
+        "conversionRate": 0.31
+      }
+    },
+    {
+      "monthKey": "2026-02",
+      "label": "2026/02",
+      "gsc": {
+        "clicks": 73826,
+        "impressions": 2538556,
+        "averageCtr": 2.91,
+        "averagePosition": 5.29
+      },
+      "ga4": {
+        "sessions": 224096,
+        "users": 206025,
+        "pageViews": 485144,
+        "transactions": 389,
+        "revenue": 11322589,
+        "conversionRate": 0.17
+      }
+    },
+    {
+      "monthKey": "2026-03",
+      "label": "2026/03",
+      "gsc": {
+        "clicks": 101333,
+        "impressions": 3615913,
+        "averageCtr": 2.8,
+        "averagePosition": 4.87
+      },
+      "ga4": {
+        "sessions": 159560,
+        "users": 141258,
+        "pageViews": 411716,
+        "transactions": 567,
+        "revenue": 15515215,
+        "conversionRate": 0.36
+      }
+    },
+    {
+      "monthKey": "2026-04",
+      "label": "2026/04",
+      "gsc": {
+        "clicks": 74900,
+        "impressions": 2273187,
+        "averageCtr": 3.29,
+        "averagePosition": 5.67
+      },
+      "ga4": {
+        "sessions": 118626,
+        "users": 98904,
+        "pageViews": 317708,
+        "transactions": 380,
+        "revenue": 12288860,
+        "conversionRate": 0.32
+      }
+    },
+    {
+      "monthKey": "2026-05",
+      "label": "2026/05",
+      "gsc": {
+        "clicks": 73967,
+        "impressions": 1855718,
+        "averageCtr": 3.99,
+        "averagePosition": 7.51
+      },
+      "ga4": {
+        "sessions": 122751,
+        "users": 101507,
+        "pageViews": 509064,
+        "transactions": 1097,
+        "revenue": 48827480,
+        "conversionRate": 0.89
+      }
+    },
+    {
+      "monthKey": "2026-06",
+      "label": "2026/06",
+      "gsc": {
+        "clicks": 89061,
+        "impressions": 2274798,
+        "averageCtr": 3.92,
+        "averagePosition": 7.28
+      },
+      "ga4": {
+        "sessions": 162252,
+        "users": 124810,
+        "pageViews": 1295848,
+        "transactions": 9528,
+        "revenue": 554851174,
+        "conversionRate": 5.87
+      }
+    },
+    {
+      "monthKey": "2026-07",
+      "label": "2026/07",
+      "gsc": {
+        "clicks": 92438,
+        "impressions": 2499338,
+        "averageCtr": 3.7,
+        "averagePosition": 7.02
+      },
+      "ga4": {
+        "sessions": 308660,
+        "users": 270908,
+        "pageViews": 1398320,
+        "transactions": 7615,
+        "revenue": 295792339,
+        "conversionRate": 2.47
+      }
+    },
+    {
+      "monthKey": "2026-08",
+      "label": "2026/08",
+      "gsc": {
+        "clicks": 70893,
+        "impressions": 2069964,
+        "averageCtr": 3.42,
+        "averagePosition": 7.38
+      },
+      "ga4": {
+        "sessions": 146478,
+        "users": 125037,
+        "pageViews": 544902,
+        "transactions": 982,
+        "revenue": 23938073,
+        "conversionRate": 0.67
+      }
+    },
+    {
+      "monthKey": "2026-09",
+      "label": "2026/09",
+      "gsc": {
+        "clicks": 53033,
+        "impressions": 1449313,
+        "averageCtr": 3.66,
+        "averagePosition": 7.45
+      },
+      "ga4": {
+        "sessions": 141726,
+        "users": 128861,
+        "pageViews": 448570,
+        "transactions": 505,
+        "revenue": 21481978,
+        "conversionRate": 0.36
+      }
+    }
+  ],
+  "funnel": {
+    "current": {
+      "steps": [
+        {
+          "id": "site_sessions",
+          "label": "サイトセッション",
+          "value": 141726,
+          "continueRate": 100,
+          "dropoffRate": 0
+        },
+        {
+          "id": "organic_sessions",
+          "label": "Organic Search",
+          "value": 71619,
+          "continueRate": 50.53342364844842,
+          "dropoffRate": 49.46657635155158
+        },
+        {
+          "id": "magazine_sessions",
+          "label": "マガジン閲覧",
+          "value": 57058,
+          "continueRate": 79.66880297127858,
+          "dropoffRate": 20.33119702872143
+        },
+        {
+          "id": "shop_sessions",
+          "label": "ショップ閲覧",
+          "value": 136727,
+          "continueRate": 239.62809772512182,
+          "dropoffRate": -139.62809772512182
+        },
+        {
+          "id": "add_to_cart",
+          "label": "カート追加",
+          "value": 0,
+          "continueRate": 0,
+          "dropoffRate": 100
+        },
+        {
+          "id": "purchase",
+          "label": "購入完了",
+          "value": 307,
+          "continueRate": 0,
+          "dropoffRate": 0
+        }
+      ],
+      "overallConversionRate": 0.2166151588275969
+    },
+    "yearAgo": {
+      "steps": [
+        {
+          "id": "site_sessions",
+          "label": "サイトセッション",
+          "value": 124506,
+          "continueRate": 100,
+          "dropoffRate": 0
+        },
+        {
+          "id": "organic_sessions",
+          "label": "Organic Search",
+          "value": 96900,
+          "continueRate": 77.82757457471929,
+          "dropoffRate": 22.17242542528071
+        },
+        {
+          "id": "magazine_sessions",
+          "label": "マガジン閲覧",
+          "value": 77532,
+          "continueRate": 80.0123839009288,
+          "dropoffRate": 19.987616099071207
+        },
+        {
+          "id": "shop_sessions",
+          "label": "ショップ閲覧",
+          "value": 123578,
+          "continueRate": 159.38967136150234,
+          "dropoffRate": -59.38967136150235
+        },
+        {
+          "id": "add_to_cart",
+          "label": "カート追加",
+          "value": 0,
+          "continueRate": 0,
+          "dropoffRate": 100
+        },
+        {
+          "id": "purchase",
+          "label": "購入完了",
+          "value": 369,
+          "continueRate": 0,
+          "dropoffRate": 0
+        }
+      ],
+      "overallConversionRate": 0.29637125921642327
+    }
+  },
+  "aiSearch": {
+    "current": {
+      "startYmd": "2026-09-01",
+      "endYmd": "2026-09-30",
+      "label": "2026/09/01 〜 2026/09/30",
+      "totalSearches": 1515,
+      "uniqueQueries": 927,
+      "avgKnowledge": 5.47920792079208,
+      "avgProducts": 10.512871287128712,
+      "topQueries": [
+        {
+          "query_text": "カタログギフト",
+          "cnt": 20
+        },
+        {
+          "query_text": "お菓子",
+          "cnt": 19
+        },
+        {
+          "query_text": "香典返し",
+          "cnt": 19
+        },
+        {
+          "query_text": "お歳暮",
+          "cnt": 16
+        },
+        {
+          "query_text": "三越伊勢丹オリジナルエコバック",
+          "cnt": 15
+        },
+        {
+          "query_text": "ワイン",
+          "cnt": 15
+        },
+        {
+          "query_text": "果物",
+          "cnt": 14
+        },
+        {
+          "query_text": "ビール",
+          "cnt": 11
+        },
+        {
+          "query_text": "菓子",
+          "cnt": 10
+        },
+        {
+          "query_text": "送料無料",
+          "cnt": 10
+        }
+      ],
+      "zeroHitQueries": [
+        {
+          "query_text": "引越しあいさつ",
+          "cnt": 2
+        },
+        {
+          "query_text": "お餞別",
+          "cnt": 2
+        },
+        {
+          "query_text": "海鮮丼の具",
+          "cnt": 2
+        },
+        {
+          "query_text": "神棚を下げる、新たに納めるために拝んでもらう",
+          "cnt": 2
+        },
+        {
+          "query_text": "お祝い金",
+          "cnt": 2
+        },
+        {
+          "query_text": "お見舞いお返し",
+          "cnt": 1
+        },
+        {
+          "query_text": "DATE",
+          "cnt": 1
+        },
+        {
+          "query_text": "ナッツサブレ",
+          "cnt": 1
+        },
+        {
+          "query_text": "¥2000-3000",
+          "cnt": 1
+        },
+        {
+          "query_text": "ひひ引き出物",
+          "cnt": 1
+        }
+      ],
+      "ga4": {
+        "ok": true,
+        "status": "ok",
+        "weekStartYmd": "2026-09-01",
+        "weekEndYmd": "2026-09-30",
+        "audienceName": "SiteSearch_Submit_30d",
+        "events": {
+          "open": {
+            "eventCount": 0,
+            "totalUsers": 0
+          },
+          "submit": {
+            "eventCount": 1139,
+            "totalUsers": 768
+          },
+          "resultClick": {
+            "eventCount": 357,
+            "totalUsers": 218
+          },
+          "productClick": {
+            "eventCount": 249,
+            "totalUsers": 145
+          }
+        },
+        "contribution": {
+          "startDate": "2026-09-01",
+          "endDate": "2026-09-30",
+          "total": {
+            "sessions": 141726,
+            "purchaseRevenue": 21481978.001217,
+            "ecommercePurchases": 307,
+            "totalPurchasers": 224,
+            "activeUsers": 128861
+          },
+          "searchUsers": {
+            "sessions": 1757,
+            "purchaseRevenue": 2223822.0001250003,
+            "ecommercePurchases": 24,
+            "totalPurchasers": 19,
+            "activeUsers": 808
+          },
+          "totalUserPurchaseRate": 0.0017383071681889787,
+          "searchUserPurchaseRate": 0.023514851485148515,
+          "cvSharePercent": 10.35203555277366,
+          "contributionAvailable": true,
+          "attributionWindowDays": 30,
+          "contributionMethod": "audience_30d"
+        },
+        "daily": [
+          {
+            "date": "2026-09-01",
+            "submit": 34,
+            "productClick": 4,
+            "revenue": 600813.999997,
+            "searchRevenue": 100075.000012
+          },
+          {
+            "date": "2026-09-02",
+            "submit": 30,
+            "productClick": 2,
+            "revenue": 660781.999996,
+            "searchRevenue": 496732.000046
+          },
+          {
+            "date": "2026-09-03",
+            "submit": 23,
+            "productClick": 7,
+            "revenue": 5995631.999945,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-04",
+            "submit": 24,
+            "productClick": 2,
+            "revenue": 1869879.0002259999,
+            "searchRevenue": 61870.000123000005
+          },
+          {
+            "date": "2026-09-05",
+            "submit": 35,
+            "productClick": 9,
+            "revenue": 46915,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-06",
+            "submit": 39,
+            "productClick": 12,
+            "revenue": 36919.999943,
+            "searchRevenue": 25919.999974
+          },
+          {
+            "date": "2026-09-07",
+            "submit": 36,
+            "productClick": 3,
+            "revenue": 711884.000551,
+            "searchRevenue": 30685.000008
+          },
+          {
+            "date": "2026-09-08",
+            "submit": 38,
+            "productClick": 3,
+            "revenue": 877430.000306,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-09",
+            "submit": 47,
+            "productClick": 14,
+            "revenue": 150389.999989,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-10",
+            "submit": 44,
+            "productClick": 5,
+            "revenue": 2273116.000017,
+            "searchRevenue": 18314.999974
+          },
+          {
+            "date": "2026-09-11",
+            "submit": 39,
+            "productClick": 9,
+            "revenue": 1718730.000122,
+            "searchRevenue": 1206294.999955
+          },
+          {
+            "date": "2026-09-12",
+            "submit": 32,
+            "productClick": 9,
+            "revenue": 29314.999995,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-13",
+            "submit": 39,
+            "productClick": 5,
+            "revenue": 0,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-14",
+            "submit": 48,
+            "productClick": 12,
+            "revenue": 192914.00022400002,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-15",
+            "submit": 35,
+            "productClick": 5,
+            "revenue": 141272.999992,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-16",
+            "submit": 64,
+            "productClick": 9,
+            "revenue": 1389657.999855,
+            "searchRevenue": 53514.999959
+          },
+          {
+            "date": "2026-09-17",
+            "submit": 50,
+            "productClick": 9,
+            "revenue": 107269.999846,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-18",
+            "submit": 51,
+            "productClick": 8,
+            "revenue": 388894.000108,
+            "searchRevenue": 26270.000002
+          },
+          {
+            "date": "2026-09-19",
+            "submit": 32,
+            "productClick": 15,
+            "revenue": 39929.999935,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-20",
+            "submit": 30,
+            "productClick": 4,
+            "revenue": 187346.000116,
+            "searchRevenue": 28935.000046
+          },
+          {
+            "date": "2026-09-21",
+            "submit": 45,
+            "productClick": 13,
+            "revenue": 71593.000053,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-22",
+            "submit": 37,
+            "productClick": 25,
+            "revenue": 9949.00007,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-23",
+            "submit": 50,
+            "productClick": 9,
+            "revenue": 75799.99996,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-24",
+            "submit": 46,
+            "productClick": 3,
+            "revenue": 1530270.000073,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-25",
+            "submit": 19,
+            "productClick": 3,
+            "revenue": 1362614.999885,
+            "searchRevenue": 70881.99999
+          },
+          {
+            "date": "2026-09-26",
+            "submit": 19,
+            "productClick": 13,
+            "revenue": 297730.000063,
+            "searchRevenue": 8499.999959
+          },
+          {
+            "date": "2026-09-27",
+            "submit": 37,
+            "productClick": 14,
+            "revenue": 67980.000245,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2026-09-28",
+            "submit": 57,
+            "productClick": 14,
+            "revenue": 385134.999717,
+            "searchRevenue": 93115.000005
+          },
+          {
+            "date": "2026-09-29",
+            "submit": 27,
+            "productClick": 5,
+            "revenue": 186539.00024,
+            "searchRevenue": 2713.000072
+          },
+          {
+            "date": "2026-09-30",
+            "submit": 32,
+            "productClick": 4,
+            "revenue": 75274.999749,
+            "searchRevenue": 0
+          }
+        ]
+      }
+    },
+    "yearAgo": {
+      "startYmd": "2025-09-01",
+      "endYmd": "2025-09-30",
+      "label": "2025/09/01 〜 2025/09/30",
+      "totalSearches": 0,
+      "uniqueQueries": 0,
+      "avgKnowledge": 0,
+      "avgProducts": 0,
+      "topQueries": [],
+      "zeroHitQueries": [],
+      "ga4": {
+        "ok": true,
+        "status": "ok",
+        "weekStartYmd": "2025-09-01",
+        "weekEndYmd": "2025-09-30",
+        "audienceName": "SiteSearch_Submit_30d",
+        "events": {
+          "open": {
+            "eventCount": 0,
+            "totalUsers": 0
+          },
+          "submit": {
+            "eventCount": 0,
+            "totalUsers": 0
+          },
+          "resultClick": {
+            "eventCount": 0,
+            "totalUsers": 0
+          },
+          "productClick": null
+        },
+        "contribution": {
+          "startDate": "2025-09-01",
+          "endDate": "2025-09-30",
+          "total": {
+            "sessions": 124506,
+            "purchaseRevenue": 13533032.002063997,
+            "ecommercePurchases": 369,
+            "totalPurchasers": 248,
+            "activeUsers": 106163
+          },
+          "searchUsers": {
+            "sessions": 0,
+            "purchaseRevenue": 0,
+            "ecommercePurchases": 0,
+            "totalPurchasers": 0,
+            "activeUsers": 0
+          },
+          "totalUserPurchaseRate": 0.0023360304437515895,
+          "searchUserPurchaseRate": null,
+          "cvSharePercent": null,
+          "contributionAvailable": false,
+          "attributionWindowDays": 30,
+          "contributionMethod": "audience_30d"
+        },
+        "daily": [
+          {
+            "date": "2025-09-01",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 160950.000182,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-02",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 354798.000061,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-03",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 971726.000042,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-04",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 208502.000144,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-05",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 1629417.000242,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-06",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 63553.000002,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-07",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 108452.999876,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-08",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 433351.999775,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-09",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 186100.00033500002,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-10",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 49419.999822,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-11",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 3110464.00007,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-12",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 439957.000044,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-13",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 193285.000165,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-14",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 10064.000004000001,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-15",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 21820.000061,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-16",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 274310.000677,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-17",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 528694.9999180001,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-18",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 323400.000502,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-19",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 258624.000537,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-20",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 132105.000061,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-21",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 35859.999958,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-22",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 485228.000141,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-23",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 8074.000128,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-24",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 77514.999772,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-25",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 977250.9996430001,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-26",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 1129035.999927,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-27",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 58300.000045,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-28",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 239219.999708,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-29",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 59720.000031,
+            "searchRevenue": 0
+          },
+          {
+            "date": "2025-09-30",
+            "submit": 0,
+            "productClick": 0,
+            "revenue": 1003833.0002,
+            "searchRevenue": 0
+          }
+        ]
+      }
+    }
+  }
+}
