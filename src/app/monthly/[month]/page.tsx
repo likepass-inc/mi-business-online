@@ -30,7 +30,7 @@ export default function MonthlyReportHubPage({ params }: PageProps) {
 
         <PageHeader
           title={`${meta.label} 月次レポート`}
-          description={`分析期間 ${meta.periodStart}〜${meta.periodEnd}。データソースは ${sources} です。`}
+          description={`分析期間 ${meta.periodStart}〜${meta.periodEnd}。前年同月比グラフ付き。データソースは ${sources} です。`}
         />
 
         <nav aria-label="この月のレポート" className="grid gap-3">

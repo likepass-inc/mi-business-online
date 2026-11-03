@@ -12,7 +12,7 @@ export default function MonthlyReportIndexPage() {
       <div className="grid gap-8">
         <PageHeader
           title="月次レポート"
-          description="サイト全体とマガジンの集客・売上の月次レポートです。ログインした社内向けです。"
+          description="サイト全体・マガジンの集客・売上、集客→購入ファネル、AIサイト内検索の月次レポートです。ログインした社内向けです。"
         />
 
         {reports.length === 0 ? (

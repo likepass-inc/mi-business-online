@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 
+import type { MonthlyChartsPayload } from '@/lib/monthlyChartsTypes'
 import {
   getMonthlySectionDef,
   isMonthlySectionId,
@@ -121,5 +122,16 @@ export function getMonthlySection(
     title: def.title,
     description: def.description,
     markdown: readFileSync(path, 'utf-8'),
+  }
+}
+
+export function getMonthlyCharts(monthKey: string): MonthlyChartsPayload | null {
+  if (!isValidMonthKey(monthKey)) return null
+  const path = join(monthDir(monthKey), 'charts.json')
+  if (!existsSync(path)) return null
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as MonthlyChartsPayload
+  } catch {
+    return null
   }
 }

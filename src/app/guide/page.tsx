@@ -27,8 +27,8 @@ const CARDS = [
   {
     title: '月次レポート',
     body: [
-      '暦月のサイト全体・マガジンの集客・売上レポートを閲覧します。月一覧から月ハブ、各セクション（サマリー / GSC / GA4 / 推移）へ進みます。',
-      '画面からの再生成はありません。レポートは CLI（MONTH_KEY=YYYY-MM npx tsx scripts/generate-monthly-site-report.ts）で content/monthly に書き出し、月次 Slack Bot と併用できます。',
+      '暦月のサイト全体・マガジンの集客・売上に加え、集客→購入ファネルと AI サイト内検索の効果を閲覧します。サマリー・推移・ファネルには前年同月比のグラフがあります。',
+      '画面からの再生成はありません。CLI（MONTH_KEY=YYYY-MM npx tsx scripts/generate-monthly-site-report.ts）で content/monthly に Markdown と charts.json を書き出します。AI 検索には SITE_SEARCH_EFFECT_BASIC_USER / PASSWORD が必要です。',
     ],
   },
   {

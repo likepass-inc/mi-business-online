@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation'
 import AppLayout from '@/components/layout/AppLayout'
 import MonthlyBreadcrumbs from '@/components/monthly/MonthlyBreadcrumbs'
+import MonthlySectionCharts from '@/components/monthly/MonthlySectionCharts'
 import MarkdownDocument from '@/components/ui/MarkdownDocument'
 import PageHeader from '@/components/ui/PageHeader'
-import { getMonthlySection, isValidMonthKey } from '@/lib/monthlyReports'
+import { getMonthlyCharts, getMonthlySection, isValidMonthKey } from '@/lib/monthlyReports'
 import { isMonthlySectionId } from '@/lib/monthlyReportSections'
 
 interface PageProps {
@@ -15,7 +16,8 @@ export default function MonthlyReportSectionPage({ params }: PageProps) {
   const content = getMonthlySection(params.month, params.section)
   if (!content) notFound()
 
-  const { meta, title, description, markdown } = content
+  const charts = getMonthlyCharts(params.month)
+  const { meta, sectionId, title, description, markdown } = content
 
   return (
     <AppLayout>
@@ -29,6 +31,8 @@ export default function MonthlyReportSectionPage({ params }: PageProps) {
         />
 
         <PageHeader title={title} description={description} />
+
+        <MonthlySectionCharts sectionId={sectionId} charts={charts} />
 
         <MarkdownDocument markdown={markdown} />
       </div>

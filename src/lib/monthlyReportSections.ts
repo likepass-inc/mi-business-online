@@ -9,7 +9,9 @@ export const MONTHLY_SECTION_IDS = [
   'site-ga4',
   'magazine-gsc',
   'magazine-ga4',
+  'funnel',
   'trends',
+  'ai-search',
 ] as const
 
 export type MonthlySectionId = (typeof MONTHLY_SECTION_IDS)[number]
@@ -18,15 +20,15 @@ export interface MonthlySectionDef {
   id: MonthlySectionId
   title: string
   description: string
-  /** 包括 Markdown の H2 見出しにマッチ */
-  h2Pattern: RegExp
+  /** 包括 Markdown の H2 見出しにマッチ（手書きセクションは null） */
+  h2Pattern: RegExp | null
 }
 
 export const MONTHLY_SECTION_DEFS: MonthlySectionDef[] = [
   {
     id: 'summary',
     title: '統合サマリー',
-    description: 'エグゼクティブサマリーと注記',
+    description: 'エグゼクティブサマリーと前年同月 KPI',
     h2Pattern: /^エグゼクティブサマリー/,
   },
   {
@@ -54,10 +56,22 @@ export const MONTHLY_SECTION_DEFS: MonthlySectionDef[] = [
     h2Pattern: /^\/magazine\/ — GA4/,
   },
   {
+    id: 'funnel',
+    title: '集客→購入ファネル',
+    description: 'セッションから購入までの段階と前年同月比',
+    h2Pattern: null,
+  },
+  {
     id: 'trends',
     title: '13ヶ月推移',
-    description: '直近13ヶ月の KPI 推移',
+    description: '直近13ヶ月の KPI グラフと表',
     h2Pattern: /^直近13ヶ月の推移/,
+  },
+  {
+    id: 'ai-search',
+    title: 'AIサイト内検索',
+    description: '検索数・イベント・購入貢献と前年同月比',
+    h2Pattern: null,
   },
 ]
 
@@ -114,7 +128,9 @@ export function splitMonthlyReportMarkdown(
   const result: Partial<Record<MonthlySectionId, string>> = {}
 
   for (const chunk of chunks) {
-    const def = MONTHLY_SECTION_DEFS.find((d) => d.h2Pattern.test(chunk.title))
+    const def = MONTHLY_SECTION_DEFS.find(
+      (d) => d.h2Pattern && d.h2Pattern.test(chunk.title)
+    )
     if (!def) continue
     const body = chunk.body.replace(/\n+$/, '\n')
     if (def.id === 'summary') {
@@ -152,6 +168,7 @@ export function buildMonthlyReportMeta(input: {
   yoyPeriodStart?: string
   yoyPeriodEnd?: string
   generatedAt?: string
+  sources?: string[]
 }): MonthlyReportMeta {
   const label = formatMonthLabel(input.monthKey)
   return {
@@ -162,7 +179,7 @@ export function buildMonthlyReportMeta(input: {
     yoyPeriodStart: input.yoyPeriodStart,
     yoyPeriodEnd: input.yoyPeriodEnd,
     generatedAt: input.generatedAt ?? new Date().toISOString(),
-    sources: ['Google Search Console', 'GA4'],
+    sources: input.sources ?? ['Google Search Console', 'GA4'],
     listTitle: `${label} 集客・売上`,
   }
 }
