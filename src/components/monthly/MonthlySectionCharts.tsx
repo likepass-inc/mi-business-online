@@ -16,13 +16,23 @@ export default function MonthlySectionCharts({
 }) {
   if (!charts) return null
 
-  if (sectionId === 'summary' && charts.yoyKpis?.length) {
+  if (sectionId === 'summary') {
     return (
-      <MonthlyYoyBars
-        monthKey={charts.monthKey}
-        yoyMonthKey={charts.yoyMonthKey}
-        kpis={charts.yoyKpis}
-      />
+      <div className="grid gap-8">
+        {charts.yoyKpis?.length ? (
+          <MonthlyYoyBars
+            monthKey={charts.monthKey}
+            yoyMonthKey={charts.yoyMonthKey}
+            kpis={charts.yoyKpis}
+          />
+        ) : null}
+        {charts.trends?.length ? (
+          <div>
+            <p className="m-0 mb-4 text-sm font-semibold text-ink">直近13ヶ月推移</p>
+            <MonthlyTrendLines trends={charts.trends} highlightMonthKey={charts.monthKey} />
+          </div>
+        ) : null}
+      </div>
     )
   }
 
