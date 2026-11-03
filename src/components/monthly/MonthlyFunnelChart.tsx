@@ -1,7 +1,10 @@
 'use client'
 
+import { Funnel, FunnelChart, LabelList, ResponsiveContainer, Tooltip } from 'recharts'
 import type { MonthlyFunnelSnapshot } from '@/lib/monthlyChartsTypes'
 import { formatMonthLabel } from '@/lib/monthlyReportSections'
+
+const FUNNEL_COLORS = ['#111111', '#333333', '#555555', '#777777', '#999999']
 
 function FunnelColumn({
   title,
@@ -10,29 +13,52 @@ function FunnelColumn({
   title: string
   snapshot: MonthlyFunnelSnapshot
 }) {
-  const max = Math.max(...snapshot.steps.map((s) => s.value), 1)
+  const data = snapshot.steps.map((step, index) => ({
+    name: step.label,
+    value: step.value,
+    continueRate: step.continueRate,
+    fill: FUNNEL_COLORS[index % FUNNEL_COLORS.length],
+  }))
+
   return (
     <div className="grid gap-3">
       <p className="m-0 text-sm font-semibold text-ink">{title}</p>
-      {snapshot.steps.map((step) => {
-        const widthPct = Math.max(8, (step.value / max) * 100)
-        return (
-          <div key={step.id} className="grid gap-1">
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="text-ink">{step.label}</span>
-              <span className="text-muted tabular-nums">
-                {step.value.toLocaleString()}
-                {step.id !== snapshot.steps[0]?.id && (
-                  <span className="ml-2">継続 {step.continueRate.toFixed(1)}%</span>
-                )}
-              </span>
-            </div>
-            <div className="h-3 w-full bg-[#f0f0f0]">
-              <div className="h-3 bg-ink" style={{ width: `${widthPct}%` }} />
-            </div>
-          </div>
-        )
-      })}
+      <ResponsiveContainer width="100%" height={280}>
+        <FunnelChart>
+          <Tooltip
+            formatter={(value: number, _name, item) => {
+              const rate = item?.payload?.continueRate
+              const label =
+                rate != null && item?.payload?.name !== data[0]?.name
+                  ? `${value.toLocaleString()}（継続 ${Number(rate).toFixed(1)}%）`
+                  : value.toLocaleString()
+              return [label, item?.payload?.name ?? '']
+            }}
+          />
+          <Funnel
+            dataKey="value"
+            data={data}
+            isAnimationActive={false}
+            lastShapeType="rectangle"
+          >
+            <LabelList
+              position="right"
+              fill="#333"
+              stroke="none"
+              dataKey="name"
+              style={{ fontSize: 12 }}
+            />
+            <LabelList
+              position="center"
+              fill="#fff"
+              stroke="none"
+              dataKey="value"
+              formatter={(v) => (typeof v === 'number' ? v.toLocaleString() : String(v ?? ''))}
+              style={{ fontSize: 11 }}
+            />
+          </Funnel>
+        </FunnelChart>
+      </ResponsiveContainer>
       <p className="m-0 text-sm text-muted">
         全体CVR（セッション→購入）: {snapshot.overallConversionRate.toFixed(2)}%
       </p>

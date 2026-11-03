@@ -1,10 +1,10 @@
 'use client'
 
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
   Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -62,11 +62,18 @@ export default function MonthlyTrendLines({
           value: chart.get(p),
           highlight: p.monthKey === highlightMonthKey,
         }))
+        const fillId = `fill-${chart.dataKey}`
         return (
           <div key={chart.dataKey}>
             <p className="m-0 mb-2 text-sm font-semibold text-ink">{chart.title}</p>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={data}>
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chart.color} stopOpacity={0.22} />
+                    <stop offset="100%" stopColor={chart.color} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#666' }} interval={2} />
                 <YAxis
@@ -83,12 +90,13 @@ export default function MonthlyTrendLines({
                   labelFormatter={(label) => String(label)}
                 />
                 <Legend />
-                <Line
+                <Area
                   type="monotone"
                   dataKey="value"
                   name={chart.title}
                   stroke={chart.color}
                   strokeWidth={2}
+                  fill={`url(#${fillId})`}
                   dot={(props) => {
                     const { cx, cy, payload } = props
                     if (cx == null || cy == null) return null
@@ -104,8 +112,9 @@ export default function MonthlyTrendLines({
                       />
                     )
                   }}
+                  activeDot={{ r: 5 }}
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )
