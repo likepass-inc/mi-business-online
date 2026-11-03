@@ -1,10 +1,16 @@
 'use client'
 
-import { Funnel, FunnelChart, LabelList, ResponsiveContainer, Tooltip } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import type { MonthlyFunnelSnapshot } from '@/lib/monthlyChartsTypes'
 import { formatMonthLabel } from '@/lib/monthlyReportSections'
-
-const FUNNEL_COLORS = ['#111111', '#333333', '#555555', '#777777', '#999999']
 
 function FunnelColumn({
   title,
@@ -13,51 +19,50 @@ function FunnelColumn({
   title: string
   snapshot: MonthlyFunnelSnapshot
 }) {
-  const data = snapshot.steps.map((step, index) => ({
+  const firstId = snapshot.steps[0]?.id
+  const data = snapshot.steps.map((step) => ({
     name: step.label,
     value: step.value,
     continueRate: step.continueRate,
-    fill: FUNNEL_COLORS[index % FUNNEL_COLORS.length],
+    isFirst: step.id === firstId,
   }))
 
   return (
     <div className="grid gap-3">
       <p className="m-0 text-sm font-semibold text-ink">{title}</p>
       <ResponsiveContainer width="100%" height={280}>
-        <FunnelChart>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false} />
+          <XAxis
+            type="number"
+            tick={{ fontSize: 11, fill: '#666' }}
+            tickFormatter={(v) => Number(v).toLocaleString()}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            width={88}
+            tick={{ fontSize: 11, fill: '#666' }}
+          />
           <Tooltip
             formatter={(value: number, _name, item) => {
               const rate = item?.payload?.continueRate
-              const label =
-                rate != null && item?.payload?.name !== data[0]?.name
-                  ? `${value.toLocaleString()}（継続 ${Number(rate).toFixed(1)}%）`
-                  : value.toLocaleString()
-              return [label, item?.payload?.name ?? '']
+              const isFirst = item?.payload?.isFirst
+              if (!isFirst && rate != null) {
+                return [
+                  `${value.toLocaleString()}（継続 ${Number(rate).toFixed(1)}%）`,
+                  '件数',
+                ]
+              }
+              return [value.toLocaleString(), '件数']
             }}
           />
-          <Funnel
-            dataKey="value"
-            data={data}
-            isAnimationActive={false}
-            lastShapeType="rectangle"
-          >
-            <LabelList
-              position="right"
-              fill="#333"
-              stroke="none"
-              dataKey="name"
-              style={{ fontSize: 12 }}
-            />
-            <LabelList
-              position="center"
-              fill="#fff"
-              stroke="none"
-              dataKey="value"
-              formatter={(v) => (typeof v === 'number' ? v.toLocaleString() : String(v ?? ''))}
-              style={{ fontSize: 11 }}
-            />
-          </Funnel>
-        </FunnelChart>
+          <Bar dataKey="value" name="件数" fill="#111111" barSize={22} />
+        </BarChart>
       </ResponsiveContainer>
       <p className="m-0 text-sm text-muted">
         全体CVR（セッション→購入）: {snapshot.overallConversionRate.toFixed(2)}%
