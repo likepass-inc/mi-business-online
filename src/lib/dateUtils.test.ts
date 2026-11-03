@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import {
+  getCalendarMonthPeriod,
   getLastDayOfCalendarMonth,
   getMonthlyCalendarPeriods,
   getMonthlySeoPeriod,
@@ -48,6 +49,22 @@ test('getMonthlySeoPeriod handles March reference after leap February', () => {
   assert.equal(period.monthStart, '2024-02-01')
   assert.equal(period.monthEnd, '2024-02-29')
   assert.equal(period.monthKey, '2024-02')
+})
+
+test('getCalendarMonthPeriod returns first and last day of the month', () => {
+  const august = getCalendarMonthPeriod('2026-08')
+  assert.equal(august.monthKey, '2026-08')
+  assert.equal(august.monthStart, '2026-08-01')
+  assert.equal(august.monthEnd, '2026-08-31')
+
+  const febLeap = getCalendarMonthPeriod('2024-02')
+  assert.equal(febLeap.monthStart, '2024-02-01')
+  assert.equal(febLeap.monthEnd, '2024-02-29')
+})
+
+test('getCalendarMonthPeriod rejects invalid monthKey', () => {
+  assert.throws(() => getCalendarMonthPeriod('2026-13'), /Invalid monthKey/)
+  assert.throws(() => getCalendarMonthPeriod('202608'), /Invalid monthKey/)
 })
 
 test('getMonthlyCalendarPeriods returns 13 months ending at endMonthKey', () => {

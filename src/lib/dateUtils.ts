@@ -172,11 +172,8 @@ export function getMonthlySeoPeriod(referenceDate?: string): MonthlySeoPeriod {
     year -= 1
   }
 
-  const monthPadded = String(month).padStart(2, '0')
-  const monthStart = `${year}-${monthPadded}-01`
-  const lastDay = getLastDayOfCalendarMonth(year, month)
-  const monthEnd = `${year}-${monthPadded}-${String(lastDay).padStart(2, '0')}`
-  const monthKey = `${year}-${monthPadded}`
+  const monthKey = `${year}-${String(month).padStart(2, '0')}`
+  const { monthStart, monthEnd } = getCalendarMonthPeriod(monthKey)
 
   const { startDate: yoyMonthStart, endDate: yoyMonthEnd } = getYearOverYearPeriod(
     monthStart,
@@ -196,6 +193,28 @@ export interface MonthlyCalendarPeriod {
   monthKey: string
   monthStart: string
   monthEnd: string
+}
+
+/**
+ * YYYY-MM からその暦月の 1日〜末日を返す。
+ * 例: "2026-08" → { monthKey: "2026-08", monthStart: "2026-08-01", monthEnd: "2026-08-31" }
+ */
+export function getCalendarMonthPeriod(monthKey: string): MonthlyCalendarPeriod {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey)
+  if (!match) {
+    throw new Error(`Invalid monthKey: ${monthKey} (expected YYYY-MM)`)
+  }
+  const year = parseInt(match[1], 10)
+  const month = parseInt(match[2], 10)
+  if (month < 1 || month > 12) {
+    throw new Error(`Invalid monthKey: ${monthKey} (month must be 01–12)`)
+  }
+  const lastDay = getLastDayOfCalendarMonth(year, month)
+  return {
+    monthKey,
+    monthStart: `${monthKey}-01`,
+    monthEnd: `${monthKey}-${String(lastDay).padStart(2, '0')}`,
+  }
 }
 
 /**
@@ -219,10 +238,7 @@ export function getMonthlyCalendarPeriods(
       y -= 1
     }
     const padded = String(m).padStart(2, '0')
-    const monthStart = `${y}-${padded}-01`
-    const lastDay = getLastDayOfCalendarMonth(y, m)
-    const monthEnd = `${y}-${padded}-${String(lastDay).padStart(2, '0')}`
-    periods.push({ monthKey: `${y}-${padded}`, monthStart, monthEnd })
+    periods.push(getCalendarMonthPeriod(`${y}-${padded}`))
   }
   return periods
 }

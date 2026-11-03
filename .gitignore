@@ -38,6 +38,7 @@ CRON_SECRET
 !tsconfig.json
 !next-env.d.ts
 !src/data/season-maps/26ss-26fw.json
+!content/monthly/**/meta.json
 
 # Credentials directory
 /credentials/

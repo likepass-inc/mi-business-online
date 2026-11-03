@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: '/', label: '数値分析' },
   // { href: '/products', label: '商品動向' },
   { href: '/image-resize', label: '画像リサイズ' },
+  { href: '/monthly', label: '月次レポート' },
   { href: '/guide', label: '使い方' },
 ]
 
