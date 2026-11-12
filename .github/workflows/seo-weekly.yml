@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Call Render seo-weekly endpoint
         env:
-          RENDER_APP_URL: https://mi-business-online.onrender.com
+          RENDER_APP_URL: https://mi-business.getwebshield.com
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
         run: |

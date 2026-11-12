@@ -25,10 +25,12 @@ export function middleware(request: NextRequest) {
   const forwarded = (request.headers.get('x-forwarded-host') || '').split(',')[0].trim().toLowerCase()
 
   // Seal Render direct URL → Cloudflare canonical (avoid redirect loops when CF already forwarded).
+  // Cron callers send Authorization and do not follow redirects, so keep /api/cron on this host.
   if (
     process.env.NODE_ENV === 'production' &&
     host === RENDER_HOST &&
-    forwarded !== CANONICAL_HOST
+    forwarded !== CANONICAL_HOST &&
+    !pathname.startsWith('/api/cron')
   ) {
     const dest = new URL(request.url)
     dest.protocol = 'https:'

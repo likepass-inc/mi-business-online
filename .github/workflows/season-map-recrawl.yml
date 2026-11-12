@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Recrawl 26FW mapped products
         env:
-          RENDER_APP_URL: https://mi-business-online.onrender.com
+          RENDER_APP_URL: https://mi-business.getwebshield.com
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
@@ -78,7 +78,7 @@ jobs:
 
       - name: Verify mapped product API
         env:
-          RENDER_APP_URL: https://mi-business-online.onrender.com
+          RENDER_APP_URL: https://mi-business.getwebshield.com
         run: |
           python3 <<'PY'
           import json
@@ -86,7 +86,7 @@ jobs:
           import urllib.request
           from datetime import datetime, timezone
 
-          base = "https://mi-business-online.onrender.com/api/products"
+          base = "https://mi-business.getwebshield.com/api/products"
           cutover = datetime(2026, 9, 18, 1, 0, tzinfo=timezone.utc)
           now = datetime.now(timezone.utc)
 
