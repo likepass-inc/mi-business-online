@@ -54,7 +54,7 @@ function num(row: Ga4Row, key: string): number {
 }
 
 export function summarizeTraffic(rows: Ga4Row[]): { sessions: number; revenue: number } {
-  const totals = rows.reduce(
+  const totals = rows.reduce<{ sessions: number; revenue: number }>(
     (acc, row) => ({
       sessions: acc.sessions + num(row, 'sessions'),
       revenue: acc.revenue + num(row, 'purchaseRevenue'),
