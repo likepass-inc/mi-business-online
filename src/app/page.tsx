@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import KpiCards from '@/components/dashboard/KpiCards'
+import DynamicAdPurchases from '@/components/dashboard/DynamicAdPurchases'
 import TrafficChart from '@/components/dashboard/TrafficChart'
 import KeywordAnalysis from '@/components/dashboard/KeywordAnalysis'
 import ContentPopularityAnalysis from '@/components/dashboard/ContentPopularityAnalysis'
@@ -54,6 +55,14 @@ export default function Home() {
         </PageHeader>
 
         <KpiCards dateRange={dateRange} />
+
+        <section className="grid gap-5">
+          <SectionHeader
+            title="ダイナミック広告"
+            description="Logicad（utm_source=logicad）のクリック経由です。購入件数は GA4 の「購入完了」、売上は購入による収益です。Logicad 管理画面のビュースルーや購入定義とは一致しない場合があります。"
+          />
+          <DynamicAdPurchases dateRange={dateRange} />
+        </section>
 
         <section className="grid gap-5">
           <SectionHeader
